@@ -1,62 +1,78 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnInit } from "@angular/core"
 
-import { HttpClient } from "@angular/common/http";
-import { CommonModule } from "@angular/common";
+import { HttpClient } from "@angular/common/http"
+import { CommonModule } from "@angular/common"
+import { RouterLink } from "@angular/router"
+
+import { Utils } from "../common/utils"
+import { AccountProjectSchema, AccountProjectAttributes } from "../schemas/account.project.schema"
+import { AccountProjectStatSchema } from "../schemas/account.projectstat.schema"
+import { PageToolbar } from '../common/components/page-toolbar';
 
 @Component({
     standalone: true,
     selector: 'home-page',
-    imports: [CommonModule],
+    imports: [CommonModule, PageToolbar, RouterLink],
     providers: [HttpClient],
     templateUrl: './home.page.html'
 })
 export class HomePage implements OnInit {
 
-    tables: any[] = []
-    fields: any[] = []
-    collections: any[] = []
+    pageWorking = true
+    projects: AccountProjectSchema[] = []
+    stats: AccountProjectStatSchema[] = []
 
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
-        this.fetchPostgres()
-        this.fetchMongo()
-    }
+        this.pageWorking = true
+        this.projects = []
 
-    fetchPostgres() {
-        this.tables = []
-        this.fields = []
-        this.http.get('/api/postgres/tables', {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }).subscribe({
+        this.http.get('/api/fieldwire/account/projects').subscribe({
             next: (s: any) => {
-                console.dir(s)
-                if (s && s.rows && s.fields) {
-                    this.fields = [...s.fields]
-                    this.tables = [...s.rows]
+                if (s && s.rows) {
+                    this.projects = [...s.rows]
+                    this.pageWorking = false
+                    this._loadStats()
+                    return
                 }
+                this.pageWorking = false
             },
-            error: (err) => {
-                console.error(err)
+            error: (err: Error) => {
+                console.dir(err)
+                this.pageWorking = false
             }
         })
     }
 
-    fetchMongo() {
-        this.collections = []
-        this.http.get('/api/mongodb/collections', {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }).subscribe({
+    toLocalDateTimeString(input: Date|string) {
+        return Utils.toLocalString(input)
+    }
+
+    getProjectAttrs(input: AccountProjectSchema) {
+        if (!input || !input.project_attributes || input.project_attributes.length <= 0) {
+            return ''
+        }
+        const output = input.project_attributes.map((attr: AccountProjectAttributes) => {
+            return attr.name
+        })
+        return output.join(', ')
+    }
+
+    getGoogleMapLink(line: string) {
+        return Utils.getGoogleMapLink(line)
+    }
+
+    private _loadStats() {
+        this.http.get('/api/fieldwire/account/projectstats').subscribe({
             next: (s: any) => {
-                console.dir(s)
-                this.collections = [...s]
+                if (s && s.rows) {
+                    this.stats = [...s.rows]
+                    return
+                }
             },
-            error: (err) => {
-                console.error(err)
+            error: (err: Error) => {
+                console.dir(err)
             }
         })
     }

@@ -20,8 +20,11 @@ html {
     ));
 }
 
-body { margin: 0; font-family: Roboto; }
-
+body { margin: 0; font-family: Roboto; background-color: variables.$app-bg;color: variables.$app-fg;}
+a, a:visited {
+    text-decoration: none;
+    color: variables.$app-fg;
+}
 .page-content {
     padding-left: 10px;
     table {
@@ -34,6 +37,10 @@ body { margin: 0; font-family: Roboto; }
         tr {
             border-bottom: .5px solid #444;
         }
+        th {
+            height: 40px;
+            vertical-align: middle;
+        }
         th, td {
             text-align: left;
         }
@@ -42,10 +49,19 @@ body { margin: 0; font-family: Roboto; }
         }
     }
 }
+.spacer {
+    flex: 1 1 auto;
+}
 
 :root [color="primary"] {
     @include mat.toolbar-overrides((
         container-background-color: variables.$primary-bg,
         container-text-color: variables.$primary-fg
+    ));
+}
+:root [color="accent"] {
+    @include mat.toolbar-overrides((
+        container-background-color: variables.$secondary-bg,
+        container-text-color: variables.$secondary-fg
     ));
 }

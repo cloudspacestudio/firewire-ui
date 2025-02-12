@@ -1,0 +1,68 @@
+<page-toolbar [title]="project?project.name:''"></page-toolbar>
+<div *ngIf="!pageWorking" class="page-content">
+
+    <div *ngIf="project">
+        <div>
+            <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button>
+        </div>
+
+        <div *ngIf="tab==='OVERVIEW'">
+            <div *ngIf="project">
+                <pre>{{jsonify(project)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='STATS'">
+            <div *ngIf="stats">
+                <pre>{{jsonify(stats)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='FOLDERS'">
+            <div *ngIf="folders">
+                <pre>{{jsonify(folders)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='SHEETS'">
+            <div *ngIf="sheets">
+                <pre>{{jsonify(sheets)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='STATUSES'">
+            <div *ngIf="statuses">
+                <pre>{{jsonify(statuses)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='LOCATIONS'">
+            <div *ngIf="locations">
+                <pre>{{jsonify(locations)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='TEAMS'">
+            <div *ngIf="teams">
+                <pre>{{jsonify(teams)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='TASKS'">
+            <div *ngIf="tasks">
+                <pre>{{jsonify(tasks)}}</pre>
+            </div>
+        </div>
+
+        <div *ngIf="tab==='ATTACHMENTS'">
+            <div *ngIf="attachments">
+                <pre>{{jsonify(attachments)}}</pre>
+            </div>
+        </div>
+
+    </div>
+    
+</div>
+<div *ngIf="pageWorking">
+    Loading, Please wait...
+</div>

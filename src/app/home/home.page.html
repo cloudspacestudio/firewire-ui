@@ -1,29 +1,28 @@
-<div class="page-content">
-    <div>
-        <h3>Postgres Tables</h3>
-        <table *ngIf="tables && tables.length > 0">
-            <thead>
-                <th *ngFor="let th of fields">{{th.name}}</th>
-            </thead>
-            <tbody>
-                <tr *ngFor="let table of tables">
-                    <td *ngFor="let td of fields">{{table[td.name]}}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    
-    <div>
-        <h3>Mongo Collections</h3>
-        <table *ngIf="collections && collections.length > 0">
-            <thead>
-                <th>Name</th>
-            </thead>
-            <tbody>
-                <tr *ngFor="let collection of collections">
-                    <td>{{collection.name}}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+<page-toolbar></page-toolbar>
+<div *ngIf="!pageWorking" class="page-content">
+    <table style="width: 100%;">
+        <thead>
+            <th>NAME</th>
+            <th>CODE</th>
+            <th>ADDRESS</th>
+            <th>PROJECT</th>
+        </thead>
+        <tbody>
+            <tr *ngFor="let project of projects;let indx = index">
+                <td>
+                    <a [routerLink]="'/project/'+project.id">{{project.name}}</a>
+                </td>
+                <td>{{project.code}}</td>
+                <td>
+                    <span *ngIf="project.address">{{project.address}}&nbsp;<a [href]="getGoogleMapLink(project.address)" target="_blank" style="text-decoration: underline;">(View Map)</a></span>
+                    <span *ngIf="!project.address"></span>
+                </td>
+                <td>{{getProjectAttrs(project)}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+<div *ngIf="pageWorking">
+    Loading, Please wait...
 </div>
