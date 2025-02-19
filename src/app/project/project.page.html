@@ -1,63 +1,92 @@
-<page-toolbar [title]="project?project.name:''"></page-toolbar>
-<div *ngIf="!pageWorking" class="page-content">
+<page-toolbar [title]="project?project.name:''">
+    <div style="margin-left: 15px;margin-top: 6px;">
+        <mat-form-field>
+            <mat-select [(value)]="tab" (selectionChange)="setTab($event)">
+                <mat-option *ngFor="let tabEntry of tabs" [value]="tabEntry">{{tabEntry}}</mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
+</page-toolbar>
+<div *ngIf="!pageWorking" class="page-root">
 
-    <div *ngIf="project">
-        <div>
-            <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button>
+    <div *ngIf="project" class="page-content">
+        <div class="tabstrip">
+            <!-- <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button> -->
         </div>
+        <div class="content-root">
 
-        <div *ngIf="tab==='OVERVIEW'">
-            <div *ngIf="project">
-                <pre>{{jsonify(project)}}</pre>
+            <div *ngIf="tab==='OVERVIEW'">
+                <div *ngIf="project">
+                    <pre>{{jsonify(project)}}</pre>
+                </div>
             </div>
-        </div>
+    
+            <div *ngIf="tab==='STATS'">
+                <div *ngIf="stats">
+                    <pre>{{jsonify(stats)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='FOLDERS'">
+                <div *ngIf="folders">
+                    <pre>{{jsonify(folders)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='FLOORPLANS'">
+                <div *ngIf="floorplans">
+                    <pre>{{jsonify(floorplans)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='SHEETS'">
+                <div *ngIf="sheets">
+                    <pre>{{jsonify(sheets)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='STATUSES'">
+                <div *ngIf="statuses">
+                    <pre>{{jsonify(statuses)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='LOCATIONS'">
+                <div *ngIf="locations">
+                    <pre>{{jsonify(locations)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='TEAMS'">
+                <div *ngIf="teams">
+                    <pre>{{jsonify(teams)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='TASKS'">
+                <div *ngIf="tasks">
+                    <pre>{{jsonify(tasks)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='TASK ATTRIBUTES'">
+                <div *ngIf="taskAttributes">
+                    <pre>{{jsonify(taskAttributes)}}</pre>
+                </div>
+            </div>
+    
+            <div *ngIf="tab==='TASK CHECK ITEMS'">
+                <div *ngIf="taskCheckItems">
+                    <pre>{{jsonify(taskCheckItems)}}</pre>
+                </div>
+            </div>
 
-        <div *ngIf="tab==='STATS'">
-            <div *ngIf="stats">
-                <pre>{{jsonify(stats)}}</pre>
+            <div *ngIf="tab==='ATTACHMENTS'">
+                <div *ngIf="attachments">
+                    <pre>{{jsonify(attachments)}}</pre>
+                </div>
             </div>
-        </div>
-
-        <div *ngIf="tab==='FOLDERS'">
-            <div *ngIf="folders">
-                <pre>{{jsonify(folders)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='SHEETS'">
-            <div *ngIf="sheets">
-                <pre>{{jsonify(sheets)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='STATUSES'">
-            <div *ngIf="statuses">
-                <pre>{{jsonify(statuses)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='LOCATIONS'">
-            <div *ngIf="locations">
-                <pre>{{jsonify(locations)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='TEAMS'">
-            <div *ngIf="teams">
-                <pre>{{jsonify(teams)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='TASKS'">
-            <div *ngIf="tasks">
-                <pre>{{jsonify(tasks)}}</pre>
-            </div>
-        </div>
-
-        <div *ngIf="tab==='ATTACHMENTS'">
-            <div *ngIf="attachments">
-                <pre>{{jsonify(attachments)}}</pre>
-            </div>
+    
         </div>
 
     </div>

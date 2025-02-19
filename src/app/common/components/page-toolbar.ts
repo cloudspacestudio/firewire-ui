@@ -14,6 +14,7 @@ import { MatMenuModule } from '@angular/material/menu'
         <mat-toolbar color="accent">
             <span style="cursor: pointer;" [routerLink]="'/home'">INFERNO</span>
             <span *ngIf="title">:{{title}}</span>
+            <ng-content></ng-content>
             <span class="spacer"></span>
             <button mat-flat-button [mat-menu-trigger-for]="userMenu">SS</button>
             <mat-menu #userMenu>

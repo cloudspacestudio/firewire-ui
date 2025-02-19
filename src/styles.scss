@@ -20,32 +20,45 @@ html {
     ));
 }
 
-body { margin: 0; font-family: Roboto; background-color: variables.$app-bg;color: variables.$app-fg;}
+body { margin: 0; font-family: Roboto; background-color: variables.$app-bg;color: variables.$app-fg;overflow:hidden;}
 a, a:visited {
     text-decoration: none;
     color: variables.$app-fg;
 }
-.page-content {
+.page-root {
     padding-left: 10px;
-    table {
-        border-spacing: none;
-        border-collapse: collapse;
-        border: none;
-        tr:nth-child(odd) {
-            background-color: #1a1a1a;
+    overflow: hidden;
+    .page-content {
+        overflow: hidden;
+        .content-root {
+            height: calc(100vh - 65px);
+            overflow: auto;
+            scrollbar-color: variables.$secondary-bg variables.$secondary-fg;
+            scrollbar-width: thin;
+            table {
+                border-spacing: none;
+                border-collapse: collapse;
+                border: none;
+                tr:nth-child(odd) {
+                    background-color: #1a1a1a;
+                }
+                tr {
+                    border-bottom: .5px solid #444;
+                }
+                th {
+                    height: 40px;
+                    vertical-align: middle;
+                }
+                th, td {
+                    text-align: left;
+                }
+                td {
+                    padding: 6px 2px;
+                }
+            }    
         }
-        tr {
-            border-bottom: .5px solid #444;
-        }
-        th {
-            height: 40px;
-            vertical-align: middle;
-        }
-        th, td {
-            text-align: left;
-        }
-        td {
-            padding: 6px 2px;
+        .content-root.with-tabstrip {
+            height: calc(100vh - 145px);
         }
     }
 }

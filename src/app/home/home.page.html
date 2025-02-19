@@ -1,26 +1,30 @@
 <page-toolbar></page-toolbar>
-<div *ngIf="!pageWorking" class="page-content">
-    <table style="width: 100%;">
-        <thead>
-            <th>NAME</th>
-            <th>CODE</th>
-            <th>ADDRESS</th>
-            <th>PROJECT</th>
-        </thead>
-        <tbody>
-            <tr *ngFor="let project of projects;let indx = index">
-                <td>
-                    <a [routerLink]="'/project/'+project.id">{{project.name}}</a>
-                </td>
-                <td>{{project.code}}</td>
-                <td>
-                    <span *ngIf="project.address">{{project.address}}&nbsp;<a [href]="getGoogleMapLink(project.address)" target="_blank" style="text-decoration: underline;">(View Map)</a></span>
-                    <span *ngIf="!project.address"></span>
-                </td>
-                <td>{{getProjectAttrs(project)}}</td>
-            </tr>
-        </tbody>
-    </table>
+<div *ngIf="!pageWorking" class="page-root">
+    <div class="page-content">
+        <div class="content-root">
+            <table style="width: 100%;">
+                <thead>
+                    <th>NAME</th>
+                    <th>CODE</th>
+                    <th>ADDRESS</th>
+                    <th>PROJECT</th>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let project of projects;let indx = index">
+                        <td>
+                            <a [routerLink]="'/project/'+project.id">{{project.name}}</a>
+                        </td>
+                        <td>{{project.code}}</td>
+                        <td>
+                            <span *ngIf="project.address">{{project.address}}&nbsp;<a [href]="getGoogleMapLink(project.address)" target="_blank" style="text-decoration: underline;">(View Map)</a></span>
+                            <span *ngIf="!project.address"></span>
+                        </td>
+                        <td>{{getProjectAttrs(project)}}</td>
+                    </tr>
+                </tbody>
+            </table>    
+        </div>
+    </div>
 
 </div>
 <div *ngIf="pageWorking">

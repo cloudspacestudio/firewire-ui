@@ -5,6 +5,8 @@ import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
 
 import { MatButtonModule } from "@angular/material/button"
+import { MatSelectModule } from "@angular/material/select"
+import { MatFormFieldModule } from "@angular/material/form-field"
 
 import { Utils } from "../common/utils"
 import { AccountProjectSchema, AccountProjectAttributes } from "../schemas/account.project.schema"
@@ -15,7 +17,7 @@ import { ProjectFolder } from "../schemas/project.folder.schema"
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [NgFor, CommonModule, PageToolbar, MatButtonModule],
+    imports: [NgFor, CommonModule, PageToolbar, MatButtonModule, MatFormFieldModule, MatSelectModule],
     providers: [HttpClient],
     templateUrl: './project.page.html'
 })
@@ -26,16 +28,21 @@ export class ProjectPage implements OnChanges {
     project?: AccountProjectSchema
     stats?: AccountProjectStatSchema
     folders?: ProjectFolder[] = []
+    floorplans?: any[] = []
     sheets?: any[] = []
     statuses?: any[] = []
     locations?: any[] = []
     teams?: any[] = []
     tasks?: any[] = []
     attachments?: any[] = []
+    taskAttributes?: any[] = []
+    taskCheckItems?: any[] = []
 
     tab: string = 'OVERVIEW'
     tabs = [
-        'OVERVIEW', 'STATS', 'FOLDERS', 'SHEETS', 'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS'
+        'OVERVIEW', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
+        'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
+        'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
     ]
 
     constructor(private http: HttpClient) {}
@@ -65,16 +72,19 @@ export class ProjectPage implements OnChanges {
         })
     }
 
-    setTab(tab:string) {
-        if (tab === this.tab) {
-            return
-        }
-        this.tab = tab
+    setTab(event:any) {
+        //console.dir(event)
+        // if (tab === this.tab) {
+        //    return
+        //}
+        //this.tab = tab
         switch(this.tab) {
             case 'STATS':
                 return this._loadStats()
             case 'FOLDERS':
                 return this._loadFolders()
+            case 'FLOORPLANS':
+                return this._loadFloorplans()
             case 'SHEETS':
                 return this._loadSheets()
             case 'STATUSES':
@@ -85,8 +95,12 @@ export class ProjectPage implements OnChanges {
                 return this._loadTeams()
             case 'TASKS':
                 return this._loadTasks()
+            case 'TASK ATTRIBUTES':
+                return this._loadTaskAttributes()
             case 'ATTACHMENTS':
                 return this._loadAttachments()
+            case 'TASK CHECK ITEMS':
+                return this._loadTaskCheckItems()
             default:
                 return
         }
@@ -133,6 +147,20 @@ export class ProjectPage implements OnChanges {
             next: (s: any) => {
                 if (s && s.rows) {
                     this.folders = [...s.rows]
+                    return
+                }
+            },
+            error: (err: Error) => {
+                console.dir(err)
+            }
+        })
+    }
+
+    private _loadFloorplans() {
+        this.http.get(`/api/fieldwire/projects/${this.projectId}/floorplans`).subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.floorplans = [...s.rows]
                     return
                 }
             },
@@ -203,6 +231,34 @@ export class ProjectPage implements OnChanges {
             next: (s: any) => {
                 if (s && s.rows) {
                     this.tasks = [...s.rows]
+                    return
+                }
+            },
+            error: (err: Error) => {
+                console.dir(err)
+            }
+        })
+    }
+
+    private _loadTaskAttributes() {
+        this.http.get(`/api/fieldwire/projects/${this.projectId}/taskattributes`).subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.taskAttributes = [...s.rows]
+                    return
+                }
+            },
+            error: (err: Error) => {
+                console.dir(err)
+            }
+        })
+    }
+
+    private _loadTaskCheckItems() {
+        this.http.get(`/api/fieldwire/projects/${this.projectId}/taskcheckitems`).subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.taskCheckItems = [...s.rows]
                     return
                 }
             },
