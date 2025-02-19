@@ -2,6 +2,7 @@
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="content-root">
+            <h1>PROJECTS</h1>
             <table style="width: 100%;">
                 <thead>
                     <th>NAME</th>
@@ -22,7 +23,21 @@
                         <td>{{getProjectAttrs(project)}}</td>
                     </tr>
                 </tbody>
-            </table>    
+            </table>
+
+            <div *ngIf="devices && devices.length > 0" style="margin-top: 50px;">
+                <h1>DEVICES</h1>
+                <table>
+                    <thead>
+                        <th *ngFor="let col of deviceKeys">{{col}}</th>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let device of devices">
+                            <td *ngFor="let col of deviceKeys">{{device[col]}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

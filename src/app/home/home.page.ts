@@ -1,4 +1,5 @@
 import { Component, OnInit } from "@angular/core"
+import { NgIf, NgFor } from "@angular/common"
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
@@ -12,7 +13,7 @@ import { PageToolbar } from '../common/components/page-toolbar';
 @Component({
     standalone: true,
     selector: 'home-page',
-    imports: [CommonModule, PageToolbar, RouterLink],
+    imports: [NgIf, NgFor, CommonModule, PageToolbar, RouterLink],
     providers: [HttpClient],
     templateUrl: './home.page.html'
 })
@@ -21,12 +22,16 @@ export class HomePage implements OnInit {
     pageWorking = true
     projects: AccountProjectSchema[] = []
     stats: AccountProjectStatSchema[] = []
+    devices: any[] = []
+    deviceKeys: string[] = []
 
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
         this.pageWorking = true
         this.projects = []
+        this.devices = []
+        this.deviceKeys = []
 
         this.http.get('/api/fieldwire/account/projects').subscribe({
             next: (s: any) => {
@@ -41,6 +46,20 @@ export class HomePage implements OnInit {
             error: (err: Error) => {
                 console.dir(err)
                 this.pageWorking = false
+            }
+        })
+        this.http.get('/api/fieldwire/devices').subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.devices = [...s.rows]
+                    if (this.devices.length > 0) {
+                        this.deviceKeys = Object.keys(this.devices[0])
+                    }
+                    return
+                }
+            },
+            error: (err: Error) => {
+                console.dir(err)
             }
         })
     }
@@ -61,6 +80,13 @@ export class HomePage implements OnInit {
 
     getGoogleMapLink(line: string) {
         return Utils.getGoogleMapLink(line)
+    }
+
+    jsonify(input: any) {
+        if (!input) {
+            return ``
+        }
+        return JSON.stringify(input, null, 1)
     }
 
     private _loadStats() {
