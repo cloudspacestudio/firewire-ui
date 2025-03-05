@@ -22,11 +22,34 @@
             </div>
 
             <div *ngIf="tab==='ACTIONS'">
-                <div *ngIf="project" class="action-panel" style="margin-top: 6px;">
+                <div *ngIf="project&&actionsLoaded" class="action-panel" style="margin-top: 6px;display: flex;flex-wrap:wrap;">
 
-                    <div>
-                        <button mat-flat-button>IMPORT DEVICES</button>
-                        <span style="margin-left: 20px;">FA2.01.csv</span>
+                    <div style="width: 100%;margin-bottom: 20px;">
+                        <button mat-flat-button (click)="importTasks()">IMPORT DEVICES</button>
+                        <span>&nbsp;from&nbsp;</span>
+                        <mat-chip>FA2.01.csv</mat-chip>
+                        <span>&nbsp;into&nbsp;floorplan&nbsp;</span>
+                        <mat-form-field>
+                            <mat-select [(value)]="selectedFloorplanId">
+                                <mat-option *ngFor="let floorplan of floorplans" [value]="floorplan.id">{{floorplan.name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+
+                    <div style="width: 100%;margin-bottom: 20px;">
+                        <button mat-flat-button (click)="createSingleTask()">CREATE DEVICE</button>
+                        <span>&nbsp;of&nbsp;type&nbsp;</span>
+                        <mat-form-field>
+                            <mat-select [(value)]="selectedTeamId">
+                                <mat-option *ngFor="let team of teams" [value]="team.id">{{team.name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <span>&nbsp;into&nbsp;floorplan&nbsp;</span>
+                        <mat-form-field>
+                            <mat-select [(value)]="selectedFloorplanId">
+                                <mat-option *ngFor="let floorplan of floorplans" [value]="floorplan.id">{{floorplan.name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
                     </div>
 
                 </div>

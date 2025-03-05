@@ -7,6 +7,7 @@ import { CommonModule } from "@angular/common"
 import { MatButtonModule } from "@angular/material/button"
 import { MatSelectModule } from "@angular/material/select"
 import { MatFormFieldModule } from "@angular/material/form-field"
+import { MatChipsModule } from "@angular/material/chips"
 
 import { Utils } from "../common/utils"
 import { AccountProjectSchema, AccountProjectAttributes } from "../schemas/account.project.schema"
@@ -17,7 +18,7 @@ import { ProjectFolder } from "../schemas/project.folder.schema"
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [NgFor, CommonModule, PageToolbar, MatButtonModule, MatFormFieldModule, MatSelectModule],
+    imports: [NgFor, CommonModule, PageToolbar, MatButtonModule, MatFormFieldModule, MatSelectModule, MatChipsModule],
     providers: [HttpClient],
     templateUrl: './project.page.html'
 })
@@ -37,13 +38,16 @@ export class ProjectPage implements OnChanges {
     attachments?: any[] = []
     taskAttributes?: any[] = []
     taskCheckItems?: any[] = []
+    actionsLoaded: boolean = false
 
-    tab: string = 'OVERVIEW'
+    tab: string = 'ACTIONS'
     tabs = [
         'OVERVIEW', 'ACTIONS', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
         'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
         'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
     ]
+    selectedFloorplanId: string = ''
+    selectedTeamId: string = ''
 
     constructor(private http: HttpClient) {}
 
@@ -57,9 +61,10 @@ export class ProjectPage implements OnChanges {
         }
 
         this.http.get(`/api/fieldwire/projects/${this.projectId}`).subscribe({
-            next: (s: any) => {
+            next: async(s: any) => {
                 if (s && s.data) {
                     this.project = Object.assign({}, s.data)
+                    await this._loadActions()
                     this.pageWorking = false
                     return
                 }
@@ -102,6 +107,7 @@ export class ProjectPage implements OnChanges {
             case 'TASK CHECK ITEMS':
                 return this._loadTaskCheckItems()
             case 'ACTIONS':
+                return this._loadActions()
             default:
                 return
         }
@@ -129,23 +135,70 @@ export class ProjectPage implements OnChanges {
         if(!this.project) {
             return
         }
-        this.http.post('/api/fieldwire/projects/:projectId/tasks', {
+        // ssederburg@firetrol.net 1684559
+        // lritchie@firetrol.net 1689801
+        // sritchie@firetrol.net 1368168
+
+        // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
+        // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
+
+        this.actionsLoaded = false
+        this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks/import`, {
             project_id: this.project.id,
-            owner_user_id: '',
-            floorplan_id: '',
-            team_id: '',
-            is_local: false?true:false,
-            name: '',
+            owner_user_id: 1684559,
+            floorplan_id: this.selectedFloorplanId,
+            is_local: true,
             pos_x: 0,
             pos_y: 0,
             priority: 2,
-            status_id: ''
+            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1' 
         }).subscribe({
             next: (s) => {
-
+                console.log(`Save Complete`)
+                this.actionsLoaded = true
             },
             error: (err) => {
                 console.error(err)
+                this.actionsLoaded = true
+            }
+        })
+    }
+
+    createSingleTask() {
+        if(!this.project) {
+            return
+        }
+        // ssederburg@firetrol.net 1684559
+        // lritchie@firetrol.net 1689801
+        // sritchie@firetrol.net 1368168
+
+        // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
+        // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
+
+        this.actionsLoaded = false
+        const currentTeam = this.teams?.find(s => s.id===this.selectedTeamId)
+        if (!currentTeam) {
+            return
+        }
+        this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks`, {
+            project_id: this.project.id,
+            owner_user_id: 1684559,
+            floorplan_id: this.selectedFloorplanId,
+            team_id: this.selectedTeamId,
+            is_local: true,
+            name: `Install: ${currentTeam.name}`,
+            pos_x: 0,
+            pos_y: 0,
+            priority: 2,
+            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1' 
+        }).subscribe({
+            next: (s) => {
+                console.log(`Save Complete`)
+                this.actionsLoaded = true
+            },
+            error: (err) => {
+                console.error(err)
+                this.actionsLoaded = true
             }
         })
     }
@@ -169,29 +222,67 @@ export class ProjectPage implements OnChanges {
     }
 
     private _loadFolders() {
-        this.http.get(`/api/fieldwire/projects/${this.projectId}/folders`).subscribe({
-            next: (s: any) => {
-                if (s && s.rows) {
-                    this.folders = [...s.rows]
-                    return
+        return new Promise((resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/folders`).subscribe({
+                    next: (s: any) => {
+                        if (s && s.rows) {
+                            this.folders = [...s.rows]
+                            return resolve(this.folders)
+                        }
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        throw(err)
+                    }
+                })        
+            } catch (err) {
+                return reject(err)
+            }
+        })
+    }
+
+    private _loadActions() {
+        return new Promise(async(resolve, reject) => {
+            this.actionsLoaded = false
+            try {
+                const resultFloorplans = await this._loadFloorplans()
+                if (resultFloorplans && this.floorplans && this.floorplans.length > 0) {
+                    this.selectedFloorplanId = this.floorplans[0].id
+                } else {
+                    console.log(`No teams found`)
                 }
-            },
-            error: (err: Error) => {
-                console.dir(err)
+                const resultTeams = await this._loadTeams()
+                if (resultTeams && this.teams && this.teams.length > 0) {
+                    this.selectedTeamId = this.teams[0].id
+                } else {
+                    console.log(`No teams found`)
+                }
+                this.actionsLoaded = true
+                return resolve(true)
+            } catch (err) {
+                return reject(err)
             }
         })
     }
 
     private _loadFloorplans() {
-        this.http.get(`/api/fieldwire/projects/${this.projectId}/floorplans`).subscribe({
-            next: (s: any) => {
-                if (s && s.rows) {
-                    this.floorplans = [...s.rows]
-                    return
-                }
-            },
-            error: (err: Error) => {
-                console.dir(err)
+        return new Promise((resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/floorplans`).subscribe({
+                    next: (s: any) => {
+                        if (s && s.rows) {
+                            this.floorplans = [...s.rows]
+                            return resolve(this.floorplans)
+                        }
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        throw err
+                    }
+                })
+            } catch (err) {
+                return reject(err)
             }
         })
     }
@@ -239,15 +330,22 @@ export class ProjectPage implements OnChanges {
     }
 
     private _loadTeams() {
-        this.http.get(`/api/fieldwire/projects/${this.projectId}/teams`).subscribe({
-            next: (s: any) => {
-                if (s && s.rows) {
-                    this.teams = [...s.rows]
-                    return
-                }
-            },
-            error: (err: Error) => {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/teams`).subscribe({
+                    next: (s: any) => {
+                        if (s && s.rows) {
+                            this.teams = [...s.rows]
+                            return resolve(this.teams)
+                        }
+                    },
+                    error: (err: Error) => {
+                        throw err
+                    }
+                })
+            } catch (err) {
                 console.dir(err)
+                return reject(err)
             }
         })
     }
