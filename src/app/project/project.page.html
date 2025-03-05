@@ -20,6 +20,17 @@
                     <pre>{{jsonify(project)}}</pre>
                 </div>
             </div>
+
+            <div *ngIf="tab==='ACTIONS'">
+                <div *ngIf="project" class="action-panel" style="margin-top: 6px;">
+
+                    <div>
+                        <button mat-flat-button>IMPORT DEVICES</button>
+                        <span style="margin-left: 20px;">FA2.01.csv</span>
+                    </div>
+
+                </div>
+            </div>
     
             <div *ngIf="tab==='STATS'">
                 <div *ngIf="stats">

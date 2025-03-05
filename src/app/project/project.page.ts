@@ -40,7 +40,7 @@ export class ProjectPage implements OnChanges {
 
     tab: string = 'OVERVIEW'
     tabs = [
-        'OVERVIEW', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
+        'OVERVIEW', 'ACTIONS', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
         'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
         'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
     ]
@@ -101,6 +101,7 @@ export class ProjectPage implements OnChanges {
                 return this._loadAttachments()
             case 'TASK CHECK ITEMS':
                 return this._loadTaskCheckItems()
+            case 'ACTIONS':
             default:
                 return
         }
@@ -122,6 +123,31 @@ export class ProjectPage implements OnChanges {
 
     getGoogleMapLink(line: string) {
         return Utils.getGoogleMapLink(line)
+    }
+
+    importTasks() {
+        if(!this.project) {
+            return
+        }
+        this.http.post('/api/fieldwire/projects/:projectId/tasks', {
+            project_id: this.project.id,
+            owner_user_id: '',
+            floorplan_id: '',
+            team_id: '',
+            is_local: false?true:false,
+            name: '',
+            pos_x: 0,
+            pos_y: 0,
+            priority: 2,
+            status_id: ''
+        }).subscribe({
+            next: (s) => {
+
+            },
+            error: (err) => {
+                console.error(err)
+            }
+        })
     }
 
     jsonify(input: any) {
