@@ -1,10 +1,14 @@
 <page-toolbar [title]="project?project.name:''">
-    <div style="margin-left: 15px;margin-top: 6px;">
-        <mat-form-field>
+    <div style="margin-left: 15px;">
+        <mat-form-field style="margin-top: 18px;">
             <mat-select [(value)]="tab" (selectionChange)="setTab($event)">
                 <mat-option *ngFor="let tabEntry of tabs" [value]="tabEntry">{{tabEntry}}</mat-option>
             </mat-select>
         </mat-form-field>
+        <mat-button-toggle-group name="contentLayout" aria-label="Content Layout" style="margin-left: 10px;">
+            <mat-button-toggle *ngFor="let layoutItem of layouts" [value]="layoutItem" 
+                [checked]="layout===layoutItem" (click)="setLayout(layoutItem)">{{layoutItem}}</mat-button-toggle>
+        </mat-button-toggle-group>
     </div>
 </page-toolbar>
 <div *ngIf="!pageWorking" class="page-root">
@@ -17,73 +21,133 @@
 
             <div *ngIf="tab==='OVERVIEW'">
                 <div *ngIf="project">
-                    <pre>{{jsonify(project)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="[project]"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(project)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='STATS'">
                 <div *ngIf="stats">
-                    <pre>{{jsonify(stats)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="[stats]"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(stats)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='FOLDERS'">
                 <div *ngIf="folders">
-                    <pre>{{jsonify(folders)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="folders"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(folders)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='FLOORPLANS'">
                 <div *ngIf="floorplans">
-                    <pre>{{jsonify(floorplans)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="floorplans"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(floorplans)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='SHEETS'">
                 <div *ngIf="sheets">
-                    <pre>{{jsonify(sheets)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="sheets"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(sheets)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='STATUSES'">
                 <div *ngIf="statuses">
-                    <pre>{{jsonify(statuses)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="statuses"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(statuses)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='LOCATIONS'">
                 <div *ngIf="locations">
-                    <pre>{{jsonify(locations)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="locations"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(locations)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='TEAMS'">
                 <div *ngIf="teams">
-                    <pre>{{jsonify(teams)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="teams"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(teams)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='TASKS'">
                 <div *ngIf="tasks">
-                    <pre>{{jsonify(tasks)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="tasks"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(tasks)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='TASK ATTRIBUTES'">
                 <div *ngIf="taskAttributes">
-                    <pre>{{jsonify(taskAttributes)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="taskAttributes"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(taskAttributes)}}</pre>
+                    </div>
                 </div>
             </div>
     
             <div *ngIf="tab==='TASK CHECK ITEMS'">
                 <div *ngIf="taskCheckItems">
-                    <pre>{{jsonify(taskCheckItems)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="taskCheckItems"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(taskCheckItems)}}</pre>
+                    </div>
                 </div>
             </div>
 
             <div *ngIf="tab==='ATTACHMENTS'">
                 <div *ngIf="attachments">
-                    <pre>{{jsonify(attachments)}}</pre>
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="attachments"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(attachments)}}</pre>
+                    </div>
                 </div>
             </div>
     

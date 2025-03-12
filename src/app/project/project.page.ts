@@ -5,6 +5,7 @@ import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
 
 import { MatButtonModule } from "@angular/material/button"
+import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatSelectModule } from "@angular/material/select"
 import { MatFormFieldModule } from "@angular/material/form-field"
 
@@ -14,10 +15,15 @@ import { AccountProjectStatSchema } from "../schemas/account.projectstat.schema"
 import { PageToolbar } from '../common/components/page-toolbar';
 import { ProjectFolder } from "../schemas/project.folder.schema"
 
+import { TabularComponent } from "../common/components/tabular.component"
+
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [NgFor, CommonModule, PageToolbar, MatButtonModule, MatFormFieldModule, MatSelectModule],
+    imports: [NgFor, CommonModule, PageToolbar, 
+        MatButtonModule, MatFormFieldModule, 
+        MatSelectModule, MatButtonToggleModule,
+        TabularComponent],
     providers: [HttpClient],
     templateUrl: './project.page.html'
 })
@@ -44,6 +50,8 @@ export class ProjectPage implements OnChanges {
         'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
         'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
     ]
+    layout: string = 'Tabular'
+    layouts = ['Tabular', 'Raw']
 
     constructor(private http: HttpClient) {}
 
@@ -104,6 +112,13 @@ export class ProjectPage implements OnChanges {
             default:
                 return
         }
+    }
+
+    setLayout(input: string) {
+        if (this.layouts.indexOf(input)<0 || input===this.layout) {
+            return
+        }
+        this.layout = input
     }
 
     toLocalDateTimeString(input: Date|string) {
