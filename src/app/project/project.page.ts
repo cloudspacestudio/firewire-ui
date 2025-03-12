@@ -24,7 +24,7 @@ import { TabularComponent } from "../common/components/tabular.component"
     imports: [NgFor, CommonModule, PageToolbar, 
         MatButtonModule, MatFormFieldModule, 
         MatSelectModule, MatButtonToggleModule,
-        TabularComponent],
+        TabularComponent, MatChipsModule],
     providers: [HttpClient],
     templateUrl: './project.page.html'
 })
