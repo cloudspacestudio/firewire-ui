@@ -5,7 +5,7 @@ import { NgFor } from "@angular/common";
     selector: 'mission-tabular-component',
     standalone: true,
     template: `
-        <table>
+        <table class="raw-table">
             <thead>
                 <th *ngFor="let head of this.getKeys()">{{head}}</th>
             </thead>

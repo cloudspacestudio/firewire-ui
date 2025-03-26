@@ -40,7 +40,7 @@
                         <span>&nbsp;into&nbsp;floorplan&nbsp;</span>
                         <mat-form-field>
                             <mat-select [(value)]="selectedFloorplanId">
-                                <mat-option *ngFor="let floorplan of floorplans" [value]="floorplan.id">{{floorplan.name}}</mat-option>
+                                <mat-option *ngFor="let floorplan of floorplans?.full" [value]="floorplan.id">{{floorplan.name}}</mat-option>
                             </mat-select>
                         </mat-form-field>
                     </div>
@@ -50,13 +50,13 @@
                         <span>&nbsp;of&nbsp;type&nbsp;</span>
                         <mat-form-field>
                             <mat-select [(value)]="selectedTeamId">
-                                <mat-option *ngFor="let team of teams" [value]="team.id">{{team.name}}</mat-option>
+                                <mat-option *ngFor="let team of teams?.full" [value]="team.id">{{team.name}}</mat-option>
                             </mat-select>
                         </mat-form-field>
                         <span>&nbsp;into&nbsp;floorplan&nbsp;</span>
                         <mat-form-field>
                             <mat-select [(value)]="selectedFloorplanId">
-                                <mat-option *ngFor="let floorplan of floorplans" [value]="floorplan.id">{{floorplan.name}}</mat-option>
+                                <mat-option *ngFor="let floorplan of floorplans?.full" [value]="floorplan.id">{{floorplan.name}}</mat-option>
                             </mat-select>
                         </mat-form-field>
                     </div>
@@ -67,7 +67,7 @@
             <div *ngIf="tab==='STATS'">
                 <div *ngIf="stats">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="[stats]"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="stats.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(stats)}}</pre>
@@ -78,7 +78,7 @@
             <div *ngIf="tab==='FOLDERS'">
                 <div *ngIf="folders">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="folders"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="folders.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(folders)}}</pre>
@@ -89,7 +89,7 @@
             <div *ngIf="tab==='FLOORPLANS'">
                 <div *ngIf="floorplans">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="floorplans"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="floorplans.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(floorplans)}}</pre>
@@ -100,7 +100,7 @@
             <div *ngIf="tab==='SHEETS'">
                 <div *ngIf="sheets">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="sheets"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="sheets.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(sheets)}}</pre>
@@ -111,7 +111,7 @@
             <div *ngIf="tab==='STATUSES'">
                 <div *ngIf="statuses">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="statuses"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="statuses.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(statuses)}}</pre>
@@ -122,7 +122,7 @@
             <div *ngIf="tab==='LOCATIONS'">
                 <div *ngIf="locations">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="locations"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="locations.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(locations)}}</pre>
@@ -133,7 +133,7 @@
             <div *ngIf="tab==='TEAMS'">
                 <div *ngIf="teams">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="teams"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="teams.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(teams)}}</pre>
@@ -144,7 +144,7 @@
             <div *ngIf="tab==='TASKS'">
                 <div *ngIf="tasks">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="tasks"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="tasks.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(tasks)}}</pre>
@@ -155,7 +155,7 @@
             <div *ngIf="tab==='TASK ATTRIBUTES'">
                 <div *ngIf="taskAttributes">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="taskAttributes"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="taskAttributes.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(taskAttributes)}}</pre>
@@ -166,7 +166,7 @@
             <div *ngIf="tab==='TASK CHECK ITEMS'">
                 <div *ngIf="taskCheckItems">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="taskCheckItems"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="taskCheckItems.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(taskCheckItems)}}</pre>
@@ -177,7 +177,7 @@
             <div *ngIf="tab==='ATTACHMENTS'">
                 <div *ngIf="attachments">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="attachments"></mission-tabular-component>
+                        <mission-tabular-component [datasource]="attachments.reduced"></mission-tabular-component>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(attachments)}}</pre>

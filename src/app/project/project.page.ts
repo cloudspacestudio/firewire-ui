@@ -17,6 +17,7 @@ import { PageToolbar } from '../common/components/page-toolbar';
 import { ProjectFolder } from "../schemas/project.folder.schema"
 
 import { TabularComponent } from "../common/components/tabular.component"
+import { ReducedResponse, Reducer } from "../common/reducer"
 
 @Component({
     standalone: true,
@@ -33,18 +34,21 @@ export class ProjectPage implements OnChanges {
 
     pageWorking = true
     project?: AccountProjectSchema
-    stats?: AccountProjectStatSchema
-    folders?: ProjectFolder[] = []
-    floorplans?: any[] = []
-    sheets?: any[] = []
-    statuses?: any[] = []
-    locations?: any[] = []
-    teams?: any[] = []
-    tasks?: any[] = []
-    attachments?: any[] = []
-    taskAttributes?: any[] = []
-    taskCheckItems?: any[] = []
+
+    stats?: ReducedResponse
+    folders?: ReducedResponse
+    floorplans?: ReducedResponse
+    sheets?: ReducedResponse
+    statuses?: ReducedResponse
+    locations?: ReducedResponse
+    teams?: ReducedResponse
+    tasks?: ReducedResponse
+    attachments?: ReducedResponse
+    taskAttributes?: ReducedResponse
+    taskCheckItems?: ReducedResponse
+    
     actionsLoaded: boolean = false
+    reducer: Reducer = new Reducer()
 
     tab: string = 'ACTIONS'
     tabs = [
@@ -191,7 +195,7 @@ export class ProjectPage implements OnChanges {
         // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
 
         this.actionsLoaded = false
-        const currentTeam = this.teams?.find(s => s.id===this.selectedTeamId)
+        const currentTeam = this.teams?.full.find(s => s.id===this.selectedTeamId)
         if (!currentTeam) {
             return
         }
@@ -226,7 +230,7 @@ export class ProjectPage implements OnChanges {
         this.http.get('/api/fieldwire/account/projectstats').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.stats = s.rows.find((t: AccountProjectStatSchema) => t.project_id===this.projectId)
+                    this.stats = this.reducer.reduce(this.tab, [s.rows.find((t: AccountProjectStatSchema) => t.project_id===this.projectId)])
                     return
                 }
             },
@@ -242,7 +246,7 @@ export class ProjectPage implements OnChanges {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/folders`).subscribe({
                     next: (s: any) => {
                         if (s && s.rows) {
-                            this.folders = [...s.rows]
+                            this.folders = this.reducer.reduce(this.tab, s.rows)
                             return resolve(this.folders)
                         }
                     },
@@ -262,14 +266,14 @@ export class ProjectPage implements OnChanges {
             this.actionsLoaded = false
             try {
                 const resultFloorplans = await this._loadFloorplans()
-                if (resultFloorplans && this.floorplans && this.floorplans.length > 0) {
-                    this.selectedFloorplanId = this.floorplans[0].id
+                if (resultFloorplans && this.floorplans && this.floorplans.full && this.floorplans.full.length > 0) {
+                    this.selectedFloorplanId = this.floorplans.full[0].id
                 } else {
                     console.log(`No teams found`)
                 }
                 const resultTeams = await this._loadTeams()
-                if (resultTeams && this.teams && this.teams.length > 0) {
-                    this.selectedTeamId = this.teams[0].id
+                if (resultTeams && this.teams && this.teams.full.length > 0) {
+                    this.selectedTeamId = this.teams.full[0].id
                 } else {
                     console.log(`No teams found`)
                 }
@@ -287,7 +291,7 @@ export class ProjectPage implements OnChanges {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/floorplans`).subscribe({
                     next: (s: any) => {
                         if (s && s.rows) {
-                            this.floorplans = [...s.rows]
+                            this.floorplans = this.reducer.reduce(this.tab, s.rows)
                             return resolve(this.floorplans)
                         }
                     },
@@ -306,7 +310,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/sheets`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.sheets = [...s.rows]
+                    this.sheets = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -320,7 +324,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/statuses`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.statuses = [...s.rows]
+                    this.statuses = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -334,7 +338,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/locations`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.locations = [...s.rows]
+                    this.locations = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -350,7 +354,7 @@ export class ProjectPage implements OnChanges {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/teams`).subscribe({
                     next: (s: any) => {
                         if (s && s.rows) {
-                            this.teams = [...s.rows]
+                            this.teams = this.reducer.reduce(this.tab, s.rows)
                             return resolve(this.teams)
                         }
                     },
@@ -369,7 +373,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/tasks`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.tasks = [...s.rows]
+                    this.tasks = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -383,7 +387,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/taskattributes`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.taskAttributes = [...s.rows]
+                    this.taskAttributes = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -397,7 +401,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/taskcheckitems`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.taskCheckItems = [...s.rows]
+                    this.taskCheckItems = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },
@@ -411,7 +415,7 @@ export class ProjectPage implements OnChanges {
         this.http.get(`/api/fieldwire/projects/${this.projectId}/attachments`).subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.attachments = [...s.rows]
+                    this.attachments = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },

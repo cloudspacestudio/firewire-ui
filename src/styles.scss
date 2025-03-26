@@ -43,17 +43,18 @@ a, a:visited {
                     background-color: #1a1a1a;
                 }
                 tr {
-                    border-bottom: .5px solid #444;
+                    border-bottom: .5px solid #333;
                 }
                 th {
                     height: 40px;
                     vertical-align: middle;
+                    padding: 6px 12px;
                 }
                 th, td {
                     text-align: left;
                 }
                 td {
-                    padding: 6px 2px;
+                    padding: 6px 12px;
                 }
             }    
         }
