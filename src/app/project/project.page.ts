@@ -46,6 +46,7 @@ export class ProjectPage implements OnChanges {
     attachments?: ReducedResponse
     taskAttributes?: ReducedResponse
     taskCheckItems?: ReducedResponse
+    taskTypeAttributes?: ReducedResponse
     
     actionsLoaded: boolean = false
     reducer: Reducer = new Reducer()
@@ -54,6 +55,7 @@ export class ProjectPage implements OnChanges {
     tabs = [
         'OVERVIEW', 'ACTIONS', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
         'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
+        'TASK TYPE ATTRIBUTES',
         'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
     ]
     layout: string = 'Tabular'
@@ -112,6 +114,8 @@ export class ProjectPage implements OnChanges {
                 return this._loadTeams()
             case 'TASKS':
                 return this._loadTasks()
+            case 'TASK TYPE ATTRIBUTES':
+                return this._loadTaskTypeAttributes()
             case 'TASK ATTRIBUTES':
                 return this._loadTaskAttributes()
             case 'ATTACHMENTS':
@@ -170,7 +174,7 @@ export class ProjectPage implements OnChanges {
             pos_x: 0,
             pos_y: 0,
             priority: 2,
-            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1' 
+            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1'
         }).subscribe({
             next: (s) => {
                 console.log(`Save Complete`)
@@ -374,6 +378,20 @@ export class ProjectPage implements OnChanges {
             next: (s: any) => {
                 if (s && s.rows) {
                     this.tasks = this.reducer.reduce(this.tab, s.rows)
+                    return
+                }
+            },
+            error: (err: Error) => {
+                console.dir(err)
+            }
+        })
+    }
+
+    private _loadTaskTypeAttributes() {
+        this.http.get(`/api/fieldwire/projects/${this.projectId}/tasktypeattributes`).subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.taskTypeAttributes = this.reducer.reduce(this.tab, s.rows)
                     return
                 }
             },

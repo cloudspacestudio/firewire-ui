@@ -152,6 +152,17 @@
                 </div>
             </div>
     
+            <div *ngIf="tab==='TASK TYPE ATTRIBUTES'">
+                <div *ngIf="taskTypeAttributes">
+                    <div *ngIf="layout==='Tabular'">
+                        <mission-tabular-component [datasource]="taskTypeAttributes.reduced"></mission-tabular-component>
+                    </div>
+                    <div *ngIf="layout==='Raw'">
+                        <pre>{{jsonify(taskTypeAttributes)}}</pre>
+                    </div>
+                </div>
+            </div>
+    
             <div *ngIf="tab==='TASK ATTRIBUTES'">
                 <div *ngIf="taskAttributes">
                     <div *ngIf="layout==='Tabular'">
@@ -162,7 +173,7 @@
                     </div>
                 </div>
             </div>
-    
+
             <div *ngIf="tab==='TASK CHECK ITEMS'">
                 <div *ngIf="taskCheckItems">
                     <div *ngIf="layout==='Tabular'">

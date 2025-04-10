@@ -33,6 +33,10 @@ export class Reducer {
         {
             id: 'ATTACHMENTS',
             fields: ['name', 'folder_id', 'kind', 'file_size', 'file_url']
+        },
+        {
+            id: 'TASK TYPE ATTRIBUTES',
+            fields: ['id', 'name', 'kind', 'task_type_id']
         }
     ]
 
