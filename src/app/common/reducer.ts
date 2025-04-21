@@ -36,7 +36,7 @@ export class Reducer {
         },
         {
             id: 'TASK TYPE ATTRIBUTES',
-            fields: ['id', 'name', 'kind', 'task_type_id']
+            fields: ['id', 'name', 'kind', 'task_type_id', 'visible', 'always_visible']
         }
     ]
 
