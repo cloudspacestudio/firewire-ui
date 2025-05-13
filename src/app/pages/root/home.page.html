@@ -3,6 +3,7 @@
     <div class="page-content">
         <div class="content-root">
             <h1>PROJECTS</h1>
+
             <table style="width: 100%;">
                 <thead>
                     <th>NAME</th>
@@ -13,7 +14,7 @@
                 <tbody>
                     <tr *ngFor="let project of projects;let indx = index">
                         <td>
-                            <a [routerLink]="'/project/'+project.id">{{project.name}}</a>
+                            <a [routerLink]="'/projects/'+project.id">{{project.name}}</a>
                         </td>
                         <td>{{project.code}}</td>
                         <td>

@@ -11,11 +11,25 @@ import { MatMenuModule } from '@angular/material/menu'
     selector: 'page-toolbar',
     imports: [NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule],
     template: `
-        <mat-toolbar color="accent">
-            <span style="cursor: pointer;" [routerLink]="'/home'">INFERNO</span>
+        <mat-toolbar class="page-toolbar" color="accent">
+            <button mat-icon-button [mat-menu-trigger-for]="navMenu" style="margin-right: 8px;">
+                <mat-icon fontIcon="menu"></mat-icon>
+            </button>
+            <mat-menu #navMenu>
+                <button mat-menu-item [routerLink]="'/root'">Home</button>
+                <button mat-menu-item [routerLink]="'/projects'">Projects</button>
+                <button mat-menu-item [routerLink]="'/devices'">Devices</button>
+                <button mat-menu-item [routerLink]="'/imports'">Imports</button>
+                <button mat-menu-item [routerLink]="'/settings'">Settings</button>
+            </mat-menu>
+
+            <span style="cursor: pointer;" [routerLink]="'/root'">INFERNO</span>
             <span *ngIf="title">:{{title}}</span>
+
             <ng-content></ng-content>
+            
             <span class="spacer"></span>
+            
             <button mat-flat-button [mat-menu-trigger-for]="userMenu">SS</button>
             <mat-menu #userMenu>
                 <button mat-menu-item>Preferences</button>

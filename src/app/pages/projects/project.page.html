@@ -1,4 +1,9 @@
 <page-toolbar [title]="project?project.name:''">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/projects'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
     <div style="margin-left: 15px;">
         <mat-form-field style="margin-top: 18px;">
             <mat-select [(value)]="tab" (selectionChange)="setTab($event)">

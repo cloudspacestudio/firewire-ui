@@ -1,8 +1,16 @@
+@use "sass:color";
+
 $primary-bg: #0078da;
 $primary-fg: #f9f9ff;
 
 $secondary-bg: #a66a00;
 $secondary-fg: #fff8f4;
+
+$secondary-muted-bg: color.adjust(#a66a00, $lightness: -2%);
+$secondary-muted-fg: color.adjust(#fff8f4, $lightness: -9%);
+
+$secondary-1-bg: color.adjust(#a66a00, $lightness: 6%);
+$secondary-1-fg: color.adjust(#fff8f4, $lightness: 6%);
 
 $tertiary-bg: #a852c6;
 $tertiary-fg: #fff7fb;
@@ -15,6 +23,9 @@ $neutral-variant-fg: #f9f9ff;
 
 $error-bg: #de3730;
 $error-fg: #fff8f7;
+
+$warn-bg: orange;
+$warn-fg: white;
 
 $app-bg: #333;
 $app-fg: #e3e3e3;

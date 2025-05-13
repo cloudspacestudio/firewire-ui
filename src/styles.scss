@@ -25,6 +25,25 @@ a, a:visited {
     text-decoration: none;
     color: variables.$app-fg;
 }
+.page-toolbar {
+    .button-bar {
+        margin-left: 12px;
+        button {
+            margin-right: 2px;
+            border-radius: 0 !important;
+            background-color:  variables.$secondary-muted-bg;
+            color: variables.$secondary-muted-fg;
+        }
+        button.active {
+            background-color: variables.$secondary-1-bg;
+            color: variables.$secondary-1-fg;
+            border: .5px solid variables.$secondary-1-fg;
+        }
+        button.back {
+            border-radius: 0;
+        }
+    }
+}
 .page-root {
     padding-left: 10px;
     overflow: hidden;

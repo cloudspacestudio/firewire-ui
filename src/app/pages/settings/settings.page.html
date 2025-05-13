@@ -1,0 +1,25 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab [routerLink]="'/home'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <div class="button-bar">
+        <button mat-flat-button class="active">SETTINGS</button>
+        <button mat-raised-button>TENANT</button>
+        <button mat-raised-button>ORGS</button>
+        <button mat-raised-button>PREFERENCES</button>
+        <button mat-raised-button>USERS</button>
+    </div>
+</page-toolbar>
+<div *ngIf="!pageWorking" class="page-root">
+    <div class="page-content">
+        <div class="content-root">
+
+        </div>
+    </div>
+
+</div>
+<div *ngIf="pageWorking">
+    Loading, Please wait...
+</div>

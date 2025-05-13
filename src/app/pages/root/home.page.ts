@@ -5,10 +5,10 @@ import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
 import { RouterLink } from "@angular/router"
 
-import { Utils } from "../common/utils"
-import { AccountProjectSchema, AccountProjectAttributes } from "../schemas/account.project.schema"
-import { AccountProjectStatSchema } from "../schemas/account.projectstat.schema"
-import { PageToolbar } from '../common/components/page-toolbar';
+import { Utils } from "../../common/utils"
+import { AccountProjectSchema, AccountProjectAttributes } from "../../schemas/account.project.schema"
+import { AccountProjectStatSchema } from "../../schemas/account.projectstat.schema"
+import { PageToolbar } from '../../common/components/page-toolbar';
 
 @Component({
     standalone: true,

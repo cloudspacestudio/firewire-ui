@@ -1,5 +1,6 @@
 import { Component, OnChanges, Input } from "@angular/core"
 import { NgIf, NgFor } from '@angular/common'
+import { RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
@@ -9,23 +10,25 @@ import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatSelectModule } from "@angular/material/select"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatChipsModule } from "@angular/material/chips"
+import { MatIconModule } from "@angular/material/icon"
 
-import { Utils } from "../common/utils"
-import { AccountProjectSchema, AccountProjectAttributes } from "../schemas/account.project.schema"
-import { AccountProjectStatSchema } from "../schemas/account.projectstat.schema"
-import { PageToolbar } from '../common/components/page-toolbar';
-import { ProjectFolder } from "../schemas/project.folder.schema"
+import { Utils } from "../../common/utils"
+import { AccountProjectSchema, AccountProjectAttributes } from "../../schemas/account.project.schema"
+import { AccountProjectStatSchema } from "../../schemas/account.projectstat.schema"
+import { PageToolbar } from '../../common/components/page-toolbar';
+import { ProjectFolder } from "../../schemas/project.folder.schema"
 
-import { TabularComponent } from "../common/components/tabular.component"
-import { ReducedResponse, Reducer } from "../common/reducer"
+import { TabularComponent } from "../../common/components/tabular.component"
+import { ReducedResponse, Reducer } from "../../common/reducer"
 
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [NgFor, CommonModule, PageToolbar, 
+    imports: [NgFor, CommonModule, 
+        RouterLink, PageToolbar, 
         MatButtonModule, MatFormFieldModule, 
         MatSelectModule, MatButtonToggleModule,
-        TabularComponent, MatChipsModule],
+        TabularComponent, MatChipsModule, MatIconModule],
     providers: [HttpClient],
     templateUrl: './project.page.html'
 })
