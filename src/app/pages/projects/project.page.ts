@@ -50,6 +50,7 @@ export class ProjectPage implements OnChanges {
     taskAttributes?: ReducedResponse
     taskCheckItems?: ReducedResponse
     taskTypeAttributes?: ReducedResponse
+    templates?: string[] = ['Default']
     
     actionsLoaded: boolean = false
     reducer: Reducer = new Reducer()
@@ -65,6 +66,7 @@ export class ProjectPage implements OnChanges {
     layouts = ['Tabular', 'Raw']
     selectedFloorplanId: string = ''
     selectedTeamId: string = ''
+    selectedTemplate = 'Default'
 
     constructor(private http: HttpClient) {}
 

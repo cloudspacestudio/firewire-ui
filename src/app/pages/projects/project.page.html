@@ -39,18 +39,42 @@
                 <div *ngIf="project&&actionsLoaded" class="action-panel" style="margin-top: 6px;display: flex;flex-wrap:wrap;">
 
                     <div style="width: 100%;margin-bottom: 20px;">
-                        <button mat-flat-button (click)="importTasks()">IMPORT DEVICES</button>
-                        <span>&nbsp;from&nbsp;</span>
-                        <mat-chip>FA2.01.csv</mat-chip>
-                        <span>&nbsp;into&nbsp;floorplan&nbsp;</span>
-                        <mat-form-field>
-                            <mat-select [(value)]="selectedFloorplanId">
-                                <mat-option *ngFor="let floorplan of floorplans?.full" [value]="floorplan.id">{{floorplan.name}}</mat-option>
-                            </mat-select>
-                        </mat-form-field>
+                        <table style="border-collapse: collapse;width: 500px;">
+                            <tr>
+                                <td colspan="2">
+                                    <input placeholder="Select File..." type="file" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Template</td>
+                                <td>
+                                    <mat-form-field style="width: 350px;">
+                                        <mat-select [(value)]="selectedTemplate">
+                                            <mat-option *ngFor="let template of templates" [value]="template">{{template}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Floorplan</td>
+                                <td>
+                                    <mat-form-field style="width: 350px;">
+                                        <mat-select [(value)]="selectedFloorplanId">
+                                            <mat-option *ngFor="let floorplan of floorplans?.full" [value]="floorplan.id">{{floorplan.name}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="text-align: right;">
+                                    <button style="margin-left: 15px;" mat-flat-button (click)="importTasks()">SUBMIT</button>
+                                </td>
+                            </tr>
+                        </table>
+                        
                     </div>
 
-                    <div style="width: 100%;margin-bottom: 20px;">
+                    <!-- <div style="width: 100%;margin-bottom: 20px;">
                         <button mat-flat-button (click)="createSingleTask()">CREATE DEVICE</button>
                         <span>&nbsp;of&nbsp;type&nbsp;</span>
                         <mat-form-field>
@@ -64,7 +88,7 @@
                                 <mat-option *ngFor="let floorplan of floorplans?.full" [value]="floorplan.id">{{floorplan.name}}</mat-option>
                             </mat-select>
                         </mat-form-field>
-                    </div>
+                    </div> -->
 
                 </div>
             </div>

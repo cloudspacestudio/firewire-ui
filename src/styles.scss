@@ -85,6 +85,15 @@ a, a:visited {
 .spacer {
     flex: 1 1 auto;
 }
+input[type=file]::file-selector-button {
+    cursor: pointer;
+    border: 0;
+    padding: 8px;
+    background-color: variables.$primary-bg;
+    color: variables.$primary-fg;
+    border-radius: 8px;
+    margin-right: 12px;
+}
 
 :root [color="primary"] {
     @include mat.toolbar-overrides((
