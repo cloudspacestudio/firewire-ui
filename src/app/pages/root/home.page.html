@@ -1,48 +1,49 @@
 <page-toolbar></page-toolbar>
-<div *ngIf="!pageWorking" class="page-root">
+<div class="page-root">
     <div class="page-content">
         <div class="content-root">
-            <h1>PROJECTS</h1>
 
-            <table style="width: 100%;">
-                <thead>
-                    <th>NAME</th>
-                    <th>CODE</th>
-                    <th>ADDRESS</th>
-                    <th>PROJECT</th>
-                </thead>
-                <tbody>
-                    <tr *ngFor="let project of projects;let indx = index">
-                        <td>
-                            <a [routerLink]="'/projects/'+project.id">{{project.name}}</a>
-                        </td>
-                        <td>{{project.code}}</td>
-                        <td>
-                            <span *ngIf="project.address">{{project.address}}&nbsp;<a [href]="getGoogleMapLink(project.address)" target="_blank" style="text-decoration: underline;">(View Map)</a></span>
-                            <span *ngIf="!project.address"></span>
-                        </td>
-                        <td>{{getProjectAttrs(project)}}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="simple-card-container">
 
-            <div *ngIf="devices && devices.length > 0" style="margin-top: 50px;">
-                <h1>DEVICES</h1>
-                <table>
-                    <thead>
-                        <th *ngFor="let col of deviceKeys">{{col}}</th>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let device of devices">
-                            <td *ngFor="let col of deviceKeys">{{device[col]}}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+                <div>
+                    <mat-card appearance="outlined">
+                    <mat-card-header>
+                        <mat-card-title>Projects</mat-card-title>
+                        <mat-card-subtitle>View and Manage Projects in Firewire</mat-card-subtitle>
+                    </mat-card-header>
+                    <mat-card-actions>
+                        <button mat-button [routerLink]="'/projects'">GO</button>
+                    </mat-card-actions>
+                    </mat-card>
+                </div>
+                
+                <div>
+                    <mat-card appearance="outlined">
+                    <mat-card-header>
+                        <mat-card-title>Devices</mat-card-title>
+                        <mat-card-subtitle>View and Manage Devices or Materials in Firewire</mat-card-subtitle>
+                    </mat-card-header>
+                    <mat-card-actions>
+                        <button mat-button [routerLink]="'/devices'">GO</button>
+                    </mat-card-actions>
+                    </mat-card>
+                </div>
 
-</div>
-<div *ngIf="pageWorking">
-    Loading, Please wait...
-</div>
+                <div>
+                    <mat-card appearance="outlined">
+                    <mat-card-header>
+                        <mat-card-title>Settings</mat-card-title>
+                        <mat-card-subtitle>Administer preferences and settings in Firewire</mat-card-subtitle>
+                    </mat-card-header>
+                    <mat-card-actions>
+                        <button mat-button [routerLink]="'/settings'">GO</button>
+                    </mat-card-actions>
+                    </mat-card>
+                </div>
+
+            </div><!-- end .simple-card-container -->
+
+        </div><!-- end .content-root -->
+    </div><!-- end .page-content -->
+
+</div><!-- end .page-root -->

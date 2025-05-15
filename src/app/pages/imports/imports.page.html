@@ -1,19 +1,69 @@
-<page-toolbar>
+<page-toolbar [title]="project?project.name:''">
     <div class="button-bar">
-        <button mat-fab class="back" [routerLink]="'/home'">
+        <button mat-fab class="back" [routerLink]="'/projects/' + projectId">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
     <div class="button-bar">
-        <button mat-flat-button class="active">IMPORTS</button>
-        <button mat-raised-button>PREVIEW</button>
-        <button mat-raised-button>RULES</button>
-        <button mat-raised-button>DEVICES</button>
+        <button mat-flat-button class="inactive">IMPORTS</button>
+        <button mat-flat-button class="active">UPLOAD</button>
     </div>
 </page-toolbar>
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="content-root">
+
+            <div style="display:grid;grid-template: 1fr / 410px 1fr;">
+                <div *ngIf="actionsLoaded" style="width: 400px;">
+                    <h1>UPLOAD TASKS INTO FLOORPLAN</h1>
+                    <form *ngIf="!preview" [formGroup]="form" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
+                        <input type="file" (change)="onFileChange($event)" accept=".csv" />
+                        <div>&nbsp;</div>
+                        <mat-form-field appearance="fill">
+                            <mat-label>Template</mat-label>
+                            <mat-select formControlName="templateId">
+                            <mat-option *ngFor="let template of templates" [value]="template">
+                                {{ template }}
+                            </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="fill">
+                            <mat-label>Floor Plan</mat-label>
+                            <mat-select formControlName="floorplanId" (valueChange)="onSelectChange($event)">
+                            <mat-option *ngFor="let floor of floorplans?.full" [value]="floor.id">
+                                {{ floor.name }}
+                            </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="fill">
+                            <mat-label>Location ID</mat-label>
+                            <input matInput formControlName="locationId" />
+                        </mat-form-field>
+                        <div>&nbsp;</div>
+                        <mat-checkbox formControlName="preview">Preview</mat-checkbox>
+                        <div></div>
+                        <div style="width: 100%;height: 40px;"></div>
+                        <div style="text-align: left;">
+                            <button mat-flat-button color="primary" type="submit">
+                                Upload
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+                <div>
+                    <div *ngIf="floorplanImageLoaded" style="height: 100%;width: 100%;">
+                        <div class="right-panel-full-img" [style.background-image]="getSafeFloorplanImageUrl()">
+                            <div *ngIf="floorplanTaskCount > 0" class="callout">
+                                <h2>WARNING</h2>
+                                <p>This floorplan already has <b>{{floorplanTaskCount}}</b> tasks assigned to it. Check Fieldwire to confirm you are importing tasks into the proper floorplan.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>

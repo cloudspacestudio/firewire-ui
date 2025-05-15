@@ -50,14 +50,12 @@ export class ProjectPage implements OnChanges {
     taskAttributes?: ReducedResponse
     taskCheckItems?: ReducedResponse
     taskTypeAttributes?: ReducedResponse
-    templates?: string[] = ['Default']
     
-    actionsLoaded: boolean = false
     reducer: Reducer = new Reducer()
 
-    tab: string = 'ACTIONS'
+    tab: string = 'STATS'
     tabs = [
-        'OVERVIEW', 'ACTIONS', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
+        'OVERVIEW', 'STATS', 'FOLDERS', 'FLOORPLANS', 'SHEETS', 
         'STATUSES', 'LOCATIONS', 'TEAMS', 'TASKS', 'ATTACHMENTS',
         'TASK TYPE ATTRIBUTES',
         'TASK ATTRIBUTES', 'TASK CHECK ITEMS'
@@ -83,7 +81,7 @@ export class ProjectPage implements OnChanges {
             next: async(s: any) => {
                 if (s && s.data) {
                     this.project = Object.assign({}, s.data)
-                    await this._loadActions()
+                    await this._loadStats()
                     this.pageWorking = false
                     return
                 }
@@ -127,8 +125,6 @@ export class ProjectPage implements OnChanges {
                 return this._loadAttachments()
             case 'TASK CHECK ITEMS':
                 return this._loadTaskCheckItems()
-            case 'ACTIONS':
-                return this._loadActions()
             default:
                 return
         }
@@ -159,77 +155,77 @@ export class ProjectPage implements OnChanges {
         return Utils.getGoogleMapLink(line)
     }
 
-    importTasks() {
-        if(!this.project) {
-            return
-        }
-        // ssederburg@firetrol.net 1684559
-        // lritchie@firetrol.net 1689801
-        // sritchie@firetrol.net 1368168
+    // importTasks() {
+    //     if(!this.project) {
+    //         return
+    //     }
+    //     // ssederburg@firetrol.net 1684559
+    //     // lritchie@firetrol.net 1689801
+    //     // sritchie@firetrol.net 1368168
 
-        // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
-        // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
+    //     // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
+    //     // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
 
-        this.actionsLoaded = false
-        this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks/import`, {
-            project_id: this.project.id,
-            owner_user_id: 1684559,
-            floorplan_id: this.selectedFloorplanId,
-            is_local: true,
-            pos_x: 0,
-            pos_y: 0,
-            priority: 2,
-            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1'
-        }).subscribe({
-            next: (s) => {
-                console.log(`Save Complete`)
-                this.actionsLoaded = true
-            },
-            error: (err) => {
-                console.error(err)
-                this.actionsLoaded = true
-            }
-        })
-    }
+    //     this.actionsLoaded = false
+    //     this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks/import`, {
+    //         project_id: this.project.id,
+    //         owner_user_id: 1684559,
+    //         floorplan_id: this.selectedFloorplanId,
+    //         is_local: true,
+    //         pos_x: 0,
+    //         pos_y: 0,
+    //         priority: 2,
+    //         status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1'
+    //     }).subscribe({
+    //         next: (s) => {
+    //             console.log(`Save Complete`)
+    //             this.actionsLoaded = true
+    //         },
+    //         error: (err) => {
+    //             console.error(err)
+    //             this.actionsLoaded = true
+    //         }
+    //     })
+    // }
 
-    createSingleTask() {
-        if(!this.project) {
-            return
-        }
-        // ssederburg@firetrol.net 1684559
-        // lritchie@firetrol.net 1689801
-        // sritchie@firetrol.net 1368168
+    // createSingleTask() {
+    //     if(!this.project) {
+    //         return
+    //     }
+    //     // ssederburg@firetrol.net 1684559
+    //     // lritchie@firetrol.net 1689801
+    //     // sritchie@firetrol.net 1368168
 
-        // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
-        // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
+    //     // Block Setup Not Started Status: d2a28d08-27b4-45e0-943d-f007075df4f1
+    //     // Block Setup Team Speaker/Strobe Wall Mount 9219b7f1-85a3-42be-8df0-f460334c04e1
 
-        this.actionsLoaded = false
-        const currentTeam = this.teams?.full.find(s => s.id===this.selectedTeamId)
-        if (!currentTeam) {
-            return
-        }
-        this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks`, {
-            project_id: this.project.id,
-            owner_user_id: 1684559,
-            floorplan_id: this.selectedFloorplanId,
-            team_id: this.selectedTeamId,
-            is_local: true,
-            name: `Install: ${currentTeam.name}`,
-            pos_x: 0,
-            pos_y: 0,
-            priority: 2,
-            status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1' 
-        }).subscribe({
-            next: (s) => {
-                console.log(`Save Complete`)
-                this.actionsLoaded = true
-            },
-            error: (err) => {
-                console.error(err)
-                this.actionsLoaded = true
-            }
-        })
-    }
+    //     this.actionsLoaded = false
+    //     const currentTeam = this.teams?.full.find(s => s.id===this.selectedTeamId)
+    //     if (!currentTeam) {
+    //         return
+    //     }
+    //     this.http.post(`/api/fieldwire/projects/${this.project.id}/tasks`, {
+    //         project_id: this.project.id,
+    //         owner_user_id: 1684559,
+    //         floorplan_id: this.selectedFloorplanId,
+    //         team_id: this.selectedTeamId,
+    //         is_local: true,
+    //         name: `Install: ${currentTeam.name}`,
+    //         pos_x: 0,
+    //         pos_y: 0,
+    //         priority: 2,
+    //         status_id: 'd2a28d08-27b4-45e0-943d-f007075df4f1' 
+    //     }).subscribe({
+    //         next: (s) => {
+    //             console.log(`Save Complete`)
+    //             this.actionsLoaded = true
+    //         },
+    //         error: (err) => {
+    //             console.error(err)
+    //             this.actionsLoaded = true
+    //         }
+    //     })
+    // }
 
     jsonify(input: any) {
         return JSON.stringify(input, null, 1)
@@ -264,30 +260,6 @@ export class ProjectPage implements OnChanges {
                         throw(err)
                     }
                 })        
-            } catch (err) {
-                return reject(err)
-            }
-        })
-    }
-
-    private _loadActions() {
-        return new Promise(async(resolve, reject) => {
-            this.actionsLoaded = false
-            try {
-                const resultFloorplans = await this._loadFloorplans()
-                if (resultFloorplans && this.floorplans && this.floorplans.full && this.floorplans.full.length > 0) {
-                    this.selectedFloorplanId = this.floorplans.full[0].id
-                } else {
-                    console.log(`No teams found`)
-                }
-                const resultTeams = await this._loadTeams()
-                if (resultTeams && this.teams && this.teams.full.length > 0) {
-                    this.selectedTeamId = this.teams.full[0].id
-                } else {
-                    console.log(`No teams found`)
-                }
-                this.actionsLoaded = true
-                return resolve(true)
             } catch (err) {
                 return reject(err)
             }

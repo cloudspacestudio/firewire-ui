@@ -8,7 +8,7 @@ export const routes: Routes = [
 
     {path: 'devices', loadComponent: () => import('./pages/devices/devices.page').then(m => m.DevicesPage)},
 
-    {path: 'imports', loadComponent: () => import('./pages/imports/imports.page').then(m => m.ImportsPage)},
+    {path: 'projects/:projectId/imports', loadComponent: () => import('./pages/imports/imports.page').then(m => m.ImportsPage)},
 
     {path: 'settings', loadComponent: () => import('./pages/settings/settings.page').then(m => m.SettingsPage)},
 

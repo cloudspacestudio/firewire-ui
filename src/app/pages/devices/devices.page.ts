@@ -23,23 +23,29 @@ import { PageToolbar } from '../../common/components/page-toolbar';
 export class DevicesPage implements OnInit {
 
     pageWorking = true
-    
+    devices: any[] = []
+    deviceKeys: string[] = []
+
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
         this.pageWorking = true
+        this.devices = []
+        this.deviceKeys = []
 
-        this.http.get('/api/fieldwire/account/projects').subscribe({
+        this.http.get('/api/fieldwire/devices').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
+                    this.devices = [...s.rows]
+                    if (this.devices.length > 0) {
+                        this.deviceKeys = Object.keys(this.devices[0])
+                    }
                     this.pageWorking = false
                     return
                 }
-                this.pageWorking = false
             },
             error: (err: Error) => {
                 console.dir(err)
-                this.pageWorking = false
             }
         })
     }

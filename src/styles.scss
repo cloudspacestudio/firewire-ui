@@ -49,6 +49,13 @@ a, a:visited {
     overflow: hidden;
     .page-content {
         overflow: hidden;
+        .tabstrip {
+            margin: 10px 0;
+            button {
+                height: 40px;
+                border-radius: 0;
+            }
+        }
         .content-root {
             height: calc(100vh - 65px);
             overflow: auto;
@@ -75,10 +82,20 @@ a, a:visited {
                 td {
                     padding: 6px 12px;
                 }
-            }    
+            }
+            .simple-card-container {
+                padding: 10px;
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                div {
+                    width: 300px;
+                    margin-bottom: 10px;
+                }
+            }
         }
         .content-root.with-tabstrip {
-            height: calc(100vh - 145px);
+            height: calc(100vh - 130px);
         }
     }
 }
@@ -94,7 +111,36 @@ input[type=file]::file-selector-button {
     border-radius: 8px;
     margin-right: 12px;
 }
-
+.circle-btn {
+    width: 40px;height: 40px;max-width: 40px;padding:0;margin:0;border-radius:50%;
+    cursor: pointer;
+    box-shadow: none;
+    border: .5px solid variables.$secondary-muted-fg;
+    background-color: variables.$secondary-muted-bg;
+    color: variables.$secondary-muted-fg;
+}
+.right-panel-full-img {
+    height: 100%;
+    width: 100%;
+    min-height: calc(100vh - 70px);
+    background-repeat: no-repeat;
+    background-size: contain;
+    display: grid;
+    grid-template: 1fr / 1fr;
+    justify-items: center;
+    align-items: start;
+    .callout {
+        width: 300px;
+        height: 150px;
+        margin-top: 20px;
+        background-color: variables.$warn-bg;
+        color: variables.$warn-fg;
+        border: 1px solid variables.$secondary-bg;
+        border-radius: 2px;
+        padding: 12px;
+        padding-top: 0;
+    }
+}
 :root [color="primary"] {
     @include mat.toolbar-overrides((
         container-background-color: variables.$primary-bg,

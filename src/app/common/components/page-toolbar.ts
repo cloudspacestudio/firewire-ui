@@ -19,7 +19,6 @@ import { MatMenuModule } from '@angular/material/menu'
                 <button mat-menu-item [routerLink]="'/root'">Home</button>
                 <button mat-menu-item [routerLink]="'/projects'">Projects</button>
                 <button mat-menu-item [routerLink]="'/devices'">Devices</button>
-                <button mat-menu-item [routerLink]="'/imports'">Imports</button>
                 <button mat-menu-item [routerLink]="'/settings'">Settings</button>
             </mat-menu>
 
@@ -30,7 +29,7 @@ import { MatMenuModule } from '@angular/material/menu'
             
             <span class="spacer"></span>
             
-            <button mat-flat-button [mat-menu-trigger-for]="userMenu">SS</button>
+            <button [mat-menu-trigger-for]="userMenu" class="circle-btn">SS</button>
             <mat-menu #userMenu>
                 <button mat-menu-item>Preferences</button>
                 <button mat-menu-item>About</button>

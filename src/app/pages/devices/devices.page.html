@@ -15,6 +15,18 @@
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="content-root">
+            <div *ngIf="devices && devices.length > 0">
+                <table>
+                    <thead>
+                        <th *ngFor="let col of deviceKeys">{{col}}</th>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let device of devices">
+                            <td *ngFor="let col of deviceKeys">{{device[col]}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
         </div>
     </div>
