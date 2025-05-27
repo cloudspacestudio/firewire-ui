@@ -1,0 +1,122 @@
+<div mat-dialog-title style="display: flex;align-items: center;">
+    <span *ngIf="isWarning()"><mat-icon style="color: orange;">warning</mat-icon>&nbsp;</span><h2>Preview Import</h2>
+    <span class="spacer"></span>
+    <button mat-icon-button aria-label="close dialog" mat-dialog-close>
+        <mat-icon>close</mat-icon>
+    </button>
+</div>
+<mat-dialog-content class="dialog-content large">
+    <mat-toolbar class="content-toolbar" *ngIf="previewResponse && previewResponse.project">
+        <button mat-button [class]="{'active': tab==='devices'}" (click)="selectTab('devices')">DEVICES</button>
+        <button mat-button [class]="{'active': tab==='unresolved'}" (click)="selectTab('unresolved')">UNRESOLVED</button>
+        <button mat-button [class]="{'active': tab==='rows'}" (click)="selectTab('rows')">ROWS</button>
+        <span class="spacer"></span>
+        <div class="subtext">{{previewResponse.project.name}}: {{previewResponse.floorplan.name}} using template {{previewResponse.templateId}}</div>
+    </mat-toolbar>
+    <div class="content-list" *ngIf="previewResponse && previewResponse.data">
+
+        <div *ngIf="tab==='devices'">
+            <!-- Device List -->
+            <mat-list>
+            @for (device of previewResponse.data.devices; track device) {
+                <mat-list-item style="border-bottom: 1px solid #222;height: 85px;">
+                <div matListItemMeta>
+                    <div style="display:grid;grid-template:1fr/160px 1fr;padding-bottom: 10px;">
+                    <table>
+                        <tr><td>Attrs</td><td>Sub Tasks</td></tr>
+                        <tr>
+                            <td>{{getDeviceAttributeCount(device)}}</td>
+                            <td>{{getDeviceSubTaskCount(device)}}</td>
+                        </tr>
+                    </table>
+                    <button mat-icon-button>
+                        <mat-icon>edit</mat-icon>
+                        <!-- <a [routerLink]="'/home'" target="_blank">{{device.name}}</a> -->
+                    </button>
+                    </div>
+                </div>
+                <span matListItemIcon style="text-align: center;"><span style="color: orange;"><mat-icon *ngIf="getDeviceAttrAndSubTaskCountNumber(device)<=0">warning</mat-icon></span>{{getDeviceCount(device)}}</span>
+                <h2 matListItemTitle>
+                    {{device.name}}
+                </h2>
+                <p matListItemLine style="margin-left: 8px;">
+                    <span>{{device.partNumber}}</span>
+                    <!-- <span>{{device.cost}}</span> -->
+                </p>
+                </mat-list-item>
+            }
+            </mat-list>
+
+        </div>
+
+        <div *ngIf="tab==='unresolved'">
+            <!-- Unresolved List -->
+            <mat-list>
+            @for (name of previewResponse.data.unresolvedNames; track name) {
+                <mat-list-item style="border-bottom: 1px solid #222;height: 85px;">
+                <div matListItemMeta>
+                    <button mat-icon-button title="Device Lookup">
+                        <mat-icon>search</mat-icon>
+                        <!-- <a [routerLink]="'/home'" target="_blank">{{device.name}}</a> -->
+                    </button>
+                    <button mat-icon-button title="Add New Device">
+                        <mat-icon>add</mat-icon>
+                        <!-- <a [routerLink]="'/home'" target="_blank">{{device.name}}</a> -->
+                    </button>
+                    <button mat-icon-button title="Map to Existing Device">
+                        <mat-icon>pin_drop</mat-icon>
+                        <!-- <a [routerLink]="'/home'" target="_blank">{{device.name}}</a> -->
+                    </button>
+                </div>
+                <p matListItemIcon>{{getUnresolvedDeviceCount(name)}}</p>
+                <h2 matListItemTitle style="margin-top: 0;height: 20px;line-height: 14px;">
+                    {{name}}
+                </h2>
+                <!-- <p matListItemLine>
+                    <span>{{device.partNumber}}</span>
+                    <span>{{device.cost}}</span>
+                </p> -->
+                </mat-list-item>
+            }
+            </mat-list>
+        </div>
+
+        <div *ngIf="tab==='rows'">
+            <div class="card-container" style="display: flex;gap: 8px;flex-wrap: wrap;">
+            @for (row of previewResponse.data.preview; track row) {
+                <mat-card *ngIf="row.deviceId" style="width: 400px;">
+                    <mat-card-header>
+                        <mat-card-title>{{getDeviceFromId(row.deviceId)?.name}}</mat-card-title>
+                    </mat-card-header>
+                    <mat-card-content>
+                        <div style="display: grid;grid-template: 1fr/50% 50%;">
+                            <div style="padding: 0 10px;">
+                                <h3>Attributes</h3>
+                                <table>
+                                    <tr *ngFor="let attr of row.attrs">
+                                        <td>{{attr.name}}: </td>
+                                        <td>{{attr.toBeValue}}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div style="padding: 0 10px;">
+                                <h3>Tasks</h3>
+                                <div *ngFor="let task of sortRowSubTasks(row)">
+                                    {{task.statusName}}: {{task.laborHours}} hour{{task.laborHours>1?'s':''}}
+                                </div>
+                            </div>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+            }
+            </div>
+
+        </div>
+
+    </div>
+</mat-dialog-content>
+<mat-dialog-actions>
+    <button mat-button class="success" (click)="execute()">EXECUTE</button>
+    <!-- The mat-dialog-close directive optionally accepts a value as a result for the dialog. -->
+    <button mat-button [mat-dialog-close]="true">Cancel</button>
+</mat-dialog-actions>

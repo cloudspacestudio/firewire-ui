@@ -1,5 +1,4 @@
 import { Component, OnInit, AfterViewInit, ViewChild } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
 import { RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
@@ -13,9 +12,9 @@ import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
 
-import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
-import { VwDevice } from "../../schemas/vwdevice.schema"
+import { VwMaterial } from "../../schemas/vwmaterial.schema"
+import { Category } from "../../schemas/category.schema"
 
 @Component({
     standalone: true,
@@ -27,36 +26,36 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
         MatFormFieldModule,
         MatIconModule, PageToolbar],
     providers: [HttpClient],
-    templateUrl: './devices.page.html'
+    templateUrl: './categories.page.html'
 })
-export class DevicesPage implements OnInit, AfterViewInit  {
-    displayedColumns: string[] = ['actions', 'name', 'partNumber', 'shortName', 'cost', 'vendorName'];
+export class CategoriesPage implements OnInit, AfterViewInit  {
+    displayedColumns: string[] = ['name', 'shortName', 'handle'];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
-    devices: VwDevice[] = []
+    categories: Category[] = []
 
-    datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
+    datasource: MatTableDataSource<Category> = new MatTableDataSource(this.categories);
     
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
-        this.devices = []
+        this.categories = []
 
-        this.http.get('/api/fieldwire/vwdevices').subscribe({
+        this.http.get('/api/fieldwire/categories').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.devices = [...s.rows]
-                    this.datasource = new MatTableDataSource(this.devices);
+                    this.categories = [...s.rows]
+                    this.datasource = new MatTableDataSource(this.categories);
                     this.datasource.paginator = this.paginator||null;
                     this.datasource.sort = this.sort||null;
-                    console.dir(this.devices)
+                    console.dir(this.categories)
                     this.pageWorking = false
                     return
                 } else {
-                    this.devices = []
+                    this.categories = []
                 }
             },
             error: (err: Error) => {

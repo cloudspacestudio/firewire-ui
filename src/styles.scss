@@ -82,6 +82,15 @@ a, a:visited {
                 td {
                     padding: 6px 12px;
                 }
+                .mat-column-cost, .right-align {
+                    text-align: right;
+                    justify-content: flex-end;
+                    .mat-sort-header-content {
+                        width: 100%;
+                        text-align: right;
+                        justify-content: flex-end;
+                    }
+                }
             }
             .simple-card-container {
                 padding: 10px;
@@ -140,6 +149,49 @@ input[type=file]::file-selector-button {
         padding: 12px;
         padding-top: 0;
     }
+}
+:root  {
+  @include mat.dialog-overrides((
+    container-min-width: calc(100vw - 240px)
+  ));
+}
+.dialog-content {
+    min-height: calc(100vh - 200px);
+    width: calc(100vw - 240px);
+    overflow: hidden;
+    .content-toolbar {
+        .subtext {
+            font-size: 12px;
+        }
+    }
+    .content-list {
+        min-height: calc(100vh - 270px);
+        max-height: calc(100vh - 270px);
+        height: calc(100vh - 270px);
+        overflow: auto;
+        scrollbar-color: variables.$secondary-bg variables.$secondary-fg;
+        scrollbar-width: thin;
+        .centered-progress {
+            display:grid;
+            grid-template:1fr/1fr;
+            align-items: center;
+            width: 100%;height:100%;
+            justify-items: center;
+            font-size: 2rem;
+        }
+    }
+}
+button.active {
+    background-color: variables.$primary-bg;
+    color: variables.$primary-fg;
+}
+button.success {
+    background-color: variables.$success-bg;
+    color: variables.$success-fg;
+}
+.mat-column-cost {
+    text-align: right;
+    justify-content: flex-end;
 }
 :root [color="primary"] {
     @include mat.toolbar-overrides((

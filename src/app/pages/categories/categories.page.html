@@ -5,11 +5,11 @@
         </button>
     </div>
     <div class="button-bar">
-        <button mat-flat-button class="active">DEVICES</button>
+        <button mat-flat-button [routerLink]="'/devices'">DEVICES</button>
         <button mat-raised-button [routerLink]="'/materials'">MATERIALS</button>
         <button mat-raised-button [routerLink]="'/vendors'">VENDORS</button>
         <button mat-raised-button [routerLink]="'/eddypricelist'">PRICE LISTS</button>
-        <button mat-raised-button [routerLink]="'/categories'">CATEGORIES</button>
+        <button mat-raised-button class="active">CATEGORIES</button>
     </div>
 </page-toolbar>
 <div class="page-root">
@@ -25,24 +25,10 @@
                 <div class="mat-elevation-z8">
                     <table mat-table [dataSource]="datasource" matSort>
 
-                        <ng-container matColumnDef="actions">
-                            <th mat-header-cell *matHeaderCellDef style="width: 55px;"></th>
-                            <td mat-cell *matCellDef="let row;" style="width: 55px;">
-                                <button mat-icon-button>
-                                    <mat-icon>edit</mat-icon>
-                                </button>
-                            </td>
-                        </ng-container>
                         <!-- Name Column -->
-                        <ng-container matColumnDef="name">
+                        <ng-container matColumnDef="name" sticky="true">
                             <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
                             <td mat-cell *matCellDef="let row"> {{row.name}} </td>
-                        </ng-container>
-
-                        <!-- Part Number Column -->
-                        <ng-container matColumnDef="partNumber">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header> Part Number </th>
-                            <td mat-cell *matCellDef="let row"> {{row.partNumber}} </td>
                         </ng-container>
 
                         <!-- Short Name Column -->
@@ -51,16 +37,10 @@
                             <td mat-cell *matCellDef="let row"> {{row.name}} </td>
                         </ng-container>
 
-                        <!-- Cost Column -->
-                        <ng-container matColumnDef="cost">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header class="right-align"> Cost </th>
-                            <td mat-cell *matCellDef="let row"> {{row.cost | currency}} </td>
-                        </ng-container>
-
-                        <!-- Vendor Name Column -->
-                        <ng-container matColumnDef="vendorName">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header> Vendor </th>
-                            <td mat-cell *matCellDef="let row"> {{row.vendorName}} </td>
+                        <!-- Handle Column -->
+                        <ng-container matColumnDef="handle">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> Handle </th>
+                            <td mat-cell *matCellDef="let row"> {{row.handle}} </td>
                         </ng-container>
 
                         <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>

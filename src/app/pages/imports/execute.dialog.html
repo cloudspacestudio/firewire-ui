@@ -1,0 +1,27 @@
+<div mat-dialog-title style="display: flex;align-items: center;">
+    <h2>Execute Import</h2>
+    <span class="spacer"></span>
+    <button mat-icon-button aria-label="close dialog" mat-dialog-close>
+        <mat-icon>close</mat-icon>
+    </button>
+</div>
+<mat-dialog-content class="dialog-content">
+    <div class="content-list">
+        <div class="centered-progress">
+            <div style="display:grid;grid-template: 40px 40px 30px / 1fr;">
+                <div>
+                    Importing data into Fieldwire
+                </div>
+                <div style="height: 30px;">
+                    <mat-progress-bar [mode]="mode" [value]="value" style="height: 20px;"></mat-progress-bar>
+                </div>
+                <div style="font-size: 1rem;">
+                    Processing record {{indx}} of {{max}}
+                </div>
+            </div>
+        </div>
+    </div>
+</mat-dialog-content>
+<mat-dialog-actions>
+    <button mat-button [mat-dialog-close]="true">Cancel</button>
+</mat-dialog-actions>

@@ -1,5 +1,4 @@
 import { Component, OnInit, AfterViewInit, ViewChild } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
 import { RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
@@ -13,9 +12,8 @@ import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
 
-import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
-import { VwDevice } from "../../schemas/vwdevice.schema"
+import { EddyPricelist } from "../../schemas/eddypricelist.schema"
 
 @Component({
     standalone: true,
@@ -27,36 +25,52 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
         MatFormFieldModule,
         MatIconModule, PageToolbar],
     providers: [HttpClient],
-    templateUrl: './devices.page.html'
+    templateUrl: './eddypricelist.page.html'
 })
-export class DevicesPage implements OnInit, AfterViewInit  {
-    displayedColumns: string[] = ['actions', 'name', 'partNumber', 'shortName', 'cost', 'vendorName'];
+export class EddyPricelistPage implements OnInit, AfterViewInit  {
+    displayedColumns: string[] = [
+        'LongDescription',
+        'PartNumber',
+        'ParentCategory',
+        'Category',
+        'MSRPPrice',
+        'MinOrderQuantity',
+        //'ProductStatus',
+        'UPC',
+        //'SalesPrice',
+        //'FuturePrice',
+        //'FutureEffectiveDate',
+        //'FutureSalesPrice',
+        //'FutureSalesEffectiveDate',
+        //'Agency',
+        //'CountryOfOrigin'
+    ];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
-    devices: VwDevice[] = []
+    eddypricelists: EddyPricelist[] = []
 
-    datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
+    datasource: MatTableDataSource<EddyPricelist> = new MatTableDataSource(this.eddypricelists);
     
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
-        this.devices = []
+        this.eddypricelists = []
 
-        this.http.get('/api/fieldwire/vwdevices').subscribe({
+        this.http.get('/api/fieldwire/eddypricelist').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.devices = [...s.rows]
-                    this.datasource = new MatTableDataSource(this.devices);
+                    this.eddypricelists = [...s.rows]
+                    this.datasource = new MatTableDataSource(this.eddypricelists);
                     this.datasource.paginator = this.paginator||null;
                     this.datasource.sort = this.sort||null;
-                    console.dir(this.devices)
+                    console.dir(this.eddypricelists)
                     this.pageWorking = false
                     return
                 } else {
-                    this.devices = []
+                    this.eddypricelists = []
                 }
             },
             error: (err: Error) => {

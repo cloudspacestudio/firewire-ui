@@ -16,7 +16,7 @@
             <div style="display:grid;grid-template: 1fr / 410px 1fr;">
                 <div *ngIf="actionsLoaded" style="width: 400px;">
                     <h1>UPLOAD TASKS INTO FLOORPLAN</h1>
-                    <form *ngIf="!preview" [formGroup]="form" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
+                    <form [formGroup]="form" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
                         <input type="file" (change)="onFileChange($event)" accept=".csv" />
                         <div>&nbsp;</div>
                         <mat-form-field appearance="fill">
