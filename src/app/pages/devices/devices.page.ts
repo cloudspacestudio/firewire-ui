@@ -13,9 +13,9 @@ import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
 
-import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { VwDevice } from "../../schemas/vwdevice.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
@@ -25,18 +25,19 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar],
+        MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './devices.page.html'
 })
 export class DevicesPage implements OnInit, AfterViewInit  {
-    displayedColumns: string[] = ['actions', 'name', 'partNumber', 'shortName', 'cost', 'vendorName'];
+    displayedColumns: string[] = ['name', 'partNumber', 'shortName', 'cost', 'categoryName', 'actions'];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
     devices: VwDevice[] = []
+    navItems = NavToolbar.DeviceNavItems
 
     datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
     

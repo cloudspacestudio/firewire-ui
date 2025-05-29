@@ -1,0 +1,14 @@
+<page-toolbar [title]="device?device.name:''">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/devices'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+</page-toolbar>
+<div class="page-root">
+    <div class="page-content">
+
+        <device-detail [deviceId]="deviceId" (deviceLoaded)="loadDevice($event)"></device-detail>
+
+    </div>
+</div>

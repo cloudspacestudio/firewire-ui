@@ -21,7 +21,7 @@
             @for (device of previewResponse.data.devices; track device) {
                 <mat-list-item style="border-bottom: 1px solid #222;height: 85px;">
                 <div matListItemMeta>
-                    <div style="display:grid;grid-template:1fr/160px 1fr;padding-bottom: 10px;">
+                    <div style="display:grid;grid-template:1fr/160px 1fr;padding-bottom: 10px;font-size: 16px;margin-top: -15px;">
                     <table>
                         <tr><td>Attrs</td><td>Sub Tasks</td></tr>
                         <tr>
@@ -29,7 +29,7 @@
                             <td>{{getDeviceSubTaskCount(device)}}</td>
                         </tr>
                     </table>
-                    <button mat-icon-button>
+                    <button mat-icon-button (click)="openDevice(device.id)">
                         <mat-icon>edit</mat-icon>
                         <!-- <a [routerLink]="'/home'" target="_blank">{{device.name}}</a> -->
                     </button>

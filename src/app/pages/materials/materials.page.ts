@@ -14,6 +14,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { VwMaterial } from "../../schemas/vwmaterial.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
@@ -23,7 +24,7 @@ import { VwMaterial } from "../../schemas/vwmaterial.schema"
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar],
+        MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './materials.page.html'
 })
@@ -35,6 +36,7 @@ export class MaterialsPage implements OnInit, AfterViewInit  {
 
     pageWorking = true
     materials: VwMaterial[] = []
+    navItems = NavToolbar.DeviceNavItems
 
     datasource: MatTableDataSource<VwMaterial> = new MatTableDataSource(this.materials);
     

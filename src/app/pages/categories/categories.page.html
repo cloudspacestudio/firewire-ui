@@ -4,13 +4,7 @@
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div class="button-bar">
-        <button mat-flat-button [routerLink]="'/devices'">DEVICES</button>
-        <button mat-raised-button [routerLink]="'/materials'">MATERIALS</button>
-        <button mat-raised-button [routerLink]="'/vendors'">VENDORS</button>
-        <button mat-raised-button [routerLink]="'/eddypricelist'">PRICE LISTS</button>
-        <button mat-raised-button class="active">CATEGORIES</button>
-    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'categories'"></nav-toolbar>
 </page-toolbar>
 <div class="page-root">
     <div class="page-content">

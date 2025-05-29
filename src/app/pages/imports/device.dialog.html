@@ -1,0 +1,15 @@
+<div mat-dialog-title style="display: flex;align-items: center;">
+    <h2 *ngIf="device">{{device.name}}</h2>
+    <span class="spacer"></span>
+    <button mat-icon-button aria-label="close dialog" mat-dialog-close>
+        <mat-icon>close</mat-icon>
+    </button>
+</div>
+<mat-dialog-content class="dialog-content">
+    <div *ngIf="deviceId" class="content-list">
+        <device-detail [deviceId]="deviceId" (deviceLoaded)="doDeviceLoaded($event)"></device-detail>
+    </div>
+</mat-dialog-content>
+<mat-dialog-actions>
+    <button mat-button [mat-dialog-close]="true">Close</button>
+</mat-dialog-actions>

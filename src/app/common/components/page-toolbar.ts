@@ -22,7 +22,7 @@ import { MatMenuModule } from '@angular/material/menu'
                 <button mat-menu-item [routerLink]="'/settings'">Settings</button>
             </mat-menu>
 
-            <span style="cursor: pointer;" [routerLink]="'/root'">INFERNO</span>
+            <span style="cursor: pointer;" [routerLink]="'/root'">FIREWIRE</span>
             <span *ngIf="title">:{{title}}</span>
 
             <ng-content></ng-content>

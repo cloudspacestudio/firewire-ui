@@ -13,8 +13,8 @@ import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
 
 import { PageToolbar } from '../../common/components/page-toolbar';
-import { VwMaterial } from "../../schemas/vwmaterial.schema"
 import { Category } from "../../schemas/category.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
@@ -24,7 +24,7 @@ import { Category } from "../../schemas/category.schema"
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar],
+        MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './categories.page.html'
 })
@@ -36,6 +36,7 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
 
     pageWorking = true
     categories: Category[] = []
+    navItems = NavToolbar.DeviceNavItems
 
     datasource: MatTableDataSource<Category> = new MatTableDataSource(this.categories);
     

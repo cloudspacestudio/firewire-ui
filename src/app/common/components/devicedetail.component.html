@@ -1,0 +1,112 @@
+<div *ngIf="!pageWorking">
+    <!-- <div class="tabstrip">
+        <h3 style="display: inline-block;margin:0;padding:0;margin-right: 18px;">{{device?device.name:''}}</h3>
+    </div> -->
+    <div class="content-root"> <!--</div> with-tabstrip">-->
+        <div class="component-group-container">
+
+            <!-- Device Details -->
+            <div class="component-group">
+                <h4>DETAILS</h4>
+                <table *ngIf="device" style="width: 100%;">
+                    <tr>
+                        <td>Name</td><td>{{device.name}}</td>
+                    </tr>
+                    <tr>
+                        <td>Part Number</td><td>{{device.partNumber}}</td>
+                    </tr>
+                    <tr>
+                        <td>Category</td><td>{{device.categoryName}}</td>
+                    </tr>
+                    <tr>
+                        <td>Vendor</td><td>{{device.vendorName}}</td>
+                    </tr>
+                    <tr>
+                        <td>Cost</td><td>{{device.cost|currency}}</td>
+                    </tr>
+                    <tr>
+                        <td>Default Labor</td><td>{{device.defaultLabor}}</td>
+                    </tr>
+                    <tr>
+                        <td>Short Name</td><td>{{device.categoryName}}</td>
+                    </tr>
+                    <tr>
+                        <td>Serial Number</td><td>{{settingText(device.serialNumber)}}</td>
+                    </tr>
+                    <tr>
+                        <td>SLC Address</td><td>{{settingText(device.slcAddress)}}</td>
+                    </tr>
+                    <tr>
+                        <td>Speaker Address</td><td>{{settingText(device.speakerAddress)}}</td>
+                    </tr>
+                    <tr>
+                        <td>Strobe Address</td><td>{{settingText(device.strobeAddress)}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Device Attributes -->
+            <div class="component-group">
+                <h4>ATTRIBUTES</h4>
+                <mat-list *ngIf="deviceAttributes && deviceAttributes.length > 0">
+                    @for (attribute of sortAttributes(); track attribute) {
+                    <mat-list-item>
+                        <mat-icon matListItemIcon>text_fields</mat-icon>
+                        <span matListItemTitle>{{attribute.name}}</span>
+                        <span matListItemLine>{{attribute.statusId}}</span>
+                        <span matListItemLine>{{attribute.valueType}}: {{attribute.defaultValue||'None'}}</span>
+                    </mat-list-item>
+                    }
+                </mat-list>
+                <div *ngIf="deviceAttributes && deviceAttributes.length === 0"
+                    style="display:grid;grid-template: 1fr/1fr;justify-items: center;align-items:center;width:100%;height:80%;">
+                    <button mat-flat-button>CREATE ATTRIBUTES</button>
+                </div>
+            </div>
+
+            <!-- Device Sub Tasks -->
+            <div class="component-group">
+                <h4>SUB TASKS</h4>
+                <mat-list *ngIf="deviceSubTasks && deviceSubTasks.length > 0">
+                    @for (subtask of sortSubTasks(); track subtask) {
+                    <mat-list-item>
+                        <mat-icon matListItemIcon>task_alt</mat-icon>
+                        <span matListItemTitle>{{subtask.statusName}}</span>
+                        <span matListItemLine>Labor: {{subtask.laborHours}} {{subtask.laborHours===1?'hour':'hours'}}</span>
+                    </mat-list-item>
+                    }
+                </mat-list>
+                <div *ngIf="deviceSubTasks && deviceSubTasks.length === 0"
+                    style="display:grid;grid-template: 1fr/1fr;justify-items: center;align-items:center;width:100%;height:80%;">
+                    <button mat-flat-button>CREATE SUBTASKS</button>
+                </div>
+            </div>
+
+            <!-- Device Materials -->
+            <div class="component-group">
+                <h4>PARTS</h4>
+                <mat-list *ngIf="deviceMaterials && deviceMaterials.length > 0">
+                    @for (material of deviceMaterials; track material) {
+                    <mat-list-item>
+                        <mat-icon matListItemIcon>inventory_2</mat-icon>
+                        <span matListItemTitle>{{material.materialName}}</span>
+                        <span matListItemLine>{{material.materialPartNumber}}</span>
+                        <span matListItemLine>{{material.materialCost|currency}}</span>
+                    </mat-list-item>
+                    }
+                </mat-list>
+            </div>
+        </div>
+    </div>
+</div>
+<div *ngIf="pageWorking">
+    Loading, Please wait...
+</div>
+<!--
+
+<div>Aliases</div>
+<div>Templates</div>
+<div>Documents</div>
+<div>Pricelist</div>
+
+-->

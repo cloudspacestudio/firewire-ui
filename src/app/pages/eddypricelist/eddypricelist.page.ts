@@ -14,6 +14,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { EddyPricelist } from "../../schemas/eddypricelist.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
@@ -23,7 +24,7 @@ import { EddyPricelist } from "../../schemas/eddypricelist.schema"
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar],
+        MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './eddypricelist.page.html'
 })
@@ -51,6 +52,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
 
     pageWorking = true
     eddypricelists: EddyPricelist[] = []
+    navItems = NavToolbar.DeviceNavItems
 
     datasource: MatTableDataSource<EddyPricelist> = new MatTableDataSource(this.eddypricelists);
     

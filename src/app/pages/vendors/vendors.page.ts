@@ -14,6 +14,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { Vendor } from "../../schemas/vendor.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
@@ -23,7 +24,7 @@ import { Vendor } from "../../schemas/vendor.schema"
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar],
+        MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './vendors.page.html'
 })
@@ -35,6 +36,7 @@ export class VendorsPage implements OnInit, AfterViewInit  {
 
     pageWorking = true
     vendors: Vendor[] = []
+    navItems = NavToolbar.DeviceNavItems
 
     datasource: MatTableDataSource<Vendor> = new MatTableDataSource(this.vendors);
     

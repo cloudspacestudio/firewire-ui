@@ -23,6 +23,7 @@ import { MaterialAttribute } from '../../schemas/materialattribute.schema'
 import { MaterialSubTask } from '../../schemas/materialsubtask.schema'
 import { PreviewRecord } from '../../schemas/previewrecord.schema'
 import { ExecuteDialog } from './execute.dialog'
+import { DeviceDialog } from './device.dialog'
 
 @Component({
     standalone: true,
@@ -126,6 +127,14 @@ export class PreviewDialog implements OnInit {
     execute() {
         this.dialog.open(ExecuteDialog, {
             data: this.previewResponse,
+            closeOnNavigation: true,
+            disableClose: true
+        })
+    }
+
+    openDevice(deviceId: string) {
+        this.dialog.open(DeviceDialog, {
+            data: deviceId,
             closeOnNavigation: true,
             disableClose: true
         })

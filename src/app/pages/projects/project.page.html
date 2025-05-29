@@ -1,4 +1,4 @@
-<page-toolbar [title]="project?project.name:''">
+<page-toolbar>
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/projects'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
@@ -20,6 +20,7 @@
 
     <div *ngIf="project" class="page-content">
         <div class="tabstrip">
+            <h3 style="display: inline-block;margin:0;padding:0;margin-right: 18px;">{{project?project.name:''}}</h3>
             <!-- <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button> -->
             <button mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'">IMPORT TASKS</button>
         </div>

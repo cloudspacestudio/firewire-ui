@@ -1,4 +1,4 @@
-<page-toolbar [title]="project?project.name:''">
+<page-toolbar>
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/projects/' + projectId">
             <mat-icon fontIcon="chevron_left"></mat-icon>
@@ -15,7 +15,8 @@
 
             <div style="display:grid;grid-template: 1fr / 410px 1fr;">
                 <div *ngIf="actionsLoaded" style="width: 400px;">
-                    <h1>UPLOAD TASKS INTO FLOORPLAN</h1>
+                    <h3>{{project?project.name:''}}</h3>
+                    <p>UPLOAD TASKS INTO FLOORPLAN</p>
                     <form [formGroup]="form" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
                         <input type="file" (change)="onFileChange($event)" accept=".csv" />
                         <div>&nbsp;</div>
