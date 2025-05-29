@@ -6,6 +6,7 @@ import { CommonModule } from "@angular/common"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatMenuModule } from "@angular/material/menu"
 import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
 import {MatSort, MatSortModule} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
@@ -20,7 +21,7 @@ import { NavToolbar } from "../../common/components/nav-toolbar"
     standalone: true,
     selector: 'devices-page',
     imports: [CommonModule, MatButtonModule, 
-        RouterLink, 
+        RouterLink, MatMenuModule,
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
@@ -44,7 +45,8 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         //'FutureSalesPrice',
         //'FutureSalesEffectiveDate',
         //'Agency',
-        //'CountryOfOrigin'
+        //'CountryOfOrigin',
+        'actions'
     ];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
