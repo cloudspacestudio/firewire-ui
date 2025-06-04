@@ -18,6 +18,7 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
 import { MaterialAttribute } from "../../schemas/materialattribute.schema"
 import { MaterialSubTask } from "../../schemas/materialsubtask.schema"
+import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 
 @Component({
     standalone: true,
@@ -38,6 +39,8 @@ export class DeviceDetailComponent implements OnChanges {
     deviceMaterials?: VwDeviceMaterial[]
     deviceAttributes?: MaterialAttribute[]
     deviceSubTasks?: MaterialSubTask[]
+    partlist?: VwEddyPricelist[] = []
+    partImagePath: string = ''
 
     pageWorking = true
 
@@ -57,6 +60,7 @@ export class DeviceDetailComponent implements OnChanges {
                     this.device = Object.assign({}, s)
                     this.deviceLoaded?.emit(this.device)
                     this.pageWorking = false
+                    this.loadEddyPartDetail(this.device?.partNumber||'')
                     return
                 }
                 this.pageWorking = false
@@ -97,6 +101,51 @@ export class DeviceDetailComponent implements OnChanges {
             }
         })
 
+    }
+
+    loadEddyPartDetail(partNumber: string): Promise<VwEddyPricelist|null> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                if (!this.device || !partNumber) {
+                    this.partlist = []
+                }
+                const test = this.partlist?.find(s => s.PartNumber===partNumber)
+                if (test) {
+                    return resolve(test)
+                }
+                this.http.get(`/api/fieldwire/vweddypricelist/${partNumber}`).subscribe({
+                    next: async(s: any) => {
+                        if (s && s.rows && s.rows.length > 0) {
+                            for(let i = 0; i < s.rows.length; i++) {
+                                const record = s.rows[i]
+                                this.partlist?.push(record)
+                            }
+                            // https://myeddie.edwardsfiresafety.com/Media/ProductImages/SIGA-SD.jpg
+                            this.partImagePath = this.getPartImagePath()
+                            return resolve(s.rows[0])
+                        } else {
+                            return resolve(null)
+                        }
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                return reject(err)
+            }
+        })
+    }
+
+    getPartImagePath() {
+        if(this.partlist && this.partlist.length > 0) {
+            const record = this.partlist[0]
+            if (record && record.PrimaryImage) {
+                return `https://myeddie.edwardsfiresafety.com${record.PrimaryImage}`
+            }
+        }
+        return ''
     }
 
     sortAttributes(): MaterialAttribute[] {

@@ -37,6 +37,7 @@ export class MaterialsPage implements OnInit, AfterViewInit  {
     pageWorking = true
     materials: VwMaterial[] = []
     navItems = NavToolbar.DeviceNavItems
+    errText?: string
 
     datasource: MatTableDataSource<VwMaterial> = new MatTableDataSource(this.materials);
     
@@ -57,10 +58,13 @@ export class MaterialsPage implements OnInit, AfterViewInit  {
                     return
                 } else {
                     this.materials = []
+                    this.pageWorking = false
                 }
             },
             error: (err: Error) => {
+                this.errText = err.message
                 console.dir(err)
+                this.pageWorking = false
             }
         })
     }
@@ -77,6 +81,19 @@ export class MaterialsPage implements OnInit, AfterViewInit  {
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage();
         }
+    }
+
+    getNoDataRowText(filterValue: string) {
+        if (this.pageWorking) {
+            return "Loading, please wait..."
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return "No Data Found"
+        }
+        return `No data matching the filter "${filterValue}"`
     }
 
 }

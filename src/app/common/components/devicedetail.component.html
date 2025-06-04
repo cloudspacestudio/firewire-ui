@@ -8,7 +8,8 @@
             <!-- Device Details -->
             <div class="component-group">
                 <h4>DETAILS</h4>
-                <table *ngIf="device" style="width: 100%;">
+                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
+                <table *ngIf="device" style="width: 100%;margin-top: 15px;">
                     <tr>
                         <td>Name</td><td>{{device.name}}</td>
                     </tr>
@@ -48,6 +49,7 @@
             <!-- Device Attributes -->
             <div class="component-group">
                 <h4>ATTRIBUTES</h4>
+                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
                 <mat-list *ngIf="deviceAttributes && deviceAttributes.length > 0">
                     @for (attribute of sortAttributes(); track attribute) {
                     <mat-list-item>
@@ -67,6 +69,7 @@
             <!-- Device Sub Tasks -->
             <div class="component-group">
                 <h4>SUB TASKS</h4>
+                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
                 <mat-list *ngIf="deviceSubTasks && deviceSubTasks.length > 0">
                     @for (subtask of sortSubTasks(); track subtask) {
                     <mat-list-item>
@@ -83,12 +86,14 @@
             </div>
 
             <!-- Device Materials -->
-            <div class="component-group">
+            <div class="component-group" *ngIf="device">
                 <h4>PARTS</h4>
+                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
                 <mat-list *ngIf="deviceMaterials && deviceMaterials.length > 0">
                     @for (material of deviceMaterials; track material) {
                     <mat-list-item>
-                        <mat-icon matListItemIcon>inventory_2</mat-icon>
+                        <mat-icon *ngIf="!partImagePath" matListItemIcon>inventory_2</mat-icon>
+                        <img matListItemIcon *ngIf="partImagePath" [src]="partImagePath" style="width: 60px;height: 60px;" />
                         <span matListItemTitle>{{material.materialName}}</span>
                         <span matListItemLine>{{material.materialPartNumber}}</span>
                         <span matListItemLine>{{material.materialCost|currency}}</span>

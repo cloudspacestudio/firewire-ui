@@ -37,6 +37,7 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
     pageWorking = true
     categories: Category[] = []
     navItems = NavToolbar.DeviceNavItems
+    errText?: string
 
     datasource: MatTableDataSource<Category> = new MatTableDataSource(this.categories);
     
@@ -57,10 +58,13 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
                     return
                 } else {
                     this.categories = []
+                    this.pageWorking = false
                 }
             },
             error: (err: Error) => {
+                this.errText = err.message
                 console.dir(err)
+                this.pageWorking = false
             }
         })
     }
@@ -77,6 +81,19 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage();
         }
+    }
+
+    getNoDataRowText(filterValue: string) {
+        if (this.pageWorking) {
+            return "Loading, please wait..."
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return "No Data Found"
+        }
+        return `No data matching the filter "${filterValue}"`
     }
 
 }

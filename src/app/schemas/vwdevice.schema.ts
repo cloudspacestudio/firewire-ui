@@ -17,4 +17,6 @@ export interface VwDevice {
     updateby: string
     vendorId: string
     vendorName: string
+    attributeCount?: number
+    subTaskCount?: number
 }

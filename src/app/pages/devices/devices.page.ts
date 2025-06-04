@@ -30,12 +30,13 @@ import { NavToolbar } from "../../common/components/nav-toolbar"
     templateUrl: './devices.page.html'
 })
 export class DevicesPage implements OnInit, AfterViewInit  {
-    displayedColumns: string[] = ['name', 'partNumber', 'shortName', 'cost', 'categoryName', 'actions'];
+    displayedColumns: string[] = ['name', 'partNumber', 'shortName', 'cost', 'attributeCount', 'subTaskCount', 'categoryName', 'actions'];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
+    errText?: string
     devices: VwDevice[] = []
     navItems = NavToolbar.DeviceNavItems
 
@@ -58,10 +59,13 @@ export class DevicesPage implements OnInit, AfterViewInit  {
                     return
                 } else {
                     this.devices = []
+                    this.pageWorking = false
                 }
             },
             error: (err: Error) => {
+                this.errText = err.message
                 console.dir(err)
+                this.pageWorking = false
             }
         })
     }
@@ -78,6 +82,19 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage();
         }
+    }
+
+    getNoDataRowText(filterValue: string) {
+        if (this.pageWorking) {
+            return "Loading, please wait..."
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return "No Data Found"
+        }
+        return `No data matching the filter "${filterValue}"`
     }
 
 }

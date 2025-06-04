@@ -16,6 +16,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { EddyPricelist } from "../../schemas/eddypricelist.schema"
 import { NavToolbar } from "../../common/components/nav-toolbar"
+import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 
 @Component({
     standalone: true,
@@ -53,17 +54,18 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
-    eddypricelists: EddyPricelist[] = []
+    eddypricelists: VwEddyPricelist[] = []
     navItems = NavToolbar.DeviceNavItems
+    errText?: string
 
-    datasource: MatTableDataSource<EddyPricelist> = new MatTableDataSource(this.eddypricelists);
+    datasource: MatTableDataSource<VwEddyPricelist> = new MatTableDataSource(this.eddypricelists);
     
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
         this.eddypricelists = []
 
-        this.http.get('/api/fieldwire/eddypricelist').subscribe({
+        this.http.get('/api/fieldwire/vweddypricelist').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.eddypricelists = [...s.rows]
@@ -75,10 +77,14 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
                     return
                 } else {
                     this.eddypricelists = []
+                    this.pageWorking = false
                 }
             },
             error: (err: Error) => {
+                this.errText = err.message
                 console.dir(err)
+                this.pageWorking = false
+
             }
         })
     }
@@ -95,6 +101,19 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage();
         }
+    }
+
+    getNoDataRowText(filterValue: string) {
+        if (this.pageWorking) {
+            return "Loading, please wait..."
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return "No Data Found"
+        }
+        return `No data matching the filter "${filterValue}"`
     }
 
 }
