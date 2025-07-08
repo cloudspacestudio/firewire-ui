@@ -13,6 +13,7 @@ export const routes: Routes = [
     {path: 'vendors', loadComponent: () => import('./pages/vendors/vendors.page').then(m => m.VendorsPage)},
     {path: 'parts', loadComponent: () => import('./pages/eddypricelist/eddypricelist.page').then(m => m.EddyPricelistPage)},
 
+    {path: 'projects/:projectId/dailyreport', loadComponent: () => import('./pages/dailyreport/dailyreport.page').then(m => m.DailyReportPage)},
     {path: 'projects/:projectId/imports', loadComponent: () => import('./pages/imports/imports.page').then(m => m.ImportsPage)},
 
     {path: 'settings', loadComponent: () => import('./pages/settings/settings.page').then(m => m.SettingsPage)},

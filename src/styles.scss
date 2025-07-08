@@ -232,6 +232,13 @@ input[type=file]::file-selector-button {
         }
     }
 }
+.nav-tile {
+    cursor: pointer;
+    opacity: .8;
+}
+.nav-tile:hover {
+    opacity: 1;
+}
 button.active {
     background-color: variables.$primary-bg;
     color: variables.$primary-fg;

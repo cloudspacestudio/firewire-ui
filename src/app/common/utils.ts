@@ -17,4 +17,21 @@ export class Utils {
         return `https://www.google.com/maps/place/${phrase}`
     }
 
+    static getDateDayTimeRange(input: Date): DateDayTimeRange {
+        const startOfDay = new Date(input)
+        // Set the time to midnight (00:00:00.000) using setHours
+        startOfDay.setHours(0, 0, 0, 0); 
+
+        // Create another new Date object
+        const endOfDay = new Date(input);
+        // Set the time to just before midnight (23:59:59.999) using setHours
+        endOfDay.setHours(23, 59, 59, 999); 
+
+        return { start: startOfDay, end: endOfDay };
+    }
+}
+
+export interface DateDayTimeRange {
+    start: Date
+    end: Date
 }

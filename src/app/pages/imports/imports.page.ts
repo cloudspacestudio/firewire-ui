@@ -31,7 +31,7 @@ import { PreviewResponse } from "../../schemas/previewresponse.schema"
 
 @Component({
     standalone: true,
-    selector: 'devices-page',
+    selector: 'imports-page',
     imports: [CommonModule, RouterLink, 
         MatButtonModule, MatIconModule, 
         MatInputModule, MatFormFieldModule,

@@ -22,6 +22,7 @@
         <div class="tabstrip">
             <h3 style="display: inline-block;margin:0;padding:0;margin-right: 18px;">{{project?project.name:''}}</h3>
             <!-- <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button> -->
+            <button mat-flat-button [routerLink]="'/projects/' + project.id + '/dailyreport'">DAILY REPORT</button>
             <button mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'">IMPORT TASKS</button>
         </div>
         <div class="content-root with-tabstrip">

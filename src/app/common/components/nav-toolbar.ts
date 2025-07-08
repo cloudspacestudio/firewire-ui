@@ -31,6 +31,11 @@ export class NavToolbar {
         {id: 'categories', caption: 'CATEGORIES', route: `/categories`},
         {id: 'vendors', caption: 'VENDORS', route: `/vendors`}
     ]
+
+    static ProjectNavItems = [
+        {id: 'projects', caption: 'PROJECTS', route: `/projects`},
+        {id: 'administration', caption: 'ADMIN', route: `/admin`}
+    ]
 }
 
 export interface NavItem {

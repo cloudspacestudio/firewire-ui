@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core"
+import { Component, OnInit, AfterViewInit, ViewChild } from "@angular/core"
 import { NgIf, NgFor } from "@angular/common"
 
 import { HttpClient } from "@angular/common/http"
@@ -8,93 +8,95 @@ import { RouterLink } from "@angular/router"
 import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { AccountProjectSchema, AccountProjectAttributes } from "../../schemas/account.project.schema"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
+import {MatSort, MatSortModule} from '@angular/material/sort';
+import {MatTableDataSource, MatTableModule} from '@angular/material/table';
+import {MatInputModule} from '@angular/material/input';
+import {MatFormFieldModule} from '@angular/material/form-field';
 
 @Component({
     standalone: true,
-    selector: 'devices-page',
+    selector: 'projects-page',
     imports: [CommonModule, RouterLink, 
         MatButtonModule, MatIconModule, 
-        PageToolbar],
+        MatPaginatorModule, MatSortModule,
+        MatTableModule, MatInputModule,
+        MatFormFieldModule,
+        PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './projects.page.html'
 })
-export class ProjectsPage implements OnInit {
+export class ProjectsPage implements OnInit, AfterViewInit {
+    displayedColumns: string[] = ['name', 'code', 'address', 'actions'];
+
+    @ViewChild(MatPaginator) paginator?: MatPaginator;
+    @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
     projects: AccountProjectSchema[] = []
-    editableProjects: string[] = []
-    
+    navItems = NavToolbar.ProjectNavItems
+    errText?: string
+
+    datasource: MatTableDataSource<AccountProjectSchema> = new MatTableDataSource(this.projects);
+
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {
-        this.pageWorking = true
         this.projects = []
-        this.editableProjects = []
-        setTimeout(async() => {
-            await Promise.all([
-                this.fetchProjects(),
-                this.fetchEditableProjectIds()
-            ])
-            this.pageWorking = false
-        }, 1)
+
+        this.http.get('/api/fieldwire/account/projects').subscribe({
+            next: (s: any) => {
+                if (s && s.rows) {
+                    this.projects = [...s.rows]
+                    this.datasource = new MatTableDataSource(this.projects)
+                    this.datasource.paginator = this.paginator || null
+                    this.datasource.sort = this.sort || null
+                    console.dir(this.projects)
+                    this.pageWorking = false
+                    return
+                } else {
+                    this.projects = []
+                    this.pageWorking = false
+                }
+            },
+            error: (err: Error) => {
+                this.errText = err.message
+                console.dir(err)
+                this.pageWorking = false
+            }
+        })
+
     }
 
-    listEditableProjects() {
-        if (!this.projects || this.projects.length <=0 || !this.editableProjects || this.editableProjects.length <=0) {
-            return []
+    ngAfterViewInit(): void {
+        this.datasource.paginator = this.paginator||null;
+        this.datasource.sort = this.sort||null;
+    }
+
+    applyFilter(event: Event) {
+        const filterValue = (event.target as HTMLInputElement).value;
+        this.datasource.filter = filterValue.trim().toLowerCase();
+
+        if (this.datasource.paginator) {
+            this.datasource.paginator.firstPage();
         }
-        const output: AccountProjectSchema[] = []
-        this.projects.forEach((project) => {
-            if (this.editableProjects.indexOf(project.id)>=0) {
-                output.push(project)
-            }
-        })
-        return output
     }
 
-    fetchProjects(): Promise<AccountProjectSchema[]> {
-        return new Promise(async(resolve, reject) => {
-            try {
-                this.http.get('/api/fieldwire/account/projects').subscribe({
-                    next: (s: any) => {
-                        if (s && s.rows) {
-                            this.projects = [...s.rows]
-                            return resolve(this.projects)
-                        }
-                    },
-                    error: (err: Error) => {
-                        console.dir(err)
-                        return reject(err)
-                    }
-                })
-            } catch (err2) {
-                return reject(err2)
-            }
-        })
-    }
-
-    fetchEditableProjectIds(): Promise<string[]> {
-        return new Promise(async(resolve, reject) => {
-            try {
-                this.http.get('/api/fieldwire/account/editableprojectids').subscribe({
-                    next: (s: any) => {
-                        if (s && s.rows) {
-                            this.editableProjects = [...s.rows]
-                            return resolve(this.editableProjects)
-                        }
-                    },
-                    error: (err: Error) => {
-                        console.dir(err)
-                        return reject(err)
-                    }
-                })
-            } catch (err2) {
-                return reject(err2)
-            }
-        })
+    getNoDataRowText(filterValue: string) {
+        if (this.pageWorking) {
+            return "Loading, please wait..."
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return "No Data Found"
+        }
+        return `No data matching the filter "${filterValue}"`
     }
 
     toLocalDateTimeString(input: Date|string) {
