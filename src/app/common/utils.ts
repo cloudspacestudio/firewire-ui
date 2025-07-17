@@ -18,20 +18,19 @@ export class Utils {
     }
 
     static getDateDayTimeRange(input: Date): DateDayTimeRange {
-        const startOfDay = new Date(input)
-        // Set the time to midnight (00:00:00.000) using setHours
-        startOfDay.setHours(0, 0, 0, 0); 
-
-        // Create another new Date object
-        const endOfDay = new Date(input);
-        // Set the time to just before midnight (23:59:59.999) using setHours
-        endOfDay.setHours(23, 59, 59, 999); 
-
-        return { start: startOfDay, end: endOfDay };
+        const year = input.getFullYear()
+        const month = (input.getMonth() + 1).toString().padStart(2, '0')
+        const day = input.getDate().toString().padStart(2, '0')
+        const endDay = (input.getDate()+1).toString().padStart(2, '0')
+        const startOfDayText = `${year}-${month}-${day}T00:00:00.000Z`
+        const endOfDayText = `${year}-${month}-${endDay}T05:00:00.000Z`
+        return { start: startOfDayText, end: endOfDayText };
+        // 2025-07-16T00:00:00.000Z
+        // 2025-07-17T05:00:00.000Z
     }
 }
 
 export interface DateDayTimeRange {
-    start: Date
-    end: Date
+    start: string
+    end: string
 }
