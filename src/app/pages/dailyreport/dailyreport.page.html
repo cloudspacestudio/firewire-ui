@@ -44,6 +44,7 @@
                     <button mat-flat-button color="primary" (click)="createForm()" style="border-radius: 0;">
                         GENERATE IN FIELDWIRE
                     </button>
+                    <div class="table-link" *ngIf="generatedFormId" [innerHtml]="getFwLinkForFormById()"></div>
                 </div>
             </form>
 
@@ -74,6 +75,8 @@
                         <th>Device</th>
                         <th>Trade</th>
                         <th>Hours</th>
+                        <th>Root Link</th>
+                        <th>Sub Link</th>
                     </thead>
                     <tbody>
                         <tr *ngFor="let record of records">
@@ -82,6 +85,8 @@
                             <td>{{record.rootTask?.name}}</td>
                             <td>Subtask {{record.detailTask.name}} moved to status {{record.statusName}}    </td>
                             <td>{{record.detailTask.man_power_value}}</td>
+                            <td class="table-link" [innerHtml]="getFwLinkForTask(record.rootTask)"></td>
+                            <td class="table-link" [innerHtml]="getFwLinkForTask(record.detailTask)"></td>
                         </tr>
                     </tbody>
                 </table>

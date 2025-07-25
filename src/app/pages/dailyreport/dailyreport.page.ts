@@ -1,5 +1,5 @@
 import { Component, inject, OnChanges, Input, AfterViewInit } from "@angular/core"
-import { DomSanitizer, SafeStyle } from '@angular/platform-browser'
+import { DomSanitizer, SafeStyle, SafeHtml } from '@angular/platform-browser'
 import { NgIf, NgFor } from "@angular/common"
 import { FormBuilder, FormGroup } from '@angular/forms'
 import { FormsModule, ReactiveFormsModule } from '@angular/forms'
@@ -68,6 +68,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     statuses: any[] = []
     taskIds: any[] = []
     tasks: any[] = []
+    generatedFormId: string|null = null
 
 
     records: StatusRecord[] = []
@@ -95,6 +96,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             next: async(s: any) => {
                 if (s && s.data) {
                     this.project = Object.assign({}, s.data)
+                    this.generatedFormId = null
                     await Promise.all([
                         this.getProjectFormTemplates(),
                         this.getProjectFormTemplateStatuses(),
@@ -125,6 +127,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         this.tasks = []
         this.records = []
         this.groupedRecords = []
+        this.generatedFormId = null
         this.didLoad = false
     }
 
@@ -384,6 +387,24 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
+    renderLink(url: string, text: string) {
+        const output = `<a href="${url}" target="_blank">${text}</a>`
+        const response: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(output)
+        return response
+    }
+    getFwLinkForTask(task: TaskDetailSchema|null): SafeHtml {
+        if (!task) {
+            return ``
+        }
+        const url = `https://app.fieldwire.com/projects/${this.projectId}/tasks/${task.id}`
+        return this.renderLink(url, task.name)
+    }
+    getFwLinkForFormById() {
+        if (!this.generatedFormId) {
+            return ''
+        }
+        return this.renderLink(`https://app.fieldwire.com/projects/${this.projectId}/forms/${this.generatedFormId}`, 'Fieldwire Form')
+    }
 
     async createForm() {
         const template = this.templates.find(s => s.name==='Daily Report')
@@ -411,16 +432,17 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             end_at: pickDate.toJSON()
         }
         try {
+            this.generatedFormId = null
             const formResponse = await this.createFormPost(test)
             // We have the form along with the id 
             // wait for form generation to complete
             setTimeout(async() => {
                 const loadResponse = await this.loadDailyReport(formResponse.id)
+                this.generatedFormId = formResponse.id
             }, 10000)
         } catch (err) {
             console.error(err)
         }
-
     }
 
     async load() {
@@ -428,6 +450,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         this.tasks = []
         this.records = []
         this.groupedRecords = []
+        this.generatedFormId = null
 
         const statuses = await this.getStatuses()
         for(let x = 0; x < statuses.rows.length; x++) {

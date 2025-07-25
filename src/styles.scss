@@ -247,6 +247,10 @@ button.success {
     background-color: variables.$success-bg;
     color: variables.$success-fg;
 }
+.table-link a {
+    text-decoration: underline;
+    color: variables.$secondary-bg;
+}
 .mat-column-cost {
     text-align: right;
     justify-content: flex-end;
