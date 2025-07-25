@@ -30,6 +30,11 @@ import { FormTemplateStatus } from "../../schemas/form.templatestatus"
 import { FieldwireForm } from "../../schemas/fieldwire.form"
 import { CreateFormSchema } from "../../schemas/createform.schema"
 import { DailyReportSchema } from "../../schemas/dailyreport.schema"
+import { TaskRelationSchema } from "../../schemas/taskrelation.schema"
+import { TaskRelatedSchema } from "../../schemas/taskrelated.schema"
+import { TaskDetailSchema } from "../../schemas/taskdetail.schema"
+import { ProjectFloorplanSchema } from "../../schemas/projectfloorplan.schema"
+import { AccountProjectUserSchema } from "../../schemas/accountproject.user.schema"
 
 @Component({
     standalone: true,
@@ -55,12 +60,16 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     templates: FormTemplate[] = []
     templateStatuses: FormTemplateStatus[] = []
     forms: any[] = []
+    floorplans: ProjectFloorplanSchema[] = []
+    users: AccountProjectUserSchema[] = []
 
     didLoad: boolean = false
 
     statuses: any[] = []
     taskIds: any[] = []
     tasks: any[] = []
+
+
     records: StatusRecord[] = []
     groupedRecords: GroupedRecord[] = []
 
@@ -89,7 +98,9 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                     await Promise.all([
                         this.getProjectFormTemplates(),
                         this.getProjectFormTemplateStatuses(),
-                        this.getProjectForms()
+                        this.getProjectForms(),
+                        this.getProjectFloorplans(),
+                        this.getProjectUsers()
                     ])
                     this.pageWorking = false
                     return
@@ -111,7 +122,6 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     changeDate(e: any) {
-        console.log(`Date Changed`)
         this.tasks = []
         this.records = []
         this.groupedRecords = []
@@ -131,7 +141,6 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/formtemplates`).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         this.templates = s.rows
                         return resolve(s)
                     },
@@ -151,7 +160,6 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/formtemplatestatuses`).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         this.templateStatuses = s.rows
                         return resolve(s)
                     },
@@ -171,7 +179,44 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/forms`).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
+    getProjectFloorplans(): Promise<ProjectFloorplanSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/floorplans`).subscribe({
+                    next: async(s: any) => {
+                        this.floorplans = [...s.rows]
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
+    getProjectUsers(): Promise<AccountProjectUserSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/account/projects/${this.projectId}/users`).subscribe({
+                    next: async(s: any) => {
+                        this.users = [...s.rows]
                         return resolve(s)
                     },
                     error: (err: Error) => {
@@ -190,7 +235,6 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/statuses`).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         return resolve(s)
                     },
                     error: (err: Error) => {
@@ -240,12 +284,11 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
-    getTaskDetail(taskId: string): Promise<any> {
+    getTaskDetail(taskId: string): Promise<TaskDetailSchema> {
         return new Promise(async(resolve, reject) => {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/tasks/${taskId}`).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         return resolve(s)
                     },
                     error: (err: Error) => {
@@ -258,12 +301,47 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
+    getTaskRelations(taskId: string): Promise<TaskRelatedSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/tasks/${taskId}/related`).subscribe({
+                    next: async(s: any) => {
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
+    getProjectTaskRelations(): Promise<TaskRelationSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/task_relations`).subscribe({
+                    next: async(s: any) => {
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
     createFormPost(input: CreateFormSchema): Promise<FieldwireForm> {
         return new Promise(async(resolve, reject) => {
             try {
                 this.http.post(`/api/fieldwire/projects/${this.projectId}/forms`, input).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         return resolve(s)
                     },
                     error: (err2: Error) => {
@@ -288,12 +366,11 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                     input.worklog.push({
                         Trade: record.statusName,
                         Quantity: record.count,
-                        Hours: 8.0
+                        Hours: record.labor
                     })
                 })
                 this.http.post(`/api/fieldwire/projects/${this.projectId}/forms/loaddailyreport`, input).subscribe({
                     next: async(s: any) => {
-                        console.dir(s)
                         return resolve(s)
                     },
                     error: (err2: Error) => {
@@ -355,22 +432,38 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         const statuses = await this.getStatuses()
         for(let x = 0; x < statuses.rows.length; x++) {
             const statusRecord = statuses.rows[x]
-            console.log(`Getting list of task ids for status ${statusRecord.name}`)
             const statusId = statusRecord.id // 'a22a3579-0928-4bde-81db-12659351bc72' // Completed
             const ids = await this.getTaskListForStatus(statusId)
             for(let i = 0; i < ids.length; i++) {
-                const id = ids[i]
-                const taskDetail = await this.getTaskDetail(id)
-                const testTaskDetail = this.tasks.find(s => s.id===id)
+                const taskId = ids[i]
+                const taskDetail = await this.getTaskDetail(taskId)
+                const testTaskDetail = this.tasks.find(s => s.id===taskId)
                 if (!testTaskDetail) {
                     this.tasks.push(taskDetail)
                 }
+                let deviceRootTask: TaskDetailSchema|null = null
+                if (!taskDetail.is_local) {
+                    // There are the sub task records
+                    // Get Parent Record (Device Task)
+                    const relatedTasks = await this.getTaskRelations(taskId)
+                    deviceRootTask = await this._getRootTaskFromRelatedIds(relatedTasks)
+                } else {
+                    deviceRootTask = taskDetail
+                }
+
+                const userRecord = this.users.find(s => s.id===taskDetail.last_editor_user_id)
                 this.records.push({
                     statusId: statusRecord.id,
                     statusName: statusRecord.name,
                     taskId: taskDetail.id,
-                    taskName: taskDetail.name
+                    taskName: taskDetail.name,
+                    rootTask: deviceRootTask,
+                    detailTask: taskDetail,
+                    userId: taskDetail.last_editor_user_id,
+                    userName: userRecord && userRecord.email ? `${userRecord.first_name} ${userRecord.last_name}`:`Unknown User`
                 })
+                // Task Custom Attributes
+
             }
         }
         // Have records loaded and tasks loaded
@@ -382,10 +475,12 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 this.groupedRecords.push({
                     statusId: record.statusId,
                     statusName: record.statusName,
-                    count: 1
+                    count: 1,
+                    labor: record.detailTask.man_power_value
                 })
             } else {
-                test.count++
+                test.count = test.count + 1
+                test.labor = test.labor + record.detailTask.man_power_value
             }
         }
         this.didLoad = true
@@ -397,6 +492,36 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         return JSON.stringify(input, null, 2)
     }
 
+    getFloorplanName(record: StatusRecord): string {
+        if (!record || !record.rootTask || !record.rootTask.is_local || !record.rootTask.floorplan_id) {
+            return `Unknown`
+        }
+        const test = this.floorplans.find(s => s.id===record.rootTask?.floorplan_id)
+        if (!test) {
+            return `Unknown`
+        }
+        return test.name
+    }
+
+    private _getRootTaskFromRelatedIds(ids: TaskRelatedSchema[]): Promise<TaskDetailSchema|null> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                let output: TaskDetailSchema|null = null
+                let amFinished = false
+                for(let i = 0; i < ids.length && !amFinished; i++) {
+                    const test = await this.getTaskDetail(ids[i].task_id)
+                    if (test && test.is_local) {
+                        output = test
+                        amFinished = true
+                    }
+                }
+                return resolve(output)
+            } catch (err) {
+                return reject(err)
+            }
+        })
+    }
+
 }
 
 export interface StatusRecord {
@@ -404,10 +529,15 @@ export interface StatusRecord {
     statusName: string
     taskId: string
     taskName: string
+    rootTask: TaskDetailSchema|null
+    detailTask: TaskDetailSchema
+    userId: number
+    userName: string
 }
 
 export interface GroupedRecord {
     statusId: string
     statusName: string
     count: number
+    labor: number
 }

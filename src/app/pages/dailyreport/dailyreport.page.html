@@ -42,7 +42,7 @@
                 <div style="width: 100%;height: 10px;"></div>
                 <div *ngIf="didLoad && templates.length > 0 && templateStatuses.length > 0" style="text-align: left;">
                     <button mat-flat-button color="primary" (click)="createForm()" style="border-radius: 0;">
-                        GENERATE
+                        GENERATE IN FIELDWIRE
                     </button>
                 </div>
             </form>
@@ -60,7 +60,28 @@
                         <tr *ngFor="let record of groupedRecords">
                             <td>{{record.statusName}}</td>
                             <td>{{record.count}}</td>
-                            <td>8.0</td>
+                            <td>{{record.labor}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div *ngIf="records.length > 0" style="margin-top: 20px;margin-bottom: 20px;">
+                <h2>Form Line Items</h2>
+                <table>
+                    <thead>
+                        <th>User</th>
+                        <th>Floorplan</th>
+                        <th>Device</th>
+                        <th>Trade</th>
+                        <th>Hours</th>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let record of records">
+                            <td>{{record.userName}}</td>
+                            <td>{{getFloorplanName(record)}}</td>
+                            <td>{{record.rootTask?.name}}</td>
+                            <td>Subtask {{record.detailTask.name}} moved to status {{record.statusName}}    </td>
+                            <td>{{record.detailTask.man_power_value}}</td>
                         </tr>
                     </tbody>
                 </table>
