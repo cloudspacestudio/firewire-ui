@@ -17,13 +17,18 @@ export class Utils {
         return `https://www.google.com/maps/place/${phrase}`
     }
 
-    static getDateDayTimeRange(input: Date): DateDayTimeRange {
-        const year = input.getFullYear()
-        const month = (input.getMonth() + 1).toString().padStart(2, '0')
-        const day = input.getDate().toString().padStart(2, '0')
-        const endDay = (input.getDate()+1).toString().padStart(2, '0')
-        const startOfDayText = `${year}-${month}-${day}T00:00:00.000Z`
-        const endOfDayText = `${year}-${month}-${endDay}T05:00:00.000Z`
+    static getDateDayTimeRange(startDate: Date): DateDayTimeRange {
+        const year = startDate.getFullYear()
+        const month = (startDate.getMonth() + 1).toString().padStart(2, '0')
+        const day = startDate.getDate().toString().padStart(2, '0')
+        
+        const endDate = new Date(startDate.getTime() + (1000 * 60 * 60 * 24))
+        const endyear = endDate.getFullYear()
+        const endmonth = (endDate.getMonth() + 1).toString().padStart(2, '0')
+        const endday = endDate.getDate().toString().padStart(2, '0')
+
+        const startOfDayText = `${year}-${month}-${day}T05:00:00.000Z`
+        const endOfDayText = `${endyear}-${endmonth}-${endday}T05:00:00.000Z`
         return { start: startOfDayText, end: endOfDayText };
         // 2025-07-16T00:00:00.000Z
         // 2025-07-17T05:00:00.000Z

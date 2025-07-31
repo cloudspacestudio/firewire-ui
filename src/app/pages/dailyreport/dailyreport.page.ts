@@ -340,6 +340,27 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
+    getProjectFormFull(): Promise<TaskRelationSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                if (!this.generatedFormId) {
+                    return
+                }
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/forms/${this.generatedFormId}/full`).subscribe({
+                    next: async(s: any) => {
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
     createFormPost(input: CreateFormSchema): Promise<FieldwireForm> {
         return new Promise(async(resolve, reject) => {
             try {
@@ -358,9 +379,13 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
-    loadDailyReport(formId: string): Promise<any> {
+    loadDailyReport(): Promise<any> {
         return new Promise(async(resolve, reject) => {
             try {
+                const formId = this.generatedFormId
+                if (!formId) {
+                    return
+                }
                 const input: DailyReportSchema = {
                     form_id: formId,
                     worklog: []
@@ -436,10 +461,10 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             const formResponse = await this.createFormPost(test)
             // We have the form along with the id 
             // wait for form generation to complete
-            setTimeout(async() => {
-                const loadResponse = await this.loadDailyReport(formResponse.id)
-                this.generatedFormId = formResponse.id
-            }, 10000)
+            this.generatedFormId = formResponse.id
+            // setTimeout(async() => {
+            //     const loadResponse = await this.loadDailyReport(formResponse.id)
+            // }, 10000)
         } catch (err) {
             console.error(err)
         }
