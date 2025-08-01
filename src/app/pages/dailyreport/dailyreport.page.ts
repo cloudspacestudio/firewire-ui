@@ -340,13 +340,37 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
-    getProjectFormFull(): Promise<TaskRelationSchema[]> {
+    getProjectFormFull(): Promise<any[]> {
         return new Promise(async(resolve, reject) => {
             try {
                 if (!this.generatedFormId) {
                     return
                 }
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/forms/${this.generatedFormId}/full`).subscribe({
+                    next: async(s: any) => {
+                        if (s && s.jid) {
+                            this.getProjectFormFullByJid(s.jid)
+                        }
+                        return resolve(s)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.dir(err)
+                return reject(err)
+            }
+        })
+    }
+    getProjectFormFullByJid(id: string) {
+        return new Promise(async(resolve, reject) => {
+            try {
+                if (!this.generatedFormId) {
+                    return
+                }
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/forms/${this.generatedFormId}/full?jid=${id}`).subscribe({
                     next: async(s: any) => {
                         return resolve(s)
                     },
