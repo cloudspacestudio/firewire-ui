@@ -144,11 +144,18 @@ table {
     }
     .component-group {
         border: 1px solid variables.$secondary-bg;
-        border-radius: 8px;
+        border-radius: 0;
         margin: 0;
-        padding: 4px;
+        padding: 0;
         width: 340px;
         position: relative;
+        table {
+            width: 100%;
+            max-width: 330px;
+            margin: 4px;
+            margin-top: 15px;
+            padding: 8px;
+        }
         .toolbar-btn {
             position: absolute;
             top: 23px;
