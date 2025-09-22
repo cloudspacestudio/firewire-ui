@@ -340,6 +340,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
+
     getProjectFormFull(): Promise<any[]> {
         return new Promise(async(resolve, reject) => {
             try {
@@ -456,7 +457,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     async createForm() {
-        const template = this.templates.find(s => s.name==='Daily Report')
+        const template = this.templates.find(s => s.name==='Revised Daily Report')
         const defaultStatus = this.templateStatuses.find(s => s.ordinal===1)
         const pickDateString = this.form.get('picker')?.value
         if (!template) {
