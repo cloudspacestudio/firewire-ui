@@ -16,19 +16,14 @@
 
             <form [formGroup]="form" enctype="multipart/form-data">
                 <div style="margin-top: 20px;">
-                <mat-form-field>
+                <mat-form-field style="margin-right: 4px;">
                 <mat-label>Choose a date</mat-label>
                 <input matInput [matDatepicker]="picker" formControlName="picker" (dateChange)="changeDate($event)">
                 <mat-hint></mat-hint>
                 <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
                 <mat-datepicker #picker></mat-datepicker>
                 </mat-form-field>
-                <button mat-flat-button color="primary" (click)="load()" style="border-radius: 0;margin-left: 6px;">
-                    LOAD
-                </button>
 
-                </div>
-                <div style="margin-top: 12px;">
                 <mat-form-field appearance="fill">
                     <mat-label>Template</mat-label>
                     <mat-select formControlName="templateId"
@@ -38,7 +33,13 @@
                     </mat-option>
                     </mat-select>
                 </mat-form-field>
+
+                <button mat-flat-button color="primary" (click)="load()" style="border-radius: 0;margin-left: 6px;">
+                    LOAD
+                </button>
+
                 </div>
+
 
                 <div style="width: 100%;height: 10px;"></div>
                 <div *ngIf="didLoad && templates.length > 0 && templateStatuses.length > 0" style="text-align: left;">
@@ -55,50 +56,79 @@
                 </div>
             </form>
 
-            <div *ngIf="groupedRecords.length > 0" style="margin-top: 20px;">
-                <!-- <pre>{{jsonify(groupedRecords)}}</pre> -->
-                <h2>{{getFormName()}}</h2>
-                <table>
-                    <thead>
-                        <th>Trade</th>
-                        <th>Quantity</th>
-                        <th>Hours</th>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let record of groupedRecords">
-                            <td>{{record.statusName}}</td>
-                            <td>{{record.count}}</td>
-                            <td>{{record.labor}}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div *ngIf="records.length > 0" style="margin-top: 20px;margin-bottom: 20px;">
-                <h2>Form Line Items</h2>
-                <table>
-                    <thead>
-                        <th>User</th>
-                        <th>Floorplan</th>
-                        <th>Device</th>
-                        <th>Trade</th>
-                        <th>Hours</th>
-                        <th>Root Link</th>
-                        <th>Sub Link</th>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let record of records">
-                            <td>{{record.userName}}</td>
-                            <td>{{getFloorplanName(record)}}</td>
-                            <td>{{record.rootTask?.name}}</td>
-                            <td>Subtask {{record.detailTask.name}} moved to status {{record.statusName}}    </td>
-                            <td>{{record.detailTask.man_power_value}}</td>
-                            <td class="table-link" [innerHtml]="getFwLinkForTask(record.rootTask)"></td>
-                            <td class="table-link" [innerHtml]="getFwLinkForTask(record.detailTask)"></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            <mat-tab-group *ngIf="didLoad && groupedRecords.length || records.length || deviceRecords.length">
+                <mat-tab label="Fieldwire Task Summary">
+                    <div *ngIf="groupedRecords.length > 0" style="margin-top: 20px;">
+                        <!-- <pre>{{jsonify(groupedRecords)}}</pre> -->
+                        <!-- <h2>{{getFormName()}}</h2> -->
+                        <table>
+                            <thead>
+                                <th>Trade</th>
+                                <th>Quantity</th>
+                                <th>Hours</th>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let record of groupedRecords">
+                                    <td>{{record.statusName}}</td>
+                                    <td>{{record.count}}</td>
+                                    <td>{{record.labor}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div *ngIf="!groupedRecords || groupedRecords.length<=0">No Records Found</div>
+                </mat-tab>
+                <mat-tab label="Worker Summary">
+                    <div *ngIf="records.length > 0" style="margin-top: 20px;margin-bottom: 20px;">
+                        <table>
+                            <thead>
+                                <th>User</th>
+                                <th>Floorplan</th>
+                                <th>Device</th>
+                                <th>Trade</th>
+                                <th>Hours</th>
+                                <th>Root Link</th>
+                                <th>Sub Link</th>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let record of records">
+                                    <td>{{record.userName}}</td>
+                                    <td>{{getFloorplanName(record)}}</td>
+                                    <td>{{getRootTaskName(record)}}</td>
+                                    <td>{{record.statusName}}</td>
+                                    <td>{{record.detailTask.man_power_value}}</td>
+                                    <td class="table-link" [innerHtml]="getFwLinkForTask(record.rootTask)"></td>
+                                    <td class="table-link" [innerHtml]="getFwLinkForTask(record.detailTask)"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div *ngIf="!records || records.length<=0">No Records Found</div>
+                </mat-tab>       
+                <mat-tab label="Device Worker Summary">
+                    <div *ngIf="deviceRecords.length > 0" style="margin-top: 20px;margin-bottom: 20px;">
+                        <table>
+                            <thead>
+                                <th>User</th>
+                                <th>Floorplan</th>
+                                <th>Device</th>
+                                <th>Moved to Status</th>
+                                <th>Device Link</th>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let deviceRecord of deviceRecords">
+                                    <td>{{deviceRecord.userName}}</td>
+                                    <td>{{getFloorplanName(deviceRecord)}}</td>
+                                    <td>{{getRootTaskName(deviceRecord)}}</td>
+                                    <td>{{deviceRecord.statusName}}</td>
+                                    <td class="table-link" [innerHtml]="getFwLinkForTask(deviceRecord.rootTask)"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div *ngIf="!deviceRecords || deviceRecords.length<=0">No Records Found</div>
+                </mat-tab>      
+            </mat-tab-group>
         
         </div>
     </div>

@@ -21,6 +21,7 @@ import { MatSelectModule } from "@angular/material/select"
 import { MatListModule } from "@angular/material/list"
 import {MatCheckboxModule} from '@angular/material/checkbox'
 import {MatDatepickerModule} from '@angular/material/datepicker'
+import { MatTabsModule } from '@angular/material/tabs'
 
 import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
@@ -44,7 +45,7 @@ import { AccountProjectUserSchema } from "../../schemas/accountproject.user.sche
         MatInputModule, MatFormFieldModule,
         MatSelectModule, MatCheckboxModule,
         MatDialogModule,MatDatepickerModule,
-        MatListModule,
+        MatListModule, MatTabsModule,
         PageToolbar, FormsModule, 
         ReactiveFormsModule],
     providers: [HttpClient],
@@ -72,6 +73,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
 
     records: StatusRecord[] = []
+    deviceRecords: StatusRecord[] = []
     groupedRecords: GroupedRecord[] = []
 
     //data?: any
@@ -459,7 +461,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             return ``
         }
         const url = `https://app.fieldwire.com/projects/${this.projectId}/tasks/${task.id}`
-        return this.renderLink(url, task.name)
+        return this.renderLink(url, task.name?task.name:`Unnamed Device`)
     }
     getFwLinkForFormById() {
         if (!this.generatedFormId) {
@@ -540,18 +542,31 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 }
 
                 const userRecord = this.users.find(s => s.id===taskDetail.last_editor_user_id)
-                this.records.push({
-                    statusId: statusRecord.id,
-                    statusName: statusRecord.name,
-                    taskId: taskDetail.id,
-                    taskName: taskDetail.name,
-                    rootTask: deviceRootTask,
-                    detailTask: taskDetail,
-                    userId: taskDetail.last_editor_user_id,
-                    userName: userRecord && userRecord.email ? `${userRecord.first_name} ${userRecord.last_name}`:`Unknown User`
-                })
-                // Task Custom Attributes
-
+                if (deviceRootTask && deviceRootTask.id!==taskDetail.id) { // (taskDetail && taskDetail.name) {
+                    // Standard Sub Task
+                    this.records.push({
+                        statusId: statusRecord.id,
+                        statusName: statusRecord.name,
+                        taskId: taskDetail.id,
+                        taskName: taskDetail.name,
+                        rootTask: deviceRootTask,
+                        detailTask: taskDetail,
+                        userId: taskDetail.last_editor_user_id,
+                        userName: userRecord && userRecord.email ? `${userRecord.first_name} ${userRecord.last_name}`:`Unknown User`
+                    })
+                } else {
+                    // Standard Sub Task
+                    this.deviceRecords.push({
+                        statusId: statusRecord.id,
+                        statusName: statusRecord.name,
+                        taskId: taskDetail.id,
+                        taskName: taskDetail.name,
+                        rootTask: deviceRootTask,
+                        detailTask: taskDetail,
+                        userId: taskDetail.last_editor_user_id,
+                        userName: userRecord && userRecord.email ? `${userRecord.first_name} ${userRecord.last_name}`:`Unknown User`
+                    })
+                }
             }
         }
         // Have records loaded and tasks loaded
@@ -580,6 +595,12 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         return JSON.stringify(input, null, 2)
     }
 
+    getRootTaskName(input: StatusRecord) {
+        if (!input) {
+            return ``
+        }
+        return input.rootTask && input.rootTask.name ? input.rootTask.name : `Unnamed Device`
+    }
     getFloorplanName(record: StatusRecord): string {
         if (!record || !record.rootTask || !record.rootTask.is_local || !record.rootTask.floorplan_id) {
             return `Unknown`
