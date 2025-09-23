@@ -144,7 +144,19 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/formtemplates`).subscribe({
                     next: async(s: any) => {
-                        this.templates = s.rows
+                        if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
+                            console.log(`Unable to retrieve form templates`)
+                            return
+                        }
+                        this.templates = s.rows.filter((x: any) => x.checksum)
+                        if(!this.templates || this.templates.length <= 0) {
+                            console.log(`Unable to retrieve form templates`)
+                            return
+                        }
+                        this.form.setValue({
+                            'picker': new Date(),
+                            'templateId': this.templates[0].id
+                        })
                         return resolve(s)
                     },
                     error: (err: Error) => {
@@ -457,13 +469,16 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     async createForm() {
-        const template = this.templates.find(s => s.name==='Revised Daily Report')
-        const defaultStatus = this.templateStatuses.find(s => s.ordinal===1)
         const pickDateString = this.form.get('picker')?.value
+        const templateIdString = this.form.get('templateId')?.value
+        const template = this.templates.find(s => s.id===templateIdString)//'Revised Daily Report')
+
         if (!template) {
             console.log(`Unable to determine default daily report template`)
             return
         }
+
+        const defaultStatus = this.templateStatuses.find(s => s.ordinal===1)
         if (!defaultStatus) {
             console.log(`Unable to determine default template status`)
             return

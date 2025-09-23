@@ -4,6 +4,7 @@
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
+    <div *ngIf="project" style="margin-left: 10px;">{{project.name}}</div>
     <!-- <div class="button-bar">
         <button mat-flat-button class="inactive">IMPORTS</button>
         <button mat-flat-button class="active">UPLOAD</button>
@@ -27,7 +28,7 @@
                 </button>
 
                 </div>
-                <!-- <div style="margin-top: 12px;">
+                <div style="margin-top: 12px;">
                 <mat-form-field appearance="fill">
                     <mat-label>Template</mat-label>
                     <mat-select formControlName="templateId"
@@ -37,7 +38,7 @@
                     </mat-option>
                     </mat-select>
                 </mat-form-field>
-                </div> -->
+                </div>
 
                 <div style="width: 100%;height: 10px;"></div>
                 <div *ngIf="didLoad && templates.length > 0 && templateStatuses.length > 0" style="text-align: left;">
