@@ -36,6 +36,10 @@ import { TaskRelatedSchema } from "../../schemas/taskrelated.schema"
 import { TaskDetailSchema } from "../../schemas/taskdetail.schema"
 import { ProjectFloorplanSchema } from "../../schemas/projectfloorplan.schema"
 import { AccountProjectUserSchema } from "../../schemas/accountproject.user.schema"
+import { VwDevice } from "../../schemas/vwdevice.schema"
+import { TeamSchema } from "../../schemas/team.schema"
+import { CategoryLaborSchema } from "../../schemas/categorylabor.schema"
+import { ProjectStatusSchema } from "../../schemas/projectstatus.schema"
 
 @Component({
     standalone: true,
@@ -66,14 +70,14 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
     didLoad: boolean = false
 
-    statuses: any[] = []
+    statuses: ProjectStatusSchema[] = []
     taskIds: any[] = []
     tasks: any[] = []
     generatedFormId: string|null = null
+    teams: TeamSchema[] = []
+    categoryLabors: CategoryLaborSchema[] = []
 
-
-    records: StatusRecord[] = []
-    deviceRecords: StatusRecord[] = []
+    records: DetailRecord[] = []
     groupedRecords: GroupedRecord[] = []
 
     //data?: any
@@ -87,12 +91,12 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
     ngOnChanges(): void {
         this.pageWorking = true
-        this.project = undefined
 
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
             return
         }
+        this.reset()
 
         this.http.get(`/api/fieldwire/projects/${this.projectId}`).subscribe({
             next: async(s: any) => {
@@ -104,7 +108,10 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                         this.getProjectFormTemplateStatuses(),
                         this.getProjectForms(),
                         this.getProjectFloorplans(),
-                        this.getProjectUsers()
+                        this.getProjectUsers(),
+                        this.getProjectTeams(),
+                        this.getStatuses(),
+                        this.getProjectCategoryLabor()
                     ])
                     this.pageWorking = false
                     return
@@ -116,6 +123,22 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 this.pageWorking = false
             }
         })
+    }
+
+    reset() {
+        this.project = undefined
+        this.teams = []
+        this.templates = []
+        this.templateStatuses = []
+        this.floorplans = []
+        this.users = []
+        this.statuses = []
+        this.taskIds = []
+        this.tasks = []
+        this.generatedFormId = null
+        this.categoryLabors = []
+        this.records = []
+        this.groupedRecords = []
     }
 
     ngAfterViewInit(): void {
@@ -209,6 +232,60 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
+    getProjectTeams(): Promise<TeamSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/projects/${this.projectId}/teams`).subscribe({
+                    next: async(s: any) => {
+                        if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
+                            console.log(`Unable to retrieve project teams`)
+                            return reject(new Error(`Unable to retrieve project teams`))
+                        }
+                        this.teams = [...s.rows]
+                        return resolve(this.teams)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.error(err)
+                return reject(err)
+            }
+        })
+    }
+    getProjectCategoryLabor(): Promise<CategoryLaborSchema[]> {
+        return new Promise(async(resolve, reject) => {
+            try {
+                this.http.get(`/api/fieldwire/categorylabors`).subscribe({
+                    next: async(s: any) => {
+                        if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
+                            console.log(`Unable to retrieve category labor`)
+                            return reject(new Error(`Unable to retrieve category labor`))
+                        }
+                        this.categoryLabors = [...s.rows]
+                        return resolve(this.categoryLabors)
+                    },
+                    error: (err: Error) => {
+                        console.dir(err)
+                        return reject(err)
+                    }
+                })
+            } catch (err) {
+                console.error(err)
+                return reject(err)
+            }
+        })
+    } 
+    getProjectTeamDetail(teamId: string): TeamSchema|null {
+        const test = this.teams.find(s => s.id===teamId)
+        if (!test) {
+            console.error(`Unable to find project team record for id: ${teamId}`)
+            return null
+        }
+        return test
+    }
     getProjectFloorplans(): Promise<ProjectFloorplanSchema[]> {
         return new Promise(async(resolve, reject) => {
             try {
@@ -247,12 +324,17 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
             }
         })
     }
-    getStatuses(): Promise<any> {
+    getStatuses(): Promise<ProjectStatusSchema[]> {
         return new Promise(async(resolve, reject) => {
             try {
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/statuses`).subscribe({
                     next: async(s: any) => {
-                        return resolve(s)
+                        if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
+                            console.log(`Unable to retrieve project statuses`)
+                            return reject(new Error(`Unable to retrieve project statuses`))
+                        }
+                        this.statuses = [...s.rows]
+                        return resolve(this.statuses)
                     },
                     error: (err: Error) => {
                         console.dir(err)
@@ -304,6 +386,10 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     getTaskDetail(taskId: string): Promise<TaskDetailSchema> {
         return new Promise(async(resolve, reject) => {
             try {
+                const testTask = this.tasks.find(s => s.id===taskId)
+                if (testTask) {
+                    return resolve(testTask)
+                }
                 this.http.get(`/api/fieldwire/projects/${this.projectId}/tasks/${taskId}`).subscribe({
                     next: async(s: any) => {
                         return resolve(s)
@@ -519,6 +605,153 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         this.groupedRecords = []
         this.generatedFormId = null
 
+        for(let x = 0; x < this.statuses.length; x++) {
+            const statusRecord = this.statuses[x]
+            const statusId = statusRecord.id // 'a22a3579-0928-4bde-81db-12659351bc72' // Completed
+            const ids = await this.getTaskListForStatus(statusId)
+            for(let i = 0; i < ids.length; i++) {
+                const taskId = ids[i]
+                const taskDetail = await this.getTaskDetail(taskId)
+
+                const deviceRootTask: TaskDetailSchema|null = taskDetail && taskDetail.is_local ? taskDetail:null
+                if (deviceRootTask && deviceRootTask.is_local) {
+                    // We ignore any task that is not on a floorplan
+                    // Resolve Device Detail for this task using either deviceid custom attr or team id (category) lookup by name
+                    // Get Team Name
+                    let team = this.getProjectTeamDetail(deviceRootTask.team_id)
+                    if (!team) {
+                        console.dir(deviceRootTask)
+                        console.warn(`Unable to setup project team logic`)
+                        team = {
+                            id: ``,
+                            name: `*`,
+                            handle: ``,
+                            project_id: ``
+                        }
+                    }
+                    // Get Sub Task List (status names with labor for device id)
+                    const categoryLabor = this.resolveCategoryLabor(team.name, statusRecord.name)
+                    if (!categoryLabor) {
+                        console.log(`Unable to locate matching category labor for category ${team.name} and status ${statusRecord.name}`)
+                    } else {
+                        const userRecord = this.users.find(s => s.id===taskDetail.last_editor_user_id)
+
+                        this.records.push({
+                            statusId: statusRecord.id,
+                            statusName: statusRecord.name,
+                            taskId: taskDetail.id,
+                            taskName: taskDetail.name,
+                            taskDetail,
+                            categoryLabor,
+                            team,
+                            manpower: categoryLabor.labor,
+                            userId: taskDetail.last_editor_user_id,
+                            userName: userRecord && userRecord.email ? `${userRecord.first_name} ${userRecord.last_name}`:`Unknown User`
+                        })
+                    }
+                } else {
+                    console.error(`Unable to locate metadata for task: ${taskId}`)
+                }
+            }
+        }
+        // Have records loaded and tasks loaded
+        for (let i = 0; i < this.records.length; i++) {
+            const record = this.records[i]
+            const test = this.groupedRecords.find(s => s.statusId===record.statusId)
+            if (!test) {
+                // Status not loaded into array yet
+                this.groupedRecords.push({
+                    statusId: record.statusId,
+                    statusName: record.statusName,
+                    count: 1,
+                    labor: record.manpower
+                })
+            } else {
+                test.count = test.count + 1
+                test.labor = test.labor + record.manpower
+            }
+        }
+        this.didLoad = true
+    }
+
+    onSelectChange(event: any) {}
+
+    jsonify(input: any) {
+        return JSON.stringify(input, null, 2)
+    }
+
+    private resolveCategoryLabor(teamName: string, statusName: string, org?: string): CategoryLaborSchema|null {
+        // categoryName, org, project: groups
+        // always statusName with labor
+        const projectWithCategory = this.categoryLabors.find(s => s.project===this.projectId && s.categoryName===teamName && s.statusName===statusName)
+        if (projectWithCategory) {
+            return projectWithCategory
+        }
+        const projectNoCategory = this.categoryLabors.find(s => s.project===this.project && s.categoryName==='*' && s.statusName===statusName)
+        if (projectNoCategory) {
+            return projectNoCategory
+        }
+        if (org) {
+            const orgWithCategory = this.categoryLabors.find(s => s.org===org && s.project==='*' && s.categoryName===teamName && s.statusName===statusName)
+            if (orgWithCategory) {
+                return orgWithCategory
+            }
+            const orgStatusOnly = this.categoryLabors.find(s => s.org===org && s.project==='*' && s.statusName===statusName)
+            if (orgStatusOnly) {
+                return orgStatusOnly
+            }
+        }
+        // Now Default to status name only
+        const statusNameOnly = this.categoryLabors.find(s => s.project==='*' && s.categoryName==='*' && s.org==='*' && s.statusName===statusName)
+        if (statusNameOnly) {
+            return statusNameOnly
+        }
+        return null
+    }
+
+    // getRootTaskName(input: StatusRecord) {
+    //     if (!input) {
+    //         return ``
+    //     }
+    //     return input.rootTask && input.rootTask.name ? input.rootTask.name : `Unnamed Device`
+    // }
+    getFloorplanName(record: DetailRecord): string {
+        if (!record || !record.taskDetail || !record.taskDetail.is_local || !record.taskDetail.floorplan_id) {
+            return `Unknown`
+        }
+        const test = this.floorplans.find(s => s.id===record.taskDetail?.floorplan_id)
+        if (!test) {
+            return `Unknown`
+        }
+        return test.name
+    }
+
+    // private _getRootTaskFromRelatedIds(ids: TaskRelatedSchema[]): Promise<TaskDetailSchema|null> {
+    //     return new Promise(async(resolve, reject) => {
+    //         try {
+    //             let output: TaskDetailSchema|null = null
+    //             let amFinished = false
+    //             for(let i = 0; i < ids.length && !amFinished; i++) {
+    //                 const test = await this.getTaskDetail(ids[i].task_id)
+    //                 if (test && test.is_local) {
+    //                     output = test
+    //                     amFinished = true
+    //                 }
+    //             }
+    //             return resolve(output)
+    //         } catch (err) {
+    //             return reject(err)
+    //         }
+    //     })
+    // }
+/*
+    async load() {
+        this.didLoad = false
+        this.tasks = []
+        this.records = []
+        this.groupedRecords = []
+        this.generatedFormId = null
+
         const statuses = await this.getStatuses()
         for(let x = 0; x < statuses.rows.length; x++) {
             const statusRecord = statuses.rows[x]
@@ -528,6 +761,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 const taskId = ids[i]
                 const taskDetail = await this.getTaskDetail(taskId)
                 const testTaskDetail = this.tasks.find(s => s.id===taskId)
+                
                 if (!testTaskDetail) {
                     this.tasks.push(taskDetail)
                 }
@@ -588,58 +822,19 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         }
         this.didLoad = true
     }
-
-    onSelectChange(event: any) {}
-
-    jsonify(input: any) {
-        return JSON.stringify(input, null, 2)
-    }
-
-    getRootTaskName(input: StatusRecord) {
-        if (!input) {
-            return ``
-        }
-        return input.rootTask && input.rootTask.name ? input.rootTask.name : `Unnamed Device`
-    }
-    getFloorplanName(record: StatusRecord): string {
-        if (!record || !record.rootTask || !record.rootTask.is_local || !record.rootTask.floorplan_id) {
-            return `Unknown`
-        }
-        const test = this.floorplans.find(s => s.id===record.rootTask?.floorplan_id)
-        if (!test) {
-            return `Unknown`
-        }
-        return test.name
-    }
-
-    private _getRootTaskFromRelatedIds(ids: TaskRelatedSchema[]): Promise<TaskDetailSchema|null> {
-        return new Promise(async(resolve, reject) => {
-            try {
-                let output: TaskDetailSchema|null = null
-                let amFinished = false
-                for(let i = 0; i < ids.length && !amFinished; i++) {
-                    const test = await this.getTaskDetail(ids[i].task_id)
-                    if (test && test.is_local) {
-                        output = test
-                        amFinished = true
-                    }
-                }
-                return resolve(output)
-            } catch (err) {
-                return reject(err)
-            }
-        })
-    }
-
+*/
 }
 
-export interface StatusRecord {
+export interface DetailRecord {
     statusId: string
     statusName: string
     taskId: string
     taskName: string
-    rootTask: TaskDetailSchema|null
-    detailTask: TaskDetailSchema
+    taskDetail: TaskDetailSchema
+    device?: VwDevice
+    categoryLabor: CategoryLaborSchema
+    team: TeamSchema
+    manpower: number
     userId: number
     userName: string
 }

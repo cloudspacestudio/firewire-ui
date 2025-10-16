@@ -56,7 +56,7 @@
                 </div>
             </form>
 
-            <mat-tab-group *ngIf="didLoad && groupedRecords.length || records.length || deviceRecords.length">
+            <mat-tab-group *ngIf="didLoad && groupedRecords.length || records.length">
                 <mat-tab label="Fieldwire Task Summary">
                     <div *ngIf="groupedRecords.length > 0" style="margin-top: 20px;">
                         <!-- <pre>{{jsonify(groupedRecords)}}</pre> -->
@@ -85,49 +85,26 @@
                                 <th>User</th>
                                 <th>Floorplan</th>
                                 <th>Device</th>
+                                <th>Task Name</th>
                                 <th>Trade</th>
                                 <th>Hours</th>
-                                <th>Root Link</th>
-                                <th>Sub Link</th>
+                                <th>FW Link</th>
                             </thead>
                             <tbody>
                                 <tr *ngFor="let record of records">
                                     <td>{{record.userName}}</td>
                                     <td>{{getFloorplanName(record)}}</td>
-                                    <td>{{getRootTaskName(record)}}</td>
+                                    <td>{{record.team.name}}</td>
+                                    <td>{{record.taskDetail.name||'Empty'}}</td>
                                     <td>{{record.statusName}}</td>
-                                    <td>{{record.detailTask.man_power_value}}</td>
-                                    <td class="table-link" [innerHtml]="getFwLinkForTask(record.rootTask)"></td>
-                                    <td class="table-link" [innerHtml]="getFwLinkForTask(record.detailTask)"></td>
+                                    <td>{{record.manpower}}</td>
+                                    <td class="table-link" [innerHtml]="getFwLinkForTask(record.taskDetail)"></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                     <div *ngIf="!records || records.length<=0">No Records Found</div>
                 </mat-tab>       
-                <mat-tab label="Device Worker Summary">
-                    <div *ngIf="deviceRecords.length > 0" style="margin-top: 20px;margin-bottom: 20px;">
-                        <table>
-                            <thead>
-                                <th>User</th>
-                                <th>Floorplan</th>
-                                <th>Device</th>
-                                <th>Moved to Status</th>
-                                <th>Device Link</th>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let deviceRecord of deviceRecords">
-                                    <td>{{deviceRecord.userName}}</td>
-                                    <td>{{getFloorplanName(deviceRecord)}}</td>
-                                    <td>{{getRootTaskName(deviceRecord)}}</td>
-                                    <td>{{deviceRecord.statusName}}</td>
-                                    <td class="table-link" [innerHtml]="getFwLinkForTask(deviceRecord.rootTask)"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div *ngIf="!deviceRecords || deviceRecords.length<=0">No Records Found</div>
-                </mat-tab>      
             </mat-tab-group>
         
         </div>
