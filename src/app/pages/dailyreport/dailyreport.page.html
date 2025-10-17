@@ -10,7 +10,8 @@
         <button mat-flat-button class="active">UPLOAD</button>
     </div> -->
 </page-toolbar>
-<div *ngIf="!pageWorking" class="page-root">
+<!--Loaded, Init, No Data-->
+<div *ngIf="pageState===2 || pageState===0 || pageState===4" class="page-root">
     <div class="page-content">
         <div class="content-root">
 
@@ -42,7 +43,7 @@
 
 
                 <div style="width: 100%;height: 10px;"></div>
-                <div *ngIf="didLoad && templates.length > 0 && templateStatuses.length > 0" style="text-align: left;">
+                <div *ngIf="pageState===2 && templates.length > 0 && templateStatuses.length > 0" style="text-align: left;">
                     <button mat-flat-button color="primary" (click)="createForm()" style="border-radius: 0;">
                         GENERATE IN FIELDWIRE
                     </button>
@@ -56,7 +57,7 @@
                 </div>
             </form>
 
-            <mat-tab-group *ngIf="didLoad && groupedRecords.length || records.length">
+            <mat-tab-group *ngIf="groupedRecords.length || records.length">
                 <mat-tab label="Fieldwire Task Summary">
                     <div *ngIf="groupedRecords.length > 0" style="margin-top: 20px;">
                         <!-- <pre>{{jsonify(groupedRecords)}}</pre> -->
@@ -106,10 +107,21 @@
                     <div *ngIf="!records || records.length<=0">No Records Found</div>
                 </mat-tab>       
             </mat-tab-group>
-        
+            <div *ngIf="pageState===4">
+                No Records Found
+            </div>
         </div>
     </div>
 </div>
-<div *ngIf="pageWorking">
+<!--Rendering-->
+<div *ngIf="pageState===-1">
+    Initializing, Please wait...
+</div>
+<!--Loading-->
+<div *ngIf="pageState===1">
     Loading, Please wait...
+</div>
+<!--Error-->
+<div *ngIf="pageState===3">
+    Error Occurred
 </div>

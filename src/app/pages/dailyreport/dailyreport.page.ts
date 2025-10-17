@@ -58,17 +58,15 @@ import { ProjectStatusSchema } from "../../schemas/projectstatus.schema"
 export class DailyReportPage implements OnChanges, AfterViewInit {
     @Input() projectId?: string
     dialog = inject(MatDialog)
+    pageState: PageState = PageState.rendering
 
     form: FormGroup
-    pageWorking = true
     project?: AccountProjectSchema
     templates: FormTemplate[] = []
     templateStatuses: FormTemplateStatus[] = []
     forms: any[] = []
     floorplans: ProjectFloorplanSchema[] = []
     users: AccountProjectUserSchema[] = []
-
-    didLoad: boolean = false
 
     statuses: ProjectStatusSchema[] = []
     taskIds: any[] = []
@@ -90,8 +88,8 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     ngOnChanges(): void {
-        this.pageWorking = true
-
+        this.pageState = PageState.rendering
+        
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
             return
@@ -113,30 +111,30 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                         this.getStatuses(),
                         this.getProjectCategoryLabor()
                     ])
-                    this.pageWorking = false
+                    this.pageState = PageState.init
                     return
                 }
-                this.pageWorking = false
+                this.pageState = PageState.nodata
             },
             error: (err: Error) => {
                 console.dir(err)
-                this.pageWorking = false
+                this.pageState = PageState.error
             }
         })
     }
 
     reset() {
-        this.project = undefined
-        this.teams = []
-        this.templates = []
-        this.templateStatuses = []
-        this.floorplans = []
-        this.users = []
-        this.statuses = []
+        //this.project = undefined
+        //this.teams = []
+        //this.templates = []
+        //this.templateStatuses = []
+        //this.floorplans = []
+        //this.users = []
+        //this.statuses = []
         this.taskIds = []
         this.tasks = []
         this.generatedFormId = null
-        this.categoryLabors = []
+        //this.categoryLabors = []
         this.records = []
         this.groupedRecords = []
     }
@@ -149,11 +147,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     changeDate(e: any) {
-        this.tasks = []
-        this.records = []
-        this.groupedRecords = []
-        this.generatedFormId = null
-        this.didLoad = false
+        this.reset()
     }
 
     getFormName() {
@@ -599,7 +593,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     }
 
     async load() {
-        this.didLoad = false
+        this.pageState = PageState.loading
         this.tasks = []
         this.records = []
         this.groupedRecords = []
@@ -654,6 +648,10 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 }
             }
         }
+        if (this.records.length <= 0) {
+            this.pageState = PageState.nodata
+            return
+        }
         // Have records loaded and tasks loaded
         for (let i = 0; i < this.records.length; i++) {
             const record = this.records[i]
@@ -671,7 +669,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 test.labor = test.labor + record.manpower
             }
         }
-        this.didLoad = true
+        this.pageState = PageState.loaded
     }
 
     onSelectChange(event: any) {}
@@ -844,4 +842,13 @@ export interface GroupedRecord {
     statusName: string
     count: number
     labor: number
+}
+
+export enum PageState {
+    rendering = -1,
+    init = 0,
+    loading = 1,
+    loaded = 2,
+    error = 3,
+    nodata = 4
 }
