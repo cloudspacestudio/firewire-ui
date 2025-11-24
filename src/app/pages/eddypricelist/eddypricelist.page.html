@@ -13,7 +13,11 @@
                 <mat-label>Filter</mat-label>
                 <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
-            <button mat-icon-button title="Import Parts"><mat-icon>file_upload</mat-icon></button>
+            <button *ngIf="!showImport" mat-icon-button title="Import Parts" (click)="showImport=true"><mat-icon>file_upload</mat-icon></button>
+            <button *ngIf="showImport" mat-icon-button title="Cancel Import" (click)="showImport=false"><mat-icon>cancel</mat-icon></button>
+            <div *ngIf="showImport" style="display: inline-block;height: 40px;vertical-align: middle;margin-left: 10px;">
+                <input type="file" (change)="onFileChange($event)" accept=".csv" />
+            </div>
         </div>
         <div class="content-root with-tabstrip">
             <table mat-table [dataSource]="datasource" matSort>
@@ -135,6 +139,3 @@
     </div>
 
 </div>
-<!-- <div *ngIf="pageWorking">
-    Loading, Please wait...
-</div> -->

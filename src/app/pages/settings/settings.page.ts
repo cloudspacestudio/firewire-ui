@@ -13,7 +13,7 @@ import { PageToolbar } from '../../common/components/page-toolbar';
 
 @Component({
     standalone: true,
-    selector: 'devices-page',
+    selector: 'settings-page',
     imports: [CommonModule, PageToolbar,
         RouterLink, MatButtonModule,
         MatIconModule

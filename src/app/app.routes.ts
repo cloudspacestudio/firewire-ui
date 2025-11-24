@@ -17,6 +17,7 @@ export const routes: Routes = [
     {path: 'projects/:projectId/imports', loadComponent: () => import('./pages/imports/imports.page').then(m => m.ImportsPage)},
 
     {path: 'settings', loadComponent: () => import('./pages/settings/settings.page').then(m => m.SettingsPage)},
+    {path: 'tech', loadComponent: () => import('./pages/tech/tech.page').then(m => m.TechPage)},
 
     {path: '**', loadComponent: () => import('./pages/root/home.page').then(m => m.HomePage)}
 ];

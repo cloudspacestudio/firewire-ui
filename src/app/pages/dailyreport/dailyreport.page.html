@@ -114,14 +114,14 @@
     </div>
 </div>
 <!--Rendering-->
-<div *ngIf="pageState===-1">
-    Initializing, Please wait...
+<div *ngIf="pageState===-1" class="loading-panel">
+    <div>Initializing, Please wait...</div>
 </div>
 <!--Loading-->
-<div *ngIf="pageState===1">
-    Loading, Please wait...
+<div *ngIf="pageState===1" class="loading-panel">
+    <div>Loading, Please wait...</div>
 </div>
 <!--Error-->
-<div *ngIf="pageState===3">
-    Error Occurred
+<div *ngIf="pageState===3" class="loading-panel">
+    <div>Error Occurred</div>
 </div>

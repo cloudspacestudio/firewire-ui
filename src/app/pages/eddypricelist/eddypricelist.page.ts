@@ -20,7 +20,7 @@ import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 
 @Component({
     standalone: true,
-    selector: 'devices-page',
+    selector: 'prices-page',
     imports: [CommonModule, MatButtonModule, 
         RouterLink, MatMenuModule,
         MatPaginatorModule, MatSortModule,
@@ -59,6 +59,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     errText?: string
 
     datasource: MatTableDataSource<VwEddyPricelist> = new MatTableDataSource(this.eddypricelists);
+    showImport: boolean = false
     
     constructor(private http: HttpClient) {}
 
@@ -114,6 +115,10 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             return "No Data Found"
         }
         return `No data matching the filter "${filterValue}"`
+    }
+
+    onFileChange(e: any) {
+
     }
 
 }

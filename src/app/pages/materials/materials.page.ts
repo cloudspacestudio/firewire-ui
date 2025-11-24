@@ -18,7 +18,7 @@ import { NavToolbar } from "../../common/components/nav-toolbar"
 
 @Component({
     standalone: true,
-    selector: 'devices-page',
+    selector: 'materials-page',
     imports: [CommonModule, MatButtonModule, 
         RouterLink, 
         MatPaginatorModule, MatSortModule,
