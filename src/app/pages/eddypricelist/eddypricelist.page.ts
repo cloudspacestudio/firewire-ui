@@ -28,7 +28,8 @@ import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
         MatFormFieldModule,
         MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
-    templateUrl: './eddypricelist.page.html'
+    templateUrl: './eddypricelist.page.html',
+    styleUrls: ['./eddypricelist.page.scss']
 })
 export class EddyPricelistPage implements OnInit, AfterViewInit  {
     displayedColumns: string[] = [

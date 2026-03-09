@@ -8,15 +8,26 @@
 </page-toolbar>
 <div class="page-root">
     <div class="page-content">
-        <div class="tabstrip">
-            <mat-form-field>
+        <div class="tabstrip parts-tabstrip">
+            <mat-form-field class="parts-filter">
                 <mat-label>Filter</mat-label>
                 <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
-            <button *ngIf="!showImport" mat-icon-button title="Import Parts" (click)="showImport=true"><mat-icon>file_upload</mat-icon></button>
-            <button *ngIf="showImport" mat-icon-button title="Cancel Import" (click)="showImport=false"><mat-icon>cancel</mat-icon></button>
-            <div *ngIf="showImport" style="display: inline-block;height: 40px;vertical-align: middle;margin-left: 10px;">
-                <input type="file" (change)="onFileChange($event)" accept=".csv" />
+
+            <span class="spacer"></span>
+
+            <div class="parts-import-actions">
+                <button *ngIf="!showImport" mat-flat-button title="Import Parts" (click)="showImport=true">
+                    <mat-icon>file_upload</mat-icon>
+                    <span>Import</span>
+                </button>
+                <button *ngIf="showImport" mat-flat-button title="Cancel Import" (click)="showImport=false">
+                    <mat-icon>cancel</mat-icon>
+                    <span>Cancel Import</span>
+                </button>
+                <div *ngIf="showImport" class="parts-file-input">
+                    <input type="file" (change)="onFileChange($event)" accept=".csv" />
+                </div>
             </div>
         </div>
         <div class="content-root with-tabstrip">

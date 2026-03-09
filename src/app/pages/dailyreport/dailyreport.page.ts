@@ -53,12 +53,14 @@ import { ProjectStatusSchema } from "../../schemas/projectstatus.schema"
         PageToolbar, FormsModule, 
         ReactiveFormsModule],
     providers: [HttpClient],
-    templateUrl: './dailyreport.page.html'
+    templateUrl: './dailyreport.page.html',
+    styleUrls: ['./dailyreport.page.scss']
 })
 export class DailyReportPage implements OnChanges, AfterViewInit {
     @Input() projectId?: string
     dialog = inject(MatDialog)
     pageState: PageState = PageState.rendering
+    pageMessage = ''
 
     form: FormGroup
     project?: AccountProjectSchema
@@ -89,9 +91,12 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
     ngOnChanges(): void {
         this.pageState = PageState.rendering
+        this.pageMessage = ''
         
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
+            this.pageMessage = 'Invalid project id.'
+            this.pageState = PageState.error
             return
         }
         this.reset()
@@ -99,25 +104,42 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         this.http.get(`/api/fieldwire/projects/${this.projectId}`).subscribe({
             next: async(s: any) => {
                 if (s && s.data) {
-                    this.project = Object.assign({}, s.data)
-                    this.generatedFormId = null
-                    await Promise.all([
-                        this.getProjectFormTemplates(),
-                        this.getProjectFormTemplateStatuses(),
-                        this.getProjectForms(),
-                        this.getProjectFloorplans(),
-                        this.getProjectUsers(),
-                        this.getProjectTeams(),
-                        this.getStatuses(),
-                        this.getProjectCategoryLabor()
-                    ])
-                    this.pageState = PageState.init
+                    try {
+                        this.project = Object.assign({}, s.data)
+                        this.generatedFormId = null
+                        await Promise.all([
+                            this.getProjectFormTemplates(),
+                            this.getProjectFormTemplateStatuses(),
+                            this.getProjectForms(),
+                            this.getProjectFloorplans(),
+                            this.getProjectUsers(),
+                            this.getProjectTeams(),
+                            this.getStatuses(),
+                            this.getProjectCategoryLabor()
+                        ])
+
+                        if (!this.templates || this.templates.length <= 0) {
+                            this.pageMessage = 'No form templates were returned for this project.'
+                            this.pageState = PageState.nodata
+                            return
+                        }
+
+                        this.pageState = PageState.init
+                    } catch (err) {
+                        console.error(err)
+                        if (!this.pageMessage) {
+                            this.pageMessage = 'Unable to initialize daily report data.'
+                        }
+                        this.pageState = PageState.error
+                    }
                     return
                 }
+                this.pageMessage = 'No project data was returned.'
                 this.pageState = PageState.nodata
             },
             error: (err: Error) => {
                 console.dir(err)
+                this.pageMessage = 'Error loading project data.'
                 this.pageState = PageState.error
             }
         })
@@ -165,12 +187,15 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                     next: async(s: any) => {
                         if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
                             console.log(`Unable to retrieve form templates`)
-                            return
+                            this.templates = []
+                            this.pageMessage = 'No form templates were returned for this project.'
+                            return resolve(s)
                         }
                         this.templates = s.rows.filter((x: any) => x.checksum)
                         if(!this.templates || this.templates.length <= 0) {
                             console.log(`Unable to retrieve form templates`)
-                            return
+                            this.pageMessage = 'No usable form templates were returned for this project.'
+                            return resolve(s)
                         }
                         this.form.setValue({
                             'picker': new Date(),
@@ -676,6 +701,16 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
     jsonify(input: any) {
         return JSON.stringify(input, null, 2)
+    }
+
+    get totalHours(): number {
+        return this.groupedRecords.reduce((sum, record) => sum + (record.labor || 0), 0)
+    }
+
+    get selectedTemplateName(): string {
+        const templateId = this.form.get('templateId')?.value
+        const template = this.templates.find(s => s.id === templateId)
+        return template?.name || 'No template selected'
     }
 
     private resolveCategoryLabor(teamName: string, statusName: string, org?: string): CategoryLaborSchema|null {

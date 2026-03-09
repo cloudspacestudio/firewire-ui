@@ -1,0 +1,56 @@
+:host {
+    display: block;
+}
+
+.parts-tabstrip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.parts-filter {
+    min-width: 240px;
+}
+
+.parts-import-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.parts-import-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.parts-import-actions button mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+}
+
+.parts-file-input {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+}
+
+@media (max-width: 900px) {
+    .parts-tabstrip {
+        align-items: stretch;
+    }
+
+    .parts-filter {
+        width: 100%;
+    }
+
+    .parts-import-actions {
+        margin-left: 0;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}

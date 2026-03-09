@@ -1,0 +1,267 @@
+// Theme knobs (override before @use with `with (...)` if needed)
+$fw-control-radius: 0px !default;
+$fw-surface-radius: 12px !default;
+
+@mixin root-tokens() {
+    --fw-bg-0: #05080f;
+    --fw-bg-1: #0a1220;
+    --fw-bg-2: #0f1a2d;
+    --fw-panel: rgba(14, 24, 41, 0.88);
+    --fw-panel-soft: rgba(10, 18, 32, 0.92);
+    --fw-line: rgba(93, 214, 255, 0.18);
+    --fw-line-strong: rgba(93, 214, 255, 0.36);
+    --fw-text: #d9efff;
+    --fw-muted: #8fa8c6;
+    --fw-accent: #48ddff;
+    --fw-accent-2: #7dd3ff;
+    --fw-danger: #ff7a93;
+    --fw-success: #6fffc3;
+    --fw-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 12px 40px rgba(0,0,0,0.34);
+    --fw-control-radius: #{$fw-control-radius};
+    --fw-surface-radius: #{$fw-surface-radius};
+    --fw-font-ui: 'Rajdhani', 'Segoe UI', sans-serif;
+    --fw-font-display: 'Orbitron', 'Rajdhani', 'Segoe UI', sans-serif;
+}
+
+@mixin panel-surface($padding: 12px, $radius: var(--fw-surface-radius)) {
+    border: 1px solid var(--fw-line);
+    border-radius: $radius;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        linear-gradient(135deg, rgba(72, 221, 255, 0.05), rgba(125, 211, 255, 0.03)),
+        var(--fw-panel);
+    box-shadow: var(--fw-shadow);
+    padding: $padding;
+}
+
+@mixin section-head() {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+@mixin section-title() {
+    margin: 0;
+    color: var(--fw-text);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+@mixin empty-state() {
+    padding: 14px;
+    border: 1px dashed rgba(143, 168, 198, 0.3);
+    border-radius: var(--fw-surface-radius);
+    color: var(--fw-muted);
+    background: rgba(255, 255, 255, 0.01);
+    letter-spacing: 0.03em;
+}
+
+@mixin table-wrap() {
+    margin-top: 12px;
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid rgba(72, 221, 255, 0.12);
+    border-radius: var(--fw-surface-radius);
+    background: rgba(5, 9, 16, 0.7);
+}
+
+@mixin data-table($min-width: 640px) {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: $min-width;
+
+    thead th {
+        position: sticky;
+        top: 0;
+        background: rgba(15, 26, 45, 0.95);
+        color: var(--fw-accent-2);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 0.7rem;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--fw-line-strong);
+    }
+
+    tbody tr:nth-child(odd) {
+        background: rgba(72, 221, 255, 0.02);
+    }
+
+    tbody tr:hover {
+        background: rgba(72, 221, 255, 0.06);
+    }
+
+    td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(72, 221, 255, 0.08);
+        color: var(--fw-text);
+        vertical-align: top;
+    }
+
+    td.is-num,
+    th.is-num {
+        text-align: right;
+    }
+
+    .muted {
+        color: var(--fw-muted);
+    }
+}
+
+@mixin loading-shell() {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+@mixin loading-card() {
+    min-width: 280px;
+    border: 1px solid var(--fw-line);
+    border-radius: var(--fw-surface-radius);
+    background: var(--fw-panel);
+    box-shadow: var(--fw-shadow);
+    padding: 18px 20px;
+    color: var(--fw-text);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+@mixin loading-card-error() {
+    border-color: rgba(255, 122, 147, 0.35);
+    color: #ffd8e1;
+}
+
+@mixin loading-card-scan($keyframe-name, $scan-color: rgba(72, 221, 255, 0.12)) {
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, $scan-color, transparent);
+        transform: translateX(-100%);
+        animation: #{$keyframe-name} 2.2s linear infinite;
+    }
+}
+
+@mixin loading-label() {
+    position: relative;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.8rem;
+}
+
+@mixin loading-subtext() {
+    position: relative;
+    z-index: 1;
+    margin-top: 8px;
+    color: var(--fw-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+@mixin neon-button() {
+    border-radius: var(--fw-control-radius) !important;
+    border: 1px solid rgba(72, 221, 255, 0.28);
+    background:
+        linear-gradient(180deg, rgba(72, 221, 255, 0.16), rgba(72, 221, 255, 0.06)),
+        rgba(10, 18, 32, 0.95) !important;
+    color: var(--fw-text) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+}
+
+@mixin neon-button-hover() {
+    border-color: rgba(72, 221, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(72, 221, 255, 0.2), 0 0 20px rgba(72, 221, 255, 0.12);
+}
+
+@mixin neon-button-alt() {
+    border-color: rgba(143, 168, 198, 0.26);
+    background:
+        linear-gradient(180deg, rgba(143, 168, 198, 0.12), rgba(143, 168, 198, 0.04)),
+        rgba(10, 18, 32, 0.95) !important;
+    color: #d5e4f8 !important;
+}
+
+@mixin utility-classes() {
+    .fw-panel {
+        @include panel-surface();
+        min-width: 0;
+    }
+
+    .fw-panel-tight {
+        padding: 8px;
+    }
+
+    .fw-section-head {
+        @include section-head();
+    }
+
+    .fw-section-title {
+        @include section-title();
+    }
+
+    .fw-empty {
+        @include empty-state();
+    }
+
+    .fw-table-wrap {
+        @include table-wrap();
+    }
+
+    .fw-table {
+        @include data-table();
+    }
+
+    .fw-loading {
+        @include loading-shell();
+    }
+
+    .fw-loading-card {
+        @include loading-card();
+        @include loading-card-scan(fw-scan);
+    }
+
+    .fw-loading-card.is-error {
+        @include loading-card-error();
+    }
+
+    .fw-loading-card.is-error::before {
+        background: linear-gradient(90deg, transparent, rgba(255, 122, 147, 0.12), transparent);
+    }
+
+    .fw-loading-label {
+        @include loading-label();
+    }
+
+    .fw-loading-subtext {
+        @include loading-subtext();
+    }
+
+    button.fw-btn {
+        @include neon-button();
+    }
+
+    button.fw-btn:hover {
+        @include neon-button-hover();
+    }
+
+    button.fw-btn.fw-btn-alt {
+        @include neon-button-alt();
+    }
+
+    @keyframes fw-scan {
+        to {
+            transform: translateX(100%);
+        }
+    }
+}

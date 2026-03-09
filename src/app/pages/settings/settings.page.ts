@@ -19,7 +19,8 @@ import { PageToolbar } from '../../common/components/page-toolbar';
         MatIconModule
     ],
     providers: [HttpClient],
-    templateUrl: './settings.page.html'
+    templateUrl: './settings.page.html',
+    styleUrls: ['./settings.page.scss']
 })
 export class SettingsPage implements OnInit {
 

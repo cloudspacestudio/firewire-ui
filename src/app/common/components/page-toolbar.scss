@@ -1,0 +1,102 @@
+@use '../../../assets/sci-fi-theme' as sci-fi;
+
+:host {
+    display: block;
+}
+
+.fw-toolbar.page-toolbar {
+    position: relative;
+    z-index: 2;
+    min-height: 58px;
+    gap: 6px;
+    border-bottom: 1px solid rgba(72, 221, 255, 0.12);
+    background:
+        linear-gradient(180deg, rgba(10, 18, 32, 0.88), rgba(10, 18, 32, 0.62)),
+        rgba(10, 18, 32, 0.72);
+    backdrop-filter: blur(8px);
+    color: var(--fw-text);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.fw-toolbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.14;
+    background-image:
+        linear-gradient(rgba(72, 221, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(72, 221, 255, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+.fw-toolbar > * {
+    position: relative;
+    z-index: 1;
+}
+
+.fw-toolbar__menu-btn {
+    margin-right: 8px;
+    color: var(--fw-text);
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(72, 221, 255, 0.10), rgba(72, 221, 255, 0.03)),
+        rgba(10, 18, 32, 0.92);
+}
+
+.fw-toolbar__menu-btn:hover {
+    @include sci-fi.neon-button-hover();
+}
+
+.fw-toolbar__brand {
+    cursor: pointer;
+    color: var(--fw-accent-2);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0 2px;
+}
+
+.fw-toolbar__title {
+    color: var(--fw-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.76rem;
+}
+
+.fw-toolbar__user-btn {
+    width: 38px;
+    height: 38px;
+    max-width: 38px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+}
+
+:host ::ng-deep .mat-mdc-menu-panel {
+    border-radius: 12px;
+}
+
+:host ::ng-deep .mat-mdc-menu-content .mat-mdc-menu-item {
+    color: var(--fw-text);
+}
+
+:host ::ng-deep .mat-mdc-menu-content .mat-mdc-menu-item:hover {
+    background: rgba(72, 221, 255, 0.08);
+}
+
+@media (max-width: 720px) {
+    .fw-toolbar__brand {
+        letter-spacing: 0.12em;
+        font-size: 0.78rem;
+    }
+
+    .fw-toolbar__title {
+        max-width: 34vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

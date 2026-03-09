@@ -1,6 +1,6 @@
 <page-toolbar>
     <div class="button-bar">
-        <button mat-fab [routerLink]="'/home'">
+        <button mat-fab class="back" [routerLink]="'/home'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
@@ -15,7 +15,89 @@
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="content-root">
-            UNDER CONSTRUCTION
+            <section class="settings-shell">
+                <div class="settings-hero">
+                    <div class="settings-hero-copy">
+                        <div class="settings-kicker">System Expansion</div>
+                        <h1 class="settings-title">Settings Console Under Construction</h1>
+                        <div class="settings-subtitle">
+                            Configuration modules are being rebuilt into a unified admin console with tenant,
+                            organization, preference, and user controls.
+                        </div>
+                        <div class="settings-badges">
+                            <div class="settings-badge">Admin Surface</div>
+                            <div class="settings-badge">Permissions</div>
+                            <div class="settings-badge">Profiles</div>
+                            <div class="settings-badge">Audit Ready</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-signal">
+                        <div class="settings-signal-label">Deployment Status</div>
+                        <div class="settings-signal-value">Construction Phase</div>
+                        <div class="settings-progress" aria-hidden="true"></div>
+                        <div class="settings-signal-note">
+                            Core navigation is staged. Individual settings modules are being connected next.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <div class="settings-card-head">
+                            <h2 class="settings-card-title">Modules in Progress</h2>
+                            <div class="settings-card-meta">Roadmap</div>
+                        </div>
+                        <ul class="settings-list">
+                            <li class="settings-list-item">
+                                <span class="settings-dot"></span>
+                                <span class="settings-item-name">Tenant Configuration</span>
+                                <span class="settings-item-status">Planned</span>
+                            </li>
+                            <li class="settings-list-item">
+                                <span class="settings-dot"></span>
+                                <span class="settings-item-name">Organization Management</span>
+                                <span class="settings-item-status">Planned</span>
+                            </li>
+                            <li class="settings-list-item">
+                                <span class="settings-dot is-warn"></span>
+                                <span class="settings-item-name">Preferences Console</span>
+                                <span class="settings-item-status">Designing</span>
+                            </li>
+                            <li class="settings-list-item">
+                                <span class="settings-dot"></span>
+                                <span class="settings-item-name">User Administration</span>
+                                <span class="settings-item-status">Planned</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="settings-card-head">
+                            <h2 class="settings-card-title">Interim Notes</h2>
+                            <div class="settings-card-meta">Operator Info</div>
+                        </div>
+                        <div class="settings-notes">
+                            <div class="settings-note">
+                                <strong>Current</strong>
+                                This route is a placeholder while the admin modules are migrated into the new UI shell.
+                            </div>
+                            <div class="settings-note">
+                                <strong>Next</strong>
+                                Tenant and organization screens will be the first sections to go live.
+                            </div>
+                            <div class="settings-note">
+                                <strong>UX Goal</strong>
+                                Consistent controls, permissions visibility, and fewer context switches across admin tasks.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-foot">
+                    Settings functionality is not yet available on this screen. Use the existing operational pages while this console is being completed.
+                </div>
+            </section>
         </div>
     </div>
 
