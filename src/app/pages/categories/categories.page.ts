@@ -46,7 +46,7 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.categories = []
 
-        this.http.get('/api/fieldwire/categories').subscribe({
+        this.http.get('/api/firewire/categories').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.categories = [...s.rows]

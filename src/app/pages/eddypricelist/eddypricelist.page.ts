@@ -67,7 +67,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.eddypricelists = []
 
-        this.http.get('/api/fieldwire/vweddypricelist').subscribe({
+        this.http.get('/api/firewire/vweddypricelist').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.eddypricelists = [...s.rows]

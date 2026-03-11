@@ -54,7 +54,7 @@ export class DeviceDetailComponent implements OnChanges {
             return
         }
 
-        this.http.get(`/api/fieldwire/devices/${this.deviceId}`).subscribe({
+        this.http.get(`/api/firewire/devices/${this.deviceId}`).subscribe({
             next: async(s: any) => {
                 if (s) {
                     this.device = Object.assign({}, s)
@@ -70,7 +70,7 @@ export class DeviceDetailComponent implements OnChanges {
                 this.pageWorking = false
             }
         })
-        this.http.get(`/api/fieldwire/vwdevicematerials/${this.deviceId}`).subscribe({
+        this.http.get(`/api/firewire/vwdevicematerials/${this.deviceId}`).subscribe({
             next: async(s: any) => {
                 if (s && s.rows) {
                     this.deviceMaterials = s.rows
@@ -80,7 +80,7 @@ export class DeviceDetailComponent implements OnChanges {
                 console.dir(err)
             }
         })
-        this.http.get(`/api/fieldwire/devices/${this.deviceId}/attributes`).subscribe({
+        this.http.get(`/api/firewire/devices/${this.deviceId}/attributes`).subscribe({
             next: async(s: any) => {
                 if (s && s.rows) {
                     this.deviceAttributes = s.rows
@@ -90,7 +90,7 @@ export class DeviceDetailComponent implements OnChanges {
                 console.dir(err)
             }
         })
-        this.http.get(`/api/fieldwire/devices/${this.deviceId}/subtasks`).subscribe({
+        this.http.get(`/api/firewire/devices/${this.deviceId}/subtasks`).subscribe({
             next: async(s: any) => {
                 if (s && s.rows) {
                     this.deviceSubTasks = s.rows
@@ -113,7 +113,7 @@ export class DeviceDetailComponent implements OnChanges {
                 if (test) {
                     return resolve(test)
                 }
-                this.http.get(`/api/fieldwire/vweddypricelist/${partNumber}`).subscribe({
+                this.http.get(`/api/firewire/vweddypricelist/${partNumber}`).subscribe({
                     next: async(s: any) => {
                         if (s && s.rows && s.rows.length > 0) {
                             for(let i = 0; i < s.rows.length; i++) {

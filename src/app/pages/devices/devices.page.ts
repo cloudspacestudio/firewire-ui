@@ -47,7 +47,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.devices = []
 
-        this.http.get('/api/fieldwire/vwdevices').subscribe({
+        this.http.get('/api/firewire/vwdevices').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.devices = [...s.rows]

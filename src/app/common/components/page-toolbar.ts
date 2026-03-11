@@ -1,4 +1,4 @@
-import { Component, Input } from "@angular/core";
+import { Component, Input, OnInit, inject } from "@angular/core";
 import { NgIf } from "@angular/common";
 import { RouterLink } from "@angular/router";
 
@@ -6,10 +6,12 @@ import { MatToolbarModule } from '@angular/material/toolbar'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 import { MatMenuModule } from '@angular/material/menu'
+import { MatDividerModule } from '@angular/material/divider'
+import { AuthService } from "../../auth/auth.service";
 
 @Component({
     selector: 'page-toolbar',
-    imports: [NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule],
+    imports: [NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule],
     styles: [`
         :host {
             display: block;
@@ -85,6 +87,35 @@ import { MatMenuModule } from '@angular/material/menu'
             border-radius: var(--fw-control-radius);
             font-size: 0.75rem;
             letter-spacing: 0.08em;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .fw-toolbar__avatar {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        :host ::ng-deep .fw-user-menu .mat-mdc-menu-item.fw-user-menu-meta {
+            --mdc-list-list-item-one-line-container-height: 20px;
+            min-height: 20px;
+            height: 20px;
+            line-height: 20px;
+            padding-top: 0;
+            padding-bottom: 0;
+            font-size: 0.75rem;
+            opacity: 0.86;
+        }
+
+        :host ::ng-deep .fw-user-menu .mat-mdc-menu-item.fw-user-menu-meta .mdc-list-item__primary-text {
+            line-height: 20px;
+        }
+
+        :host ::ng-deep .fw-user-menu .mat-mdc-menu-content {
+            padding-top: 4px;
+            padding-bottom: 4px;
         }
 
         @media (max-width: 720px) {
@@ -120,15 +151,65 @@ import { MatMenuModule } from '@angular/material/menu'
             
             <span class="spacer"></span>
             
-            <button [mat-menu-trigger-for]="userMenu" class="circle-btn fw-toolbar__user-btn" aria-label="Open user menu">SS</button>
-            <mat-menu #userMenu>
+            <button [mat-menu-trigger-for]="userMenu" class="circle-btn fw-toolbar__user-btn" aria-label="Open user menu">
+                <img *ngIf="userAvatarUrl; else initialsTpl" [src]="userAvatarUrl" (error)="onAvatarError()" alt="User avatar" class="fw-toolbar__avatar" />
+                <ng-template #initialsTpl>{{userInitials}}</ng-template>
+            </button>
+            <mat-menu #userMenu="matMenu" panelClass="fw-user-menu">
+                <button mat-menu-item disabled class="fw-user-menu-meta">{{userName}}</button>
+                <button mat-menu-item disabled class="fw-user-menu-meta" *ngIf="userEmail">{{userEmail}}</button>
+                <mat-divider></mat-divider>
                 <button mat-menu-item>Preferences</button>
                 <button mat-menu-item>About</button>
-                <button mat-menu-item>Sign Out</button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="onSignOut()">Sign Out</button>
             </mat-menu>
         </mat-toolbar>
     `
 })
-export class PageToolbar {
+export class PageToolbar implements OnInit {
+    private readonly auth = inject(AuthService)
+
     @Input() title?: string
+
+    userName = 'User'
+    userEmail = ''
+    userInitials = 'U'
+    userAvatarUrl: string | null = null
+
+    ngOnInit(): void {
+        const profile = this.auth.getUserProfile()
+        if (!profile) {
+            return
+        }
+        this.userName = profile.name || this.userName
+        this.userEmail = profile.email || this.userEmail
+        this.userInitials = this.toInitials(this.userName || this.userEmail || this.userInitials)
+        this.userAvatarUrl = profile.avatarUrl || null
+    }
+
+    private toInitials(value: string): string {
+        const parts = value
+            .split(/\s+/)
+            .map(part => part.trim())
+            .filter(part => part.length > 0)
+
+        if (parts.length <= 0) {
+            return 'U'
+        }
+        if (parts.length === 1) {
+            return parts[0].slice(0, 2).toUpperCase()
+        }
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    }
+
+    onSignOut(): void {
+        this.auth.signOut().catch((err) => {
+            console.error('Sign out failed', err)
+        })
+    }
+
+    onAvatarError(): void {
+        this.userAvatarUrl = null
+    }
 }

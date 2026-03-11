@@ -277,7 +277,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     getProjectCategoryLabor(): Promise<CategoryLaborSchema[]> {
         return new Promise(async(resolve, reject) => {
             try {
-                this.http.get(`/api/fieldwire/categorylabors`).subscribe({
+                this.http.get(`/api/firewire/categorylabors`).subscribe({
                     next: async(s: any) => {
                         if (!s || !s.rows || !Array.isArray(s.rows) || s.rows.length <= 0) {
                             console.log(`Unable to retrieve category labor`)

@@ -11,6 +11,7 @@ import { MatSelectModule } from "@angular/material/select"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatChipsModule } from "@angular/material/chips"
 import { MatIconModule } from "@angular/material/icon"
+import { MatCardModule } from "@angular/material/card"
 
 import { Utils } from "../../common/utils"
 import { AccountProjectSchema, AccountProjectAttributes } from "../../schemas/account.project.schema"
@@ -18,7 +19,6 @@ import { AccountProjectStatSchema } from "../../schemas/account.projectstat.sche
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { ProjectFolder } from "../../schemas/project.folder.schema"
 
-import { TabularComponent } from "../../common/components/tabular.component"
 import { ReducedResponse, Reducer } from "../../common/reducer"
 
 @Component({
@@ -28,9 +28,10 @@ import { ReducedResponse, Reducer } from "../../common/reducer"
         RouterLink, PageToolbar, 
         MatButtonModule, MatFormFieldModule, 
         MatSelectModule, MatButtonToggleModule,
-        TabularComponent, MatChipsModule, MatIconModule],
+        MatChipsModule, MatIconModule, MatCardModule],
     providers: [HttpClient],
-    templateUrl: './project.page.html'
+    templateUrl: './project.page.html',
+    styleUrls: ['./project.page.scss']
 })
 export class ProjectPage implements OnChanges {
     @Input() projectId?: string
@@ -65,6 +66,8 @@ export class ProjectPage implements OnChanges {
     selectedFloorplanId: string = ''
     selectedTeamId: string = ''
     selectedTemplate = 'Default'
+    projectDocumentUploadBusy = false
+    projectDocumentUploadMessage = ''
 
     constructor(private http: HttpClient) {}
 
@@ -229,6 +232,157 @@ export class ProjectPage implements OnChanges {
 
     jsonify(input: any) {
         return JSON.stringify(input, null, 1)
+    }
+
+    asCardRows(input: any): any[] {
+        if (Array.isArray(input)) {
+            return input
+        }
+        if (input === null || typeof input === 'undefined') {
+            return []
+        }
+        return [input]
+    }
+
+    getCardEntries(row: any): Array<{ key: string; value: any }> {
+        if (!row || typeof row !== 'object') {
+            return []
+        }
+        return Object.keys(row)
+            .filter((key) => !this.isGuidValue(row[key]))
+            .map((key) => {
+                return {
+                    key,
+                    value: row[key]
+                }
+            })
+    }
+
+    formatCardKey(key: string): string {
+        if (typeof key !== 'string') {
+            return ''
+        }
+        return key.replace(/_/g, ' ')
+    }
+
+    isThumbUrlField(key: string): boolean {
+        if (typeof key !== 'string') {
+            return false
+        }
+        return key.trim().toUpperCase() === 'THUMB_URL'
+    }
+
+    getCardTitle(row: any, index: number): string {
+        if (row && typeof row === 'object') {
+            if (typeof row.name === 'string' && row.name.trim().length > 0) {
+                return row.name
+            }
+            if (typeof row.id === 'string' && row.id.trim().length > 0) {
+                return `Item ${index + 1}: ${row.id}`
+            }
+        }
+        return `Item ${index + 1}`
+    }
+
+    formatCardValue(value: any): string {
+        if (value === null || typeof value === 'undefined') {
+            return ''
+        }
+        const parsedDate = this.tryParseDate(value)
+        if (parsedDate) {
+            return new Intl.DateTimeFormat(undefined, {
+                dateStyle: 'short',
+                timeStyle: 'short'
+            }).format(parsedDate)
+        }
+        if (typeof value === 'string') {
+            return value
+        }
+        if (typeof value === 'number' || typeof value === 'boolean') {
+            return `${value}`
+        }
+        if (value instanceof Date) {
+            return this.toLocalDateTimeString(value)
+        }
+        try {
+            return JSON.stringify(value)
+        } catch {
+            return `${value}`
+        }
+    }
+
+    private isGuidValue(value: any): boolean {
+        if (typeof value !== 'string') {
+            return false
+        }
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+    }
+
+    private tryParseDate(value: any): Date | null {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value
+        }
+        if (typeof value !== 'string') {
+            return null
+        }
+        const trimmed = value.trim()
+        if (!trimmed) {
+            return null
+        }
+        // Restrict to ISO-like date strings to avoid converting generic numbers/text.
+        const isoLikeDate = /^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(trimmed)
+        if (!isoLikeDate) {
+            return null
+        }
+        const parsed = new Date(trimmed)
+        return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+
+    isUrl(value: any): boolean {
+        return typeof value === 'string' && /^https?:\/\//i.test(value)
+    }
+
+    openInNewTab(url: string, event?: Event) {
+        event?.stopPropagation()
+        window.open(url, '_blank', 'noopener,noreferrer')
+    }
+
+    onUploadProjectDocumentsClick(fileInput: HTMLInputElement) {
+        this.projectDocumentUploadMessage = ''
+        fileInput.click()
+    }
+
+    onProjectDocumentFileSelected(event: Event) {
+        const input = event.target as HTMLInputElement | null
+        if (!input || !input.files || input.files.length <= 0 || !this.projectId) {
+            return
+        }
+
+        const file = input.files[0]
+        const formData = new FormData()
+        formData.append('file', file, file.name)
+        formData.append('fileName', file.name)
+        formData.append('metadata', JSON.stringify({
+            projectId: this.projectId,
+            projectName: this.project?.name || ''
+        }))
+
+        this.projectDocumentUploadBusy = true
+        this.projectDocumentUploadMessage = 'Uploading document...'
+
+        this.http.post(`/api/fieldwire/projects/${this.projectId}/projectdocuments/upload`, formData).subscribe({
+            next: () => {
+                this.projectDocumentUploadBusy = false
+                this.projectDocumentUploadMessage = 'Document uploaded successfully.'
+                input.value = ''
+            },
+            error: (err: any) => {
+                this.projectDocumentUploadBusy = false
+                this.projectDocumentUploadMessage = err?.error?.message || 'Document upload failed.'
+                input.value = ''
+                console.error(err)
+            }
+        })
     }
 
     private _loadStats() {

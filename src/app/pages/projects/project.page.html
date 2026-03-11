@@ -4,7 +4,7 @@
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div style="margin-left: 15px;">
+    <div class="project-toolbar-controls">
         <mat-form-field style="margin-top: 18px;">
             <mat-select [(value)]="tab" (selectionChange)="setTab($event)">
                 <mat-option *ngFor="let tabEntry of tabs" [value]="tabEntry">{{tabEntry}}</mat-option>
@@ -20,17 +20,57 @@
 
     <div *ngIf="project" class="page-content">
         <div class="tabstrip">
-            <h3 style="display: inline-block;margin:0;padding:0;margin-right: 18px;">{{project?project.name:''}}</h3>
+            <h3 class="project-tabstrip-title">{{project?project.name:''}}</h3>
             <!-- <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button> -->
             <button mat-flat-button [routerLink]="'/projects/' + project.id + '/dailyreport'">DAILY REPORT</button>
             <button mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'">IMPORT TASKS</button>
+            <button mat-flat-button (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy">UPLOAD DOCS</button>
+            <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
+            <span *ngIf="projectDocumentUploadMessage" class="project-upload-status">{{projectDocumentUploadMessage}}</span>
         </div>
         <div class="content-root with-tabstrip">
+            <ng-template #cardTiles let-rows="rows">
+                <div class="simple-card-container project-card-container">
+                    <div class="nav-tile project-data-tile" *ngFor="let row of rows; let idx = index">
+                        <mat-card>
+                            <mat-card-header>
+                                <mat-card-title>{{getCardTitle(row, idx)}}</mat-card-title>
+                            </mat-card-header>
+                            <mat-card-content>
+                                <div class="project-card-grid">
+                                    <div class="project-card-row" *ngFor="let entry of getCardEntries(row)">
+                                        <div class="project-card-key">{{formatCardKey(entry.key)}}</div>
+                                        <div class="project-card-value">
+                                            <ng-container *ngIf="isThumbUrlField(entry.key) && isUrl(entry.value); else nonThumbValue">
+                                                <div class="thumb-url-preview">
+                                                    <img [src]="entry.value" [alt]="getCardTitle(row, idx) + ' thumbnail'" loading="lazy" />
+                                                    <button
+                                                        mat-icon-button
+                                                        type="button"
+                                                        class="thumb-open-btn"
+                                                        (click)="openInNewTab(entry.value, $event)"
+                                                        aria-label="Open image in new tab">
+                                                        <mat-icon fontIcon="open_in_new"></mat-icon>
+                                                    </button>
+                                                </div>
+                                            </ng-container>
+                                            <ng-template #nonThumbValue>
+                                                <a *ngIf="isUrl(entry.value); else plainValue" [href]="entry.value" target="_blank" rel="noopener">{{entry.value}}</a>
+                                                <ng-template #plainValue>{{formatCardValue(entry.value)}}</ng-template>
+                                            </ng-template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </mat-card-content>
+                        </mat-card>
+                    </div>
+                </div>
+            </ng-template>
 
             <div *ngIf="tab==='OVERVIEW'">
                 <div *ngIf="project">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="[project]"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(project) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(project)}}</pre>
@@ -38,10 +78,10 @@
                 </div>
             </div>
 
-            <div *ngIf="tab==='STATS'">
+            <div *ngIf="tab==='STATS'" class="stats-panel">
                 <div *ngIf="stats">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="stats.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(stats.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(stats)}}</pre>
@@ -52,7 +92,7 @@
             <div *ngIf="tab==='FOLDERS'">
                 <div *ngIf="folders">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="folders.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(folders.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(folders)}}</pre>
@@ -63,7 +103,7 @@
             <div *ngIf="tab==='FLOORPLANS'">
                 <div *ngIf="floorplans">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="floorplans.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(floorplans.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(floorplans)}}</pre>
@@ -74,7 +114,7 @@
             <div *ngIf="tab==='SHEETS'">
                 <div *ngIf="sheets">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="sheets.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(sheets.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(sheets)}}</pre>
@@ -85,7 +125,7 @@
             <div *ngIf="tab==='STATUSES'">
                 <div *ngIf="statuses">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="statuses.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(statuses.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(statuses)}}</pre>
@@ -96,7 +136,7 @@
             <div *ngIf="tab==='LOCATIONS'">
                 <div *ngIf="locations">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="locations.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(locations.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(locations)}}</pre>
@@ -107,7 +147,7 @@
             <div *ngIf="tab==='TEAMS'">
                 <div *ngIf="teams">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="teams.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(teams.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(teams)}}</pre>
@@ -118,7 +158,7 @@
             <div *ngIf="tab==='TASKS'">
                 <div *ngIf="tasks">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="tasks.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(tasks.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(tasks)}}</pre>
@@ -129,7 +169,7 @@
             <div *ngIf="tab==='TASK TYPE ATTRIBUTES'">
                 <div *ngIf="taskTypeAttributes">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="taskTypeAttributes.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskTypeAttributes.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(taskTypeAttributes)}}</pre>
@@ -140,7 +180,7 @@
             <div *ngIf="tab==='TASK ATTRIBUTES'">
                 <div *ngIf="taskAttributes">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="taskAttributes.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskAttributes.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(taskAttributes)}}</pre>
@@ -151,7 +191,7 @@
             <div *ngIf="tab==='TASK CHECK ITEMS'">
                 <div *ngIf="taskCheckItems">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="taskCheckItems.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskCheckItems.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(taskCheckItems)}}</pre>
@@ -162,7 +202,7 @@
             <div *ngIf="tab==='ATTACHMENTS'">
                 <div *ngIf="attachments">
                     <div *ngIf="layout==='Tabular'">
-                        <mission-tabular-component [datasource]="attachments.reduced"></mission-tabular-component>
+                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(attachments.reduced) }"></ng-container>
                     </div>
                     <div *ngIf="layout==='Raw'">
                         <pre>{{jsonify(attachments)}}</pre>

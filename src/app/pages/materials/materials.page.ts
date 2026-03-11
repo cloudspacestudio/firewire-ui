@@ -46,7 +46,7 @@ export class MaterialsPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.materials = []
 
-        this.http.get('/api/fieldwire/vwmaterials').subscribe({
+        this.http.get('/api/firewire/vwmaterials').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.materials = [...s.rows]

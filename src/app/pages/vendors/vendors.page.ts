@@ -46,7 +46,7 @@ export class VendorsPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.vendors = []
 
-        this.http.get('/api/fieldwire/vendors').subscribe({
+        this.http.get('/api/firewire/vendors').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
                     this.vendors = [...s.rows]
