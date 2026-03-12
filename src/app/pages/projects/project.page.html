@@ -4,31 +4,635 @@
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div class="project-toolbar-controls">
-        <mat-form-field style="margin-top: 18px;">
-            <mat-select [(value)]="tab" (selectionChange)="setTab($event)">
-                <mat-option *ngFor="let tabEntry of tabs" [value]="tabEntry">{{tabEntry}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-button-toggle-group name="contentLayout" aria-label="Content Layout" style="margin-left: 10px;">
-            <mat-button-toggle *ngFor="let layoutItem of layouts" [value]="layoutItem" 
-                [checked]="layout===layoutItem" (click)="setLayout(layoutItem)">{{layoutItem}}</mat-button-toggle>
-        </mat-button-toggle-group>
-    </div>
-</page-toolbar>
-<div *ngIf="!pageWorking" class="page-root">
 
-    <div *ngIf="project" class="page-content">
+    <div class="project-toolbar-actions">
+        <button *ngIf="project" mat-flat-button [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
+        <button *ngIf="project" mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
+        <button mat-flat-button (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">UPLOAD DOCS</button>
+        <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
+        <span *ngIf="projectDocumentUploadMessage" class="project-upload-status">{{projectDocumentUploadMessage}}</span>
+    </div>
+
+</page-toolbar>
+
+<div *ngIf="!pageWorking" class="page-root">
+    <div class="page-content">
         <div class="tabstrip">
-            <h3 class="project-tabstrip-title">{{project?project.name:''}}</h3>
-            <!-- <button *ngFor="let tabEntry of tabs" mat-raised-button [disabled]="tab!==tabEntry" [disabledInteractive]="tab!==tabEntry" (click)="setTab(tabEntry)" style="border-radius: 1px;cursor: pointer;">{{tabEntry}}</button> -->
-            <button mat-flat-button [routerLink]="'/projects/' + project.id + '/dailyreport'">DAILY REPORT</button>
-            <button mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'">IMPORT TASKS</button>
-            <button mat-flat-button (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy">UPLOAD DOCS</button>
-            <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
-            <span *ngIf="projectDocumentUploadMessage" class="project-upload-status">{{projectDocumentUploadMessage}}</span>
+            <h3 class="project-tabstrip-title">{{getPageTitle()}}</h3>
+            <span *ngIf="firewireProject" class="project-source-chip">firewire</span>
+            <span *ngIf="project" class="project-source-chip">fieldwire</span>
         </div>
+
         <div class="content-root with-tabstrip">
+            <div *ngIf="firewireProject" class="firewire-project-shell">
+                <mat-card class="firewire-workspace-card">
+                    <mat-card-content>
+                        <div class="firewire-workspace-layout">
+                            <div class="firewire-workspace-nav" role="tablist" aria-label="Project workspace sections">
+                                <button
+                                    *ngFor="let workspaceTab of getFirewireWorkspaceTabs()"
+                                    mat-stroked-button
+                                    type="button"
+                                    class="firewire-workspace-nav__button"
+                                    [class.is-active]="activeFirewireWorkspaceTab === workspaceTab"
+                                    [attr.aria-selected]="activeFirewireWorkspaceTab === workspaceTab"
+                                    (click)="setFirewireWorkspaceTab(workspaceTab)">
+                                    {{workspaceTab}}
+                                </button>
+                            </div>
+
+                            <div class="firewire-tab-panel">
+                                <div *ngIf="activeFirewireWorkspaceTab === 'PROJECT DETAILS'; else firewireWorkspaceContent" class="firewire-project-details-panel">
+                                    <div class="firewire-project-form-grid">
+                                        <mat-form-field>
+                                            <mat-label>Name</mat-label>
+                                            <input matInput [(ngModel)]="firewireForm.name" />
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Project Number</mat-label>
+                                            <input matInput [(ngModel)]="firewireForm.projectNbr" />
+                                        </mat-form-field>
+                                        <mat-form-field class="firewire-project-span-2">
+                                            <mat-label>Fieldwire Project Link</mat-label>
+                                            <ng-container *ngIf="firewireProject.fieldwireId; else editableFieldwireLink">
+                                                <input matInput [value]="getSelectedFieldwireProjectName()" readonly />
+                                                <a
+                                                    matSuffix
+                                                    class="fieldwire-project-link"
+                                                    [href]="'https://app.fieldwire.com/projects/' + firewireProject.fieldwireId + '/settings'"
+                                                    target="_blank"
+                                                    rel="noopener">
+                                                    OPEN
+                                                </a>
+                                            </ng-container>
+                                            <ng-template #editableFieldwireLink>
+                                                <mat-select [(ngModel)]="firewireForm.fieldwireId">
+                                                    <mat-option [value]="null">Not linked</mat-option>
+                                                    <mat-option *ngFor="let option of fieldwireProjects" [value]="option.id">
+                                                        {{option.name}} ({{option.code}})
+                                                    </mat-option>
+                                                </mat-select>
+                                            </ng-template>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Bid Due Date</mat-label>
+                                            <input matInput [matDatepicker]="bidDueDatePicker" [ngModel]="firewireBidDueDate" (ngModelChange)="onBidDueDateChange($event)" />
+                                            <mat-datepicker-toggle matIconSuffix [for]="bidDueDatePicker"></mat-datepicker-toggle>
+                                            <mat-datepicker #bidDueDatePicker></mat-datepicker>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Project Status</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.projectStatus">
+                                                <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Total Sq Ft</mat-label>
+                                            <input matInput type="number" min="0" [(ngModel)]="firewireForm.totalSqFt" />
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Salesman</mat-label>
+                                            <input matInput [(ngModel)]="firewireForm.salesman" />
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Job Type</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.jobType">
+                                                <mat-option [value]="''">None</mat-option>
+                                                <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Scope Type</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.scopeType">
+                                                <mat-option [value]="''">None</mat-option>
+                                                <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Difficulty</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.difficulty">
+                                                <mat-option [value]="''">None</mat-option>
+                                                <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field class="firewire-project-span-2">
+                                            <mat-label>Address</mat-label>
+                                            <input matInput [(ngModel)]="firewireForm.address" />
+                                        </mat-form-field>
+                                        <mat-form-field class="firewire-project-span-2">
+                                            <mat-label>Project Scope</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.projectScope">
+                                                <mat-option [value]="''">None</mat-option>
+                                                <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                    </div>
+
+                                    <div class="firewire-project-actions">
+                                        <button
+                                            mat-stroked-button
+                                            type="button"
+                                            class="firewire-reset-button"
+                                            (click)="resetFirewireForm()"
+                                            [disabled]="firewireSaveWorking || !isFirewireFormDirty">
+                                            RESET
+                                        </button>
+                                        <button
+                                            mat-flat-button
+                                            type="button"
+                                            class="firewire-save-button"
+                                            [class.is-dirty]="isFirewireFormDirty"
+                                            (click)="saveFirewireProject()"
+                                            [disabled]="firewireSaveWorking || !isFirewireFormDirty">
+                                            SAVE DETAILS
+                                        </button>
+                                        <span *ngIf="firewireSaveMessage" class="project-upload-status">{{firewireSaveMessage}}</span>
+                                    </div>
+                                </div>
+
+                                <ng-template #firewireWorkspaceContent>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'LABOR RATES'; else firewireWorkspaceTakeoffOrDocLibrary" class="labor-rates-panel">
+                                        <div class="labor-rates-card-grid">
+                                            <div class="labor-rates-card">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Wage Scale</div>
+                                                <h4>Wage Scale Job?</h4>
+                                                <div class="labor-rates-toggle-row">
+                                                    <button mat-stroked-button type="button" [class.active]="wageScaleJob" (click)="onWageScaleJobChange(true)">YES</button>
+                                                    <button mat-stroked-button type="button" [class.active]="!wageScaleJob" (click)="onWageScaleJobChange(false)">NO</button>
+                                                </div>
+                                                <label class="labor-rates-inline-field" [class.is-disabled]="!wageScaleJob">
+                                                    <span>Effective Rate</span>
+                                                    <div class="bom-currency-input">
+                                                        <span>$</span>
+                                                        <input type="number" min="0" step="0.01" [(ngModel)]="wageScaleEffectiveRate" [disabled]="!wageScaleJob" />
+                                                    </div>
+                                                </label>
+                                            </div>
+
+                                            <div class="labor-rates-card labor-rates-card--wide">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Base Rates</div>
+                                                <h4>Labor Type Matrix</h4>
+                                                <div class="labor-rates-grid">
+                                                    <div class="labor-rates-grid__header">Labor Type</div>
+                                                    <div class="labor-rates-grid__header labor-rates-grid__header--right">Pay Rate</div>
+                                                    <div class="labor-rates-grid__header labor-rates-grid__header--right">Effective Rate</div>
+
+                                                    <ng-container *ngFor="let row of laborRates">
+                                                        <div class="labor-rates-grid__label">{{row.label}}</div>
+                                                        <div class="bom-currency-input labor-rates-grid__field">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.payRate" (ngModelChange)="row.label === 'Installation' ? syncInstallationOvertimeRate() : null" />
+                                                        </div>
+                                                        <div class="bom-currency-input labor-rates-grid__field">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.effectiveRate" />
+                                                        </div>
+                                                    </ng-container>
+                                                </div>
+                                            </div>
+
+                                            <div class="labor-rates-card labor-rates-card--wide">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Installation Overtime</div>
+                                                <h4>Installation Overtime Group</h4>
+                                                <div class="labor-rates-overtime-grid">
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>Install Rate Markup</span>
+                                                        <div class="bom-currency-input">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="installationOvertime.installRateMarkup" />
+                                                        </div>
+                                                    </label>
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>% of Total Install Hrs</span>
+                                                        <div class="labor-rates-percent-input">
+                                                            <input type="number" min="0" step="0.1" [(ngModel)]="installationOvertime.percentTotalInstallHours" />
+                                                            <span>%</span>
+                                                        </div>
+                                                    </label>
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>Overtime Rate</span>
+                                                        <div class="bom-currency-input">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="installationOvertime.overtimeRate" />
+                                                        </div>
+                                                    </label>
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>Overtime Effective Rate</span>
+                                                        <div class="bom-currency-input">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="installationOvertime.overtimeEffectiveRate" />
+                                                        </div>
+                                                    </label>
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>Project Supervision Factor</span>
+                                                        <div class="labor-rates-percent-input">
+                                                            <input type="number" min="0" step="0.1" [(ngModel)]="installationOvertime.supervisionFactorPercent" />
+                                                            <span>%</span>
+                                                        </div>
+                                                    </label>
+                                                    <label class="labor-rates-inline-field">
+                                                        <span>Mobilization Factor</span>
+                                                        <div class="labor-rates-percent-input">
+                                                            <input type="number" min="0" step="0.1" [(ngModel)]="installationOvertime.mobilizationFactorPercent" />
+                                                            <span>%</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <ng-template #firewireWorkspaceTakeoffOrDocLibrary>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'TAKE OFF'; else firewireWorkspaceDocLibraryOrFieldwire" class="takeoff-panel">
+                                        <div class="takeoff-summary">
+                                            <div class="firewire-workspace-placeholder__eyebrow">Take Off Totals</div>
+                                            <div class="takeoff-summary__badges">
+                                                <span class="takeoff-total-badge" *ngFor="let matrix of takeoffMatrices">
+                                                    {{matrix.title}}: {{getTakeoffMatrixTotal(matrix)}}
+                                                </span>
+                                                <span class="takeoff-total-badge is-grand">Combined: {{getTakeoffGrandTotal()}}</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="takeoff-matrix-card" *ngFor="let matrix of takeoffMatrices; let matrixIndex = index">
+                                            <div class="takeoff-matrix-card__header">
+                                                <h4>{{matrix.title}}</h4>
+                                                <span>Total {{getTakeoffMatrixTotal(matrix)}}</span>
+                                            </div>
+                                            <div class="takeoff-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Area</th>
+                                                            <th *ngFor="let column of takeoffColumns">
+                                                                <span class="takeoff-column-header">{{column}}</span>
+                                                            </th>
+                                                            <th class="right-align">Row Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of matrix.rows; let rowIndex = index">
+                                                            <td class="takeoff-row-label">{{row}}</td>
+                                                            <td *ngFor="let column of takeoffColumns; let columnIndex = index">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="99"
+                                                                    step="1"
+                                                                    [attr.data-takeoff-cell]="matrixIndex + '-' + rowIndex + '-' + columnIndex"
+                                                                    [ngModel]="getTakeoffCellValue(matrix, row, column)"
+                                                                    (ngModelChange)="setTakeoffCellValue(matrix, row, column, $event)"
+                                                                    (keydown)="onTakeoffCellKeydown($event)"
+                                                                    [attr.aria-label]="matrix.title + ' ' + row + ' ' + column" />
+                                                            </td>
+                                                            <td class="right-align takeoff-row-total">{{getTakeoffRowTotal(matrix, row)}}</td>
+                                                        </tr>
+                                                        <tr class="takeoff-total-row">
+                                                            <td>Total</td>
+                                                            <td *ngFor="let column of takeoffColumns">{{getTakeoffColumnTotal(matrix, column)}}</td>
+                                                            <td class="right-align takeoff-row-total">{{getTakeoffMatrixTotal(matrix)}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="takeoff-matrix-card takeoff-matrix-card--summary">
+                                            <div class="takeoff-matrix-card__header">
+                                                <h4>Combined Totals</h4>
+                                                <span>Total {{getTakeoffGrandTotal()}}</span>
+                                            </div>
+                                            <div class="takeoff-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Summary</th>
+                                                            <th *ngFor="let column of takeoffColumns">
+                                                                <span class="takeoff-column-header">{{column}}</span>
+                                                            </th>
+                                                            <th class="right-align">Grand Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr class="takeoff-total-row">
+                                                            <td>All Areas</td>
+                                                            <td *ngFor="let column of takeoffColumns">{{getTakeoffCombinedColumnTotal(column)}}</td>
+                                                            <td class="right-align takeoff-row-total">{{getTakeoffGrandTotal()}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <ng-template #firewireWorkspaceDocLibraryOrFieldwire>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'DOC LIBRARY'; else firewireWorkspaceFieldwireOrSystem" class="doc-library-panel">
+                                        <div class="doc-library-toolbar">
+                                            <div>
+                                                <div class="firewire-workspace-placeholder__eyebrow">Document Library</div>
+                                                <h4>Project Files <span class="doc-library-project-nbr">{{getDocLibraryProjectKey()}}</span></h4>
+                                            </div>
+                                            <a
+                                                mat-flat-button
+                                                class="doc-library-open-btn"
+                                                href="https://firetrolnet.sharepoint.com/sites/Firewire/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FFirewire%2FShared%20Documents&newTargetListUrl=%2Fsites%2FFirewire%2FShared%20Documents&viewpath=%2Fsites%2FFirewire%2FShared%20Documents%2FForms%2FAllItems%2Easpx"
+                                                target="_blank"
+                                                rel="noopener">
+                                                OPEN SHAREPOINT
+                                            </a>
+                                        </div>
+
+                                            <div class="doc-library-summary">
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Active Folder</span>
+                                                <strong>{{getSelectedDocLibraryFolderLabel()}}</strong>
+                                            </div>
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Files</span>
+                                                <strong>{{getDocLibraryVisibleFiles().length}}</strong>
+                                            </div>
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Storage</span>
+                                                <strong>{{formatDocLibraryBytes(getDocLibraryTotalBytes())}}</strong>
+                                            </div>
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Needs Review</span>
+                                                <strong>{{getDocLibraryStatusCount('Needs Review')}}</strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="doc-library-shell">
+                                            <aside class="doc-library-nav">
+                                                <button
+                                                    *ngFor="let folder of docLibraryFolders"
+                                                    type="button"
+                                                    class="doc-library-nav__item"
+                                                    [class.is-active]="selectedDocLibraryFolder === folder.id"
+                                                    (click)="selectDocLibraryFolder(folder.id)">
+                                                    <span class="doc-library-nav__meta">
+                                                        <span class="doc-library-nav__label">{{folder.label}}</span>
+                                                        <span class="doc-library-nav__badge" *ngIf="folder.badge">{{folder.badge}}</span>
+                                                    </span>
+                                                    <span class="doc-library-nav__count">{{folder.itemCount}}</span>
+                                                </button>
+                                            </aside>
+
+                                            <div class="doc-library-browser">
+                                                <div class="doc-library-browser__header">
+                                                    <div>
+                                                        <div class="firewire-workspace-placeholder__eyebrow">SharePoint View</div>
+                                                        <h5>/Projects/{{getDocLibraryProjectKey()}}/{{getSelectedDocLibraryFolderLabel()}}</h5>
+                                                    </div>
+                                                    <div class="doc-library-browser__status">
+                                                        <span class="doc-library-pill">Synced {{getDocLibraryStatusCount('Synced')}}</span>
+                                                        <span class="doc-library-pill is-alert">Needs Review {{getDocLibraryStatusCount('Needs Review')}}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="doc-library-table-shell">
+                                                    <table class="doc-library-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Name</th>
+                                                                <th>Category</th>
+                                                                <th>Type</th>
+                                                                <th>Size</th>
+                                                                <th>Modified</th>
+                                                                <th>Owner</th>
+                                                                <th>Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr *ngFor="let file of getDocLibraryVisibleFiles()">
+                                                                <td>
+                                                                    <div class="doc-library-file">
+                                                                        <span class="doc-library-file__ext">{{file.extension}}</span>
+                                                                        <div>
+                                                                            <div class="doc-library-file__name">{{file.name}}</div>
+                                                                            <div class="doc-library-file__path">/{{file.folderId}}/{{file.name}}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td>{{file.category}}</td>
+                                                                <td>{{file.extension}}</td>
+                                                                <td>{{formatDocLibraryBytes(file.sizeBytes)}}</td>
+                                                                <td>{{toLocalDateTimeString(file.modifiedAt)}}</td>
+                                                                <td>
+                                                                    <div>{{file.modifiedBy}}</div>
+                                                                    <div class="doc-library-muted" *ngIf="file.checkedOutTo">Checked out to {{file.checkedOutTo}}</div>
+                                                                </td>
+                                                                <td>
+                                                                    <span class="doc-library-status" [class.is-alert]="file.status === 'Needs Review'" [class.is-draft]="file.status === 'Draft'">
+                                                                        {{file.status}}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <ng-template #firewireWorkspaceFieldwireOrSystem>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'FIELDWIRE VIEW'; else firewireWorkspaceSystemOrBom" class="fieldwire-view-panel">
+                                        <div class="fieldwire-view-controls">
+                                            <mat-form-field>
+                                                <mat-label>API Output</mat-label>
+                                                <mat-select [(value)]="tab" (selectionChange)="setTab($event)">
+                                                    <mat-option *ngFor="let tabEntry of tabs" [value]="tabEntry">{{tabEntry}}</mat-option>
+                                                </mat-select>
+                                            </mat-form-field>
+                                            <mat-button-toggle-group name="contentLayout" aria-label="Content Layout">
+                                                <mat-button-toggle *ngFor="let layoutItem of layouts" [value]="layoutItem"
+                                                [checked]="layout===layoutItem" (click)="setLayout(layoutItem)">{{layoutItem}}</mat-button-toggle>
+                                            </mat-button-toggle-group>
+                                        </div>
+                                        <ng-container *ngTemplateOutlet="fieldwireOutputContent"></ng-container>
+                                    </div>
+
+                                    <ng-template #firewireWorkspaceSystemOrBom>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SYSTEM'; else firewireWorkspaceBomOrPlaceholder" class="system-panel">
+                                        <mat-card>
+                                            <mat-card-header>
+                                                <mat-card-title>Audit</mat-card-title>
+                                            </mat-card-header>
+                                            <mat-card-content>
+                                                <div class="project-card-grid">
+                                                    <div class="project-card-row">
+                                                        <div class="project-card-key">Created At</div>
+                                                        <div class="project-card-value">{{toLocalDateTimeString(firewireProject.createdAt)}}</div>
+                                                    </div>
+                                                    <div class="project-card-row">
+                                                        <div class="project-card-key">Created By</div>
+                                                        <div class="project-card-value">{{firewireProject.createdBy}}</div>
+                                                    </div>
+                                                    <div class="project-card-row">
+                                                        <div class="project-card-key">Updated At</div>
+                                                        <div class="project-card-value">{{toLocalDateTimeString(firewireProject.updatedAt)}}</div>
+                                                    </div>
+                                                    <div class="project-card-row">
+                                                        <div class="project-card-key">Updated By</div>
+                                                        <div class="project-card-value">{{firewireProject.updatedBy}}</div>
+                                                    </div>
+                                                    <div class="project-card-row">
+                                                        <div class="project-card-key">UUID</div>
+                                                        <div class="project-card-value">{{firewireProject.uuid}}</div>
+                                                    </div>
+                                                </div>
+                                            </mat-card-content>
+                                        </mat-card>
+                                    </div>
+                                    </ng-template>
+                                    </ng-template>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceBomOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspacePlaceholder" class="firewire-bom-panel">
+                                        <div class="firewire-bom-toolbar">
+                                            <div class="firewire-bom-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Project BOM</div>
+                                                <h4>Material Worksheet</h4>
+                                                <label class="firewire-bom-filter">
+                                                    <span>Filter</span>
+                                                    <input [(ngModel)]="bomFilter" aria-label="Filter BOM rows" placeholder="device, component, cost" />
+                                                </label>
+                                            </div>
+                                            <div class="firewire-bom-toolbar__actions">
+                                                <div class="firewire-bom-grand-total">
+                                                    {{getBomGrandTotal() | currency}}
+                                                </div>
+                                                <button mat-stroked-button type="button" (click)="exportBomCsv()">EXPORT CSV</button>
+                                            </div>
+                                        </div>
+
+                                        <div *ngFor="let section of bomSections" class="firewire-bom-section">
+                                            <div class="firewire-bom-section__header">
+                                                <h5>{{section.title}}</h5>
+                                                <span>{{getBomSectionGrandTotal(section) | currency}}</span>
+                                            </div>
+
+                                            <div class="firewire-bom-grid">
+                                                <table>
+                                                    <colgroup>
+                                                        <col class="bom-col-part-nbr" />
+                                                        <col class="bom-col-description" />
+                                                        <col class="bom-col-qty" />
+                                                        <col class="bom-col-cost" />
+                                                        <col class="bom-col-ext-cost" />
+                                                        <col class="bom-col-labor" />
+                                                        <col class="bom-col-ext-labor" />
+                                                        <col class="bom-col-type" />
+                                                    </colgroup>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>
+                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('partNbr')" (click)="setBomSort('partNbr')">
+                                                                    Part Nbr
+                                                                    <span>{{isBomSortActive('partNbr') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th>
+                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('description')" (click)="setBomSort('description')">
+                                                                    Description
+                                                                    <span>{{isBomSortActive('description') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th class="right-align">
+                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('qty')" (click)="setBomSort('qty')">
+                                                                    Qty
+                                                                    <span>{{isBomSortActive('qty') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th class="right-align">
+                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('cost')" (click)="setBomSort('cost')">
+                                                                    Cost
+                                                                    <span>{{isBomSortActive('cost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th class="right-align">
+                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extCost')" (click)="setBomSort('extCost')">
+                                                                    Ext Cost
+                                                                    <span>{{isBomSortActive('extCost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th class="right-align">
+                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('labor')" (click)="setBomSort('labor')">
+                                                                    Labor
+                                                                    <span>{{isBomSortActive('labor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th class="right-align">
+                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extLabor')" (click)="setBomSort('extLabor')">
+                                                                    Ext Labor
+                                                                    <span>{{isBomSortActive('extLabor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                            <th>
+                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('type')" (click)="setBomSort('type')">
+                                                                    Type
+                                                                    <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                                </button>
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of getFilteredBomRows(section); let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.partNbr" [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                                            </td>
+                                                            <td>
+                                                                <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <div class="bom-currency-input">
+                                                                    <span>$</span>
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
+                                                                </div>
+                                                            </td>
+                                                            <td class="right-align bom-total-cell">
+                                                                {{getBomRowExtCost(row) | currency}}
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <div class="bom-currency-input">
+                                                                    <span>$</span>
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.labor" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
+                                                                </div>
+                                                            </td>
+                                                            <td class="right-align bom-total-cell">
+                                                                {{getBomRowExtLabor(row) | currency}}
+                                                            </td>
+                                                            <td>
+                                                                <input [(ngModel)]="row.type" [attr.aria-label]="'BOM type ' + (idx + 1)" />
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspacePlaceholder>
+                                    <div class="firewire-workspace-placeholder">
+                                        <div class="firewire-workspace-placeholder__eyebrow">Section Ready</div>
+                                        <h4>{{activeFirewireWorkspaceTab}}</h4>
+                                        <p>This workspace is reserved for upcoming Firewire project form fields and calculations.</p>
+                                    </div>
+                                    </ng-template>
+                                </ng-template>
+                            </div>
+                        </div>
+
+                    </mat-card-content>
+                </mat-card>
+
+            </div>
+
             <ng-template #cardTiles let-rows="rows">
                 <div class="simple-card-container project-card-container">
                     <div class="nav-tile project-data-tile" *ngFor="let row of rows; let idx = index">
@@ -67,8 +671,8 @@
                 </div>
             </ng-template>
 
-            <div *ngIf="tab==='OVERVIEW'">
-                <div *ngIf="project">
+            <ng-template #fieldwireOutputContent>
+                <div *ngIf="project && tab==='OVERVIEW'" class="fieldwire-project-section">
                     <div *ngIf="layout==='Tabular'">
                         <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(project) }"></ng-container>
                     </div>
@@ -76,145 +680,147 @@
                         <pre>{{jsonify(project)}}</pre>
                     </div>
                 </div>
-            </div>
 
-            <div *ngIf="tab==='STATS'" class="stats-panel">
-                <div *ngIf="stats">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(stats.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(stats)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='FOLDERS'">
-                <div *ngIf="folders">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(folders.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(folders)}}</pre>
+                <div *ngIf="project && tab==='STATS'" class="stats-panel fieldwire-project-section">
+                    <div *ngIf="stats">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(stats.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(stats)}}</pre>
+                        </div>
                     </div>
                 </div>
-            </div>
-    
-            <div *ngIf="tab==='FLOORPLANS'">
-                <div *ngIf="floorplans">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(floorplans.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(floorplans)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='SHEETS'">
-                <div *ngIf="sheets">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(sheets.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(sheets)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='STATUSES'">
-                <div *ngIf="statuses">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(statuses.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(statuses)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='LOCATIONS'">
-                <div *ngIf="locations">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(locations.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(locations)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='TEAMS'">
-                <div *ngIf="teams">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(teams.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(teams)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='TASKS'">
-                <div *ngIf="tasks">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(tasks.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(tasks)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='TASK TYPE ATTRIBUTES'">
-                <div *ngIf="taskTypeAttributes">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskTypeAttributes.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(taskTypeAttributes)}}</pre>
-                    </div>
-                </div>
-            </div>
-    
-            <div *ngIf="tab==='TASK ATTRIBUTES'">
-                <div *ngIf="taskAttributes">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskAttributes.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(taskAttributes)}}</pre>
-                    </div>
-                </div>
-            </div>
 
-            <div *ngIf="tab==='TASK CHECK ITEMS'">
-                <div *ngIf="taskCheckItems">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskCheckItems.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(taskCheckItems)}}</pre>
+                <div *ngIf="project && tab==='FOLDERS'" class="fieldwire-project-section">
+                    <div *ngIf="folders">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(folders.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(folders)}}</pre>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div *ngIf="tab==='ATTACHMENTS'">
-                <div *ngIf="attachments">
-                    <div *ngIf="layout==='Tabular'">
-                        <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(attachments.reduced) }"></ng-container>
-                    </div>
-                    <div *ngIf="layout==='Raw'">
-                        <pre>{{jsonify(attachments)}}</pre>
+                <div *ngIf="project && tab==='FLOORPLANS'" class="fieldwire-project-section">
+                    <div *ngIf="floorplans">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(floorplans.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(floorplans)}}</pre>
+                        </div>
                     </div>
                 </div>
-            </div>
-    
+
+                <div *ngIf="project && tab==='SHEETS'" class="fieldwire-project-section">
+                    <div *ngIf="sheets">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(sheets.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(sheets)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='STATUSES'" class="fieldwire-project-section">
+                    <div *ngIf="statuses">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(statuses.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(statuses)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='LOCATIONS'" class="fieldwire-project-section">
+                    <div *ngIf="locations">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(locations.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(locations)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='TEAMS'" class="fieldwire-project-section">
+                    <div *ngIf="teams">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(teams.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(teams)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='TASKS'" class="fieldwire-project-section">
+                    <div *ngIf="tasks">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(tasks.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(tasks)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='TASK TYPE ATTRIBUTES'" class="fieldwire-project-section">
+                    <div *ngIf="taskTypeAttributes">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskTypeAttributes.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(taskTypeAttributes)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='TASK ATTRIBUTES'" class="fieldwire-project-section">
+                    <div *ngIf="taskAttributes">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskAttributes.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(taskAttributes)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='TASK CHECK ITEMS'" class="fieldwire-project-section">
+                    <div *ngIf="taskCheckItems">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(taskCheckItems.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(taskCheckItems)}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="project && tab==='ATTACHMENTS'" class="fieldwire-project-section">
+                    <div *ngIf="attachments">
+                        <div *ngIf="layout==='Tabular'">
+                            <ng-container *ngTemplateOutlet="cardTiles; context: { rows: asCardRows(attachments.reduced) }"></ng-container>
+                        </div>
+                        <div *ngIf="layout==='Raw'">
+                            <pre>{{jsonify(attachments)}}</pre>
+                        </div>
+                    </div>
+                </div>
+            </ng-template>
+
+            <ng-container *ngIf="project && !firewireProject">
+                <ng-container *ngTemplateOutlet="fieldwireOutputContent"></ng-container>
+            </ng-container>
         </div>
-
     </div>
-    
 </div>
+
 <div *ngIf="pageWorking" class="loading-panel">
     <div>Loading, Please wait...</div>
 </div>

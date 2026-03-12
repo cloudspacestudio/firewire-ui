@@ -1,49 +1,59 @@
 <page-toolbar></page-toolbar>
 <div class="page-root">
-    <div class="page-content">
+    <div class="home-video-shell">
+        <div class="home-video-shell__ambient"></div>
+        <video
+            class="home-video-shell__video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="auto"
+            aria-hidden="true">
+            <source src="/images/ps3.mp4" type="video/mp4" />
+        </video>
+        <div class="home-video-shell__scanline"></div>
+        <div class="home-video-shell__vignette"></div>
+    </div>
+
+    <div class="page-content home-page-content">
         <div class="content-root">
+            <div class="home-hero">
+                <div class="home-hero__eyebrow">Firewire Command</div>
+                <h1>Operational systems for projects, devices, and estimating data.</h1>
+            </div>
 
-            <div class="simple-card-container">
-
-                <div [routerLink]="'/projects'" class="nav-tile">
+            <div class="simple-card-container home-tile-grid">
+                <div [routerLink]="'/projects'" class="nav-tile nav-tile--projects">
                     <mat-card appearance="outlined">
-                    <mat-card-header>
-                        <mat-card-title>Projects</mat-card-title>
-                        <mat-card-subtitle>View and Manage Projects in Firewire</mat-card-subtitle>
-                    </mat-card-header>
-                    <!-- <mat-card-actions>
-                        <button mat-button [routerLink]="'/projects'">GO</button>
-                    </mat-card-actions> -->
-                    </mat-card>
-                </div>
-                
-                <div [routerLink]="'/devices'" class="nav-tile">
-                    <mat-card appearance="outlined">
-                    <mat-card-header>
-                        <mat-card-title>Devices</mat-card-title>
-                        <mat-card-subtitle>View and Manage Devices or Materials in Firewire</mat-card-subtitle>
-                    </mat-card-header>
-                    <!-- <mat-card-actions>
-                        <button mat-button [routerLink]="'/devices'">GO</button>
-                    </mat-card-actions> -->
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Projects</mat-card-title>
+                            <mat-card-subtitle>View and manage projects in Firewire</mat-card-subtitle>
+                        </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/settings'" class="nav-tile">
+                <div [routerLink]="'/devices'" class="nav-tile nav-tile--devices">
                     <mat-card appearance="outlined">
-                    <mat-card-header>
-                        <mat-card-title>Settings</mat-card-title>
-                        <mat-card-subtitle>Administer preferences and settings in Firewire</mat-card-subtitle>
-                    </mat-card-header>
-                    <!-- <mat-card-actions>
-                        <button mat-button [routerLink]="'/settings'">GO</button>
-                    </mat-card-actions> -->
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Devices</mat-card-title>
+                            <mat-card-subtitle>View and manage devices and materials</mat-card-subtitle>
+                        </mat-card-header>
                     </mat-card>
                 </div>
 
-            </div><!-- end .simple-card-container -->
-
-        </div><!-- end .content-root -->
-    </div><!-- end .page-content -->
-
-</div><!-- end .page-root -->
+                <div [routerLink]="'/settings'" class="nav-tile nav-tile--settings">
+                    <mat-card appearance="outlined">
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Settings</mat-card-title>
+                            <mat-card-subtitle>Administer preferences and platform settings</mat-card-subtitle>
+                        </mat-card-header>
+                    </mat-card>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

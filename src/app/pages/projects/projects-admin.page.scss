@@ -1,0 +1,283 @@
+:host {
+    display: block;
+}
+
+.admin-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 18px;
+    padding: 20px 22px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(72, 221, 255, 0.14), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(0, 255, 163, 0.12), transparent 28%),
+        linear-gradient(135deg, rgba(7, 12, 22, 0.98), rgba(11, 18, 31, 0.94));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.admin-kicker,
+.admin-status-label,
+.admin-card-title {
+    color: #7de3ff;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+}
+
+.admin-hero h1 {
+    margin: 8px 0;
+    font-size: clamp(1.6rem, 2.5vw, 2.6rem);
+    color: #f2fbff;
+}
+
+.admin-hero p,
+.admin-card-subtitle,
+.admin-audit,
+.admin-status-message {
+    color: rgba(230, 246, 255, 0.72);
+}
+
+.admin-status-shell {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 16px;
+    border: 1px solid rgba(125, 227, 255, 0.18);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(16, 24, 41, 0.92), rgba(8, 14, 24, 0.98));
+}
+
+.admin-status-value,
+.admin-card-count {
+    color: #9bffcf;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.admin-workspace {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.admin-subnav {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    padding: 14px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+        linear-gradient(135deg, rgba(72, 221, 255, 0.07), rgba(75, 102, 255, 0.05)),
+        rgba(8, 13, 22, 0.96);
+}
+
+.admin-subnav-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 54px;
+    border: 1px solid rgba(125, 227, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(6, 12, 21, 0.82);
+    color: #dff9ff;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+:host ::ng-deep .admin-subnav-button .mdc-button__label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.admin-subnav-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.admin-subnav-button.active {
+    border-color: rgba(125, 227, 255, 0.36);
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.14), rgba(0, 255, 163, 0.08)),
+        rgba(9, 16, 28, 0.98);
+    box-shadow: inset 0 0 0 1px rgba(125, 227, 255, 0.12);
+}
+
+.admin-subnav-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(125, 227, 255, 0.12);
+    color: #9bffcf;
+    font-size: 0.78rem;
+}
+
+.admin-card {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+        linear-gradient(135deg, rgba(72, 221, 255, 0.07), rgba(75, 102, 255, 0.05)),
+        rgba(8, 13, 22, 0.96);
+}
+
+.admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 12px;
+}
+
+.admin-create-panel {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(125, 227, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(4, 10, 18, 0.84);
+}
+
+.admin-create-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.span-2,
+.admin-description {
+    grid-column: span 2;
+}
+
+.admin-list {
+    min-width: 0;
+}
+
+.admin-item-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.admin-table-shell {
+    max-height: 720px;
+    overflow: auto;
+    border: 1px solid rgba(125, 227, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(4, 10, 18, 0.84);
+}
+
+.admin-table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+}
+
+.admin-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(125, 227, 255, 0.12);
+    background: rgba(7, 13, 23, 0.98);
+    color: #7de3ff;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    text-align: left;
+}
+
+.admin-table tbody td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(125, 227, 255, 0.08);
+    vertical-align: middle;
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-cell-input {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid rgba(125, 227, 255, 0.16);
+    border-radius: 10px;
+    background: rgba(11, 18, 31, 0.92);
+    color: #f2fbff;
+    outline: none;
+}
+
+.admin-cell-input:focus {
+    border-color: rgba(125, 227, 255, 0.4);
+    box-shadow: 0 0 0 1px rgba(125, 227, 255, 0.22);
+}
+
+.cell-label {
+    width: auto;
+}
+
+.cell-sort {
+    width: 90px;
+}
+
+.cell-active {
+    width: 84px;
+    text-align: center;
+}
+
+.cell-actions {
+    width: 170px;
+}
+
+@media (max-width: 900px) {
+    .admin-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-workspace {
+        grid-template-columns: 200px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 599px) {
+    .admin-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-subnav {
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(180px, 1fr);
+        overflow-x: auto;
+        padding: 10px;
+        order: -1;
+    }
+
+    .admin-subnav-button {
+        min-height: 48px;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-create-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .span-2,
+    .admin-description {
+        grid-column: span 1;
+    }
+}

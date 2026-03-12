@@ -9,36 +9,120 @@
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="tabstrip">
-            <mat-form-field>
-                <mat-label>Filter</mat-label>
-                <input matInput (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
-            </mat-form-field>
+            <div class="project-actions">
+                <mat-form-field>
+                    <mat-label>Filter</mat-label>
+                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
+                </mat-form-field>
+                <button mat-flat-button type="button" (click)="toggleCreatePanel()">
+                    {{createPanelOpen ? 'CLOSE FIREWIRE FORM' : 'NEW FIREWIRE PROJECT'}}
+                </button>
+                <span *ngIf="createStatusText" class="project-create-status">{{createStatusText}}</span>
+            </div>
         </div>
         <div class="content-root with-tabstrip">
-            <table mat-table [dataSource]="datasource" matSort>
+            <div *ngIf="createPanelOpen" class="project-create-panel">
+                <div class="project-create-grid">
+                    <mat-form-field>
+                        <mat-label>Name</mat-label>
+                        <input matInput [(ngModel)]="createModel.name" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Project Number</mat-label>
+                        <input matInput [(ngModel)]="createModel.projectNbr" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Bid Due Date</mat-label>
+                        <input matInput type="date" [(ngModel)]="createModel.bidDueDate" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Project Status</mat-label>
+                        <mat-select [(ngModel)]="createModel.projectStatus">
+                            <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">
+                                {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Total Sq Ft</mat-label>
+                        <input matInput type="number" min="0" [(ngModel)]="createModel.totalSqFt" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Salesman</mat-label>
+                        <input matInput [(ngModel)]="createModel.salesman" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Job Type</mat-label>
+                        <mat-select [(ngModel)]="createModel.jobType">
+                            <mat-option [value]="''">None</mat-option>
+                            <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">
+                                {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Scope Type</mat-label>
+                        <mat-select [(ngModel)]="createModel.scopeType">
+                            <mat-option [value]="''">None</mat-option>
+                            <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">
+                                {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Difficulty</mat-label>
+                        <mat-select [(ngModel)]="createModel.difficulty">
+                            <mat-option [value]="''">None</mat-option>
+                            <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">
+                                {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field class="project-address-field">
+                        <mat-label>Address</mat-label>
+                        <input matInput [(ngModel)]="createModel.address" />
+                    </mat-form-field>
+                    <mat-form-field class="project-scope-field">
+                        <mat-label>Project Scope</mat-label>
+                        <mat-select [(ngModel)]="createModel.projectScope">
+                            <mat-option [value]="''">None</mat-option>
+                            <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">
+                                {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div class="project-create-actions">
+                    <button mat-flat-button type="button" (click)="createProject()" [disabled]="saveWorking">SAVE PROJECT</button>
+                    <button mat-button type="button" (click)="toggleCreatePanel()" [disabled]="saveWorking">CANCEL</button>
+                </div>
+            </div>
 
-                <!-- Name Column -->
+            <table mat-table [dataSource]="datasource" matSort>
                 <ng-container matColumnDef="name" sticky="true">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
                     <td mat-cell *matCellDef="let row"> {{row.name}} </td>
                 </ng-container>
 
-                <!-- Code Column -->
-                <ng-container matColumnDef="code">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>
-                    <td mat-cell *matCellDef="let row"> {{row.code}} </td>
+                <ng-container matColumnDef="projectNbr">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Project # </th>
+                    <td mat-cell *matCellDef="let row"> {{row.projectNbr}} </td>
                 </ng-container>
 
-                <!-- Address Column -->
                 <ng-container matColumnDef="address">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Address </th>
                     <td mat-cell *matCellDef="let row"> {{row.address}} </td>
                 </ng-container>
 
+                <ng-container matColumnDef="bidDueDate">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Bid Due </th>
+                    <td mat-cell *matCellDef="let row"> {{row.bidDueDate ? toLocalDateString(row.bidDueDate) : ''}} </td>
+                </ng-container>
+
                 <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef style="width: 55px;"></th>
-                    <td mat-cell *matCellDef="let row;" style="width: 55px;">
-                        <button mat-icon-button [routerLink]="'/projects/' + row.id">
+                    <td mat-cell *matCellDef="let row;" style="width: 80px;">
+                        <button mat-icon-button [routerLink]="getProjectLink(row)">
                             <mat-icon>edit</mat-icon>
                         </button>
                     </td>
@@ -47,9 +131,8 @@
                 <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
                 <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
 
-                <!-- Row shown when there is no matching data. -->
                 <tr class="mat-row" *matNoDataRow>
-                <td class="mat-cell" colspan="4">{{getNoDataRowText(input.value)}}</td>
+                <td class="mat-cell" colspan="5">{{getNoDataRowText(input.value)}}</td>
                 </tr>
             </table>
 

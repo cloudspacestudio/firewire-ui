@@ -70,13 +70,28 @@ export class NavToolbar {
 
     isActiveItem(item: NavItem): boolean {
         const currentUrl = this.router.url.split('?')[0].split('#')[0]
-        const route = item.route
-
-        if (currentUrl === route || currentUrl.startsWith(`${route}/`)) {
-            return true
+        const matchedItem = this.getBestRouteMatch(currentUrl)
+        if (matchedItem) {
+            return matchedItem.id === item.id
         }
 
         return item.id === this.selectedItem
+    }
+
+    private getBestRouteMatch(currentUrl: string): NavItem | null {
+        if (!this.navItems || this.navItems.length <= 0) {
+            return null
+        }
+
+        const matches = this.navItems.filter((item) => {
+            return currentUrl === item.route || currentUrl.startsWith(`${item.route}/`)
+        })
+
+        if (matches.length <= 0) {
+            return null
+        }
+
+        return matches.sort((left, right) => right.route.length - left.route.length)[0]
     }
 
     static DeviceNavItems = [
@@ -89,6 +104,7 @@ export class NavToolbar {
 
     static ProjectNavItems = [
         {id: 'projects', caption: 'PROJECTS', route: `/projects`},
+        {id: 'fieldwire-projects', caption: 'FIELDWIRE', route: `/projects/fieldwire-list`},
         {id: 'administration', caption: 'ADMIN', route: `/admin`}
     ]
 }

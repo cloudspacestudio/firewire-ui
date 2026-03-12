@@ -1,0 +1,107 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/projects'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'administration'"></nav-toolbar>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <section class="admin-hero">
+            <div>
+                <div class="admin-kicker">PROJECT CONTROL MATRIX</div>
+                <h1>Global Firewire project settings</h1>
+                <p>These lists drive default values and selectable values for new and existing Firewire projects.</p>
+            </div>
+            <div class="admin-status-shell">
+                <div class="admin-status-label">SYSTEM STATUS</div>
+                <div class="admin-status-value">{{pageWorking ? 'SYNCING' : 'ONLINE'}}</div>
+                <div *ngIf="statusText" class="admin-status-message">{{statusText}}</div>
+            </div>
+        </section>
+
+        <div *ngIf="!pageWorking" class="admin-workspace">
+            <aside class="admin-subnav">
+                <button
+                    *ngFor="let list of lists"
+                    mat-button
+                    type="button"
+                    class="admin-subnav-button"
+                    [class.active]="activeListKey === list.key"
+                    (click)="setActiveList(list.key)">
+                    <span class="admin-subnav-text">{{list.title}}</span>
+                    <span class="admin-subnav-count">{{getItems(list.key).length}}</span>
+                </button>
+            </aside>
+
+            <section class="admin-card">
+                <header class="admin-card-header">
+                    <div>
+                        <div class="admin-card-title">{{activeList.title}}</div>
+                        <div class="admin-card-subtitle">{{activeList.subtitle}}</div>
+                    </div>
+                    <div class="admin-card-count">{{getItems(activeList.key).length}}</div>
+                </header>
+
+                <div class="admin-create-panel">
+                    <mat-form-field>
+                        <mat-label>Label</mat-label>
+                        <input matInput [(ngModel)]="createModels[activeList.key].label" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Sort Order</mat-label>
+                        <input matInput type="number" [(ngModel)]="createModels[activeList.key].sortOrder" />
+                    </mat-form-field>
+                    <mat-form-field class="span-2">
+                        <mat-label>Description</mat-label>
+                        <textarea matInput rows="3" [(ngModel)]="createModels[activeList.key].description"></textarea>
+                    </mat-form-field>
+                    <mat-checkbox [(ngModel)]="createModels[activeList.key].isActive">Active</mat-checkbox>
+                    <button mat-flat-button type="button" (click)="createItem(activeList.key)" [disabled]="saveBusy['create-' + activeList.key]">
+                        ADD ITEM
+                    </button>
+                </div>
+
+                <div class="admin-list">
+                    <div class="admin-table-shell">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Label</th>
+                                    <th>Sort</th>
+                                    <th>Active</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let item of getItems(activeList.key); trackBy: trackByUuid">
+                                    <td class="cell-label">
+                                        <input class="admin-cell-input" [(ngModel)]="item.label" />
+                                    </td>
+                                    <td class="cell-sort">
+                                        <input class="admin-cell-input" type="number" [(ngModel)]="item.sortOrder" />
+                                    </td>
+                                    <td class="cell-active">
+                                        <mat-checkbox [(ngModel)]="item.isActive"></mat-checkbox>
+                                    </td>
+                                    <td class="cell-actions">
+                                        <div class="admin-item-actions">
+                                            <button mat-button type="button" (click)="deleteItem(item)" [disabled]="saveBusy['delete-' + item.uuid]">DELETE</button>
+                                            <button mat-flat-button type="button" (click)="saveItem(item)" [disabled]="saveBusy[item.uuid]">SAVE</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div *ngIf="pageWorking" class="loading-panel">
+            <div>Loading project settings...</div>
+        </div>
+    </div>
+</div>

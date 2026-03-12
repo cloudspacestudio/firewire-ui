@@ -6,7 +6,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
-import { RouterLink } from "@angular/router"
+import { ActivatedRoute, RouterLink } from "@angular/router"
 
 import {
   MatDialogModule,
@@ -59,8 +59,10 @@ import { ProjectStatusSchema } from "../../schemas/projectstatus.schema"
 export class DailyReportPage implements OnChanges, AfterViewInit {
     @Input() projectId?: string
     dialog = inject(MatDialog)
+    private route = inject(ActivatedRoute)
     pageState: PageState = PageState.rendering
     pageMessage = ''
+    backLink = '/projects'
 
     form: FormGroup
     project?: AccountProjectSchema
@@ -92,6 +94,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     ngOnChanges(): void {
         this.pageState = PageState.rendering
         this.pageMessage = ''
+        this.backLink = this.route.snapshot.queryParamMap.get('returnTo') || '/projects'
         
         if (!this.projectId) {
             console.error(`Invalid Project Id`)

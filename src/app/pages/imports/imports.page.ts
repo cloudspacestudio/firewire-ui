@@ -6,7 +6,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
-import { RouterLink } from "@angular/router"
+import { ActivatedRoute, RouterLink } from "@angular/router"
 
 import {
   MatDialogModule,
@@ -45,9 +45,11 @@ import { PreviewResponse } from "../../schemas/previewresponse.schema"
 export class ImportsPage implements OnChanges {
     @Input() projectId?: string
     dialog = inject(MatDialog)
+    private route = inject(ActivatedRoute)
 
     actionsLoaded = false
     floorplanImageLoaded: string | null = null
+    backLink = '/projects'
 
     form: FormGroup
     pageWorking = true
@@ -74,6 +76,7 @@ export class ImportsPage implements OnChanges {
     ngOnChanges(): void {
         this.pageWorking = true
         this.project = undefined
+        this.backLink = this.route.snapshot.queryParamMap.get('returnTo') || '/projects'
 
         if (!this.projectId) {
             console.error(`Invalid Project Id`)

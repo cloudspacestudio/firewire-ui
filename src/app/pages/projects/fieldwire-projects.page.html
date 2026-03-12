@@ -1,0 +1,65 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/home'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'fieldwire-projects'"></nav-toolbar>
+</page-toolbar>
+<div *ngIf="!pageWorking" class="page-root">
+    <div class="page-content">
+        <div class="tabstrip">
+            <div class="project-actions">
+                <mat-form-field>
+                    <mat-label>Filter</mat-label>
+                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
+                </mat-form-field>
+                <span *ngIf="createStatusText" class="project-create-status">{{createStatusText}}</span>
+            </div>
+        </div>
+        <div class="content-root with-tabstrip">
+            <table mat-table [dataSource]="datasource" matSort>
+                <ng-container matColumnDef="name" sticky="true">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+                    <td mat-cell *matCellDef="let row"> {{row.name}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="projectNbr">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Project # </th>
+                    <td mat-cell *matCellDef="let row"> {{row.projectNbr}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="address">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Address </th>
+                    <td mat-cell *matCellDef="let row"> {{row.address}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef style="width: 190px;"></th>
+                    <td mat-cell *matCellDef="let row;" style="width: 190px;">
+                        <button
+                            mat-button
+                            type="button"
+                            (click)="createFirewireFromFieldwire(row)"
+                            [disabled]="fieldwireCreateSaving[row.fieldwireProjectId || '']">
+                            CREATE FIREWIRE
+                        </button>
+                    </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+                <tr class="mat-row" *matNoDataRow>
+                    <td class="mat-cell" colspan="4">{{getNoDataRowText(input.value)}}</td>
+                </tr>
+            </table>
+
+            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of fieldwire projects"></mat-paginator>
+        </div>
+    </div>
+
+</div>
+<div *ngIf="pageWorking" class="loading-panel">
+    <div>Loading, Please wait...</div>
+</div>

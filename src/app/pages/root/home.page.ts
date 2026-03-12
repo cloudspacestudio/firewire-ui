@@ -14,7 +14,8 @@ import { PageToolbar } from '../../common/components/page-toolbar';
     selector: 'home-page',
     imports: [CommonModule, MatButtonModule, MatCardModule, PageToolbar, RouterLink],
     providers: [HttpClient],
-    templateUrl: './home.page.html'
+    templateUrl: './home.page.html',
+    styleUrls: ['./home.page.scss']
 })
 export class HomePage implements OnInit {
 
