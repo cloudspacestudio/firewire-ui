@@ -427,6 +427,17 @@ button.success {
         rgba(9, 14, 24, 0.96);
     box-shadow: var(--fw-shadow);
 }
+
+:root .cdk-overlay-pane.job-cost-sheet-dialog-pane {
+    max-width: 980px !important;
+    min-width: 0 !important;
+    width: min(980px, calc(100vw - 64px)) !important;
+}
+
+:root .cdk-overlay-pane.job-cost-sheet-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+}
 .loading-panel {
     display: grid;
     grid-template: 1fr / 1fr;

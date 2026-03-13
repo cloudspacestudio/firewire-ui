@@ -132,6 +132,66 @@
     text-transform: uppercase;
 }
 
+.project-source-chip--button {
+    cursor: pointer;
+    text-align: center;
+}
+
+.project-source-chip--button:hover {
+    transform: none;
+    box-shadow: none;
+    filter: brightness(1.06);
+}
+
+.project-source-chip--button:focus-visible {
+    outline: 1px solid rgba(72, 221, 255, 0.45);
+    outline-offset: 2px;
+}
+
+.project-status-chip {
+    border-color: rgba(255, 184, 74, 0.28);
+    background:
+        linear-gradient(135deg, rgba(255, 184, 74, 0.18), rgba(255, 116, 56, 0.12)),
+        rgba(10, 18, 31, 0.88);
+    color: #ffe3b7;
+}
+
+.project-status-chip[data-status='Estimation'] {
+    border-color: rgba(72, 221, 255, 0.28);
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.18), rgba(67, 138, 255, 0.12)),
+        rgba(10, 18, 31, 0.88);
+    color: #c8f8ff;
+}
+
+.project-status-chip[data-status='Proposal'] {
+    border-color: rgba(123, 255, 182, 0.28);
+    background:
+        linear-gradient(135deg, rgba(123, 255, 182, 0.2), rgba(40, 182, 115, 0.12)),
+        rgba(10, 18, 31, 0.88);
+    color: #dcffef;
+}
+
+.project-status-chip[data-status='Booking'],
+.project-status-chip[data-status='Notice to Proceed'] {
+    border-color: rgba(255, 214, 107, 0.3);
+    background:
+        linear-gradient(135deg, rgba(255, 214, 107, 0.22), rgba(255, 150, 52, 0.14)),
+        rgba(10, 18, 31, 0.88);
+    color: #fff0c4;
+}
+
+.project-status-chip[data-status='Design'],
+.project-status-chip[data-status='Install'],
+.project-status-chip[data-status='Service'],
+.project-status-chip[data-status='Closed'] {
+    border-color: rgba(255, 108, 108, 0.3);
+    background:
+        linear-gradient(135deg, rgba(255, 108, 108, 0.18), rgba(176, 54, 54, 0.14)),
+        rgba(10, 18, 31, 0.88);
+    color: #ffd5d5;
+}
+
 .project-upload-toast__message {
     color: #fff1f1;
     line-height: 1.4;
@@ -1852,8 +1912,26 @@
     gap: 8px;
 }
 
-.summary-view-toggle {
+.summary-toolbar__actions {
+    display: flex;
+    align-items: end;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
     margin-left: auto;
+}
+
+.summary-job-cost-button {
+    min-height: 42px;
+    border-color: rgba(255, 196, 88, 0.34) !important;
+    color: #ffe3a8 !important;
+    background:
+        linear-gradient(180deg, rgba(255, 196, 88, 0.12), rgba(255, 196, 88, 0.03)),
+        rgba(18, 16, 10, 0.74) !important;
+}
+
+.summary-view-toggle {
+    margin-left: 0;
 }
 
 .summary-toolbar h4 {
@@ -2253,15 +2331,32 @@
     gap: 10px;
 }
 
-.firewire-bom-section__header h5 {
-    margin: 0;
+.firewire-bom-section__title-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
     color: var(--fw-accent-2);
+    font: inherit;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-size: 1.2rem;
+    font-weight: 700;
 }
 
-.firewire-bom-section__header span {
+.firewire-bom-section__title-input[readonly] {
+    pointer-events: none;
+}
+
+.firewire-bom-section__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.firewire-bom-section__actions span {
     color: var(--fw-muted);
     font-size: 0.82rem;
     letter-spacing: 0.08em;
@@ -2878,6 +2973,11 @@
 
     .summary-header-badges {
         justify-content: stretch;
+    }
+
+    .summary-toolbar__actions {
+        margin-left: 0;
+        align-items: stretch;
     }
 
     .summary-grand-total {

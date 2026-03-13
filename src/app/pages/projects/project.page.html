@@ -24,8 +24,27 @@
     <div class="page-content">
         <div class="tabstrip">
             <h3 class="project-tabstrip-title">{{getPageTitle()}}</h3>
-            <span *ngIf="firewireProject" class="project-source-chip">firewire</span>
-            <span *ngIf="project" class="project-source-chip">fieldwire</span>
+            <span
+                *ngIf="firewireProject"
+                class="project-source-chip project-source-chip--button project-status-chip"
+                [attr.data-status]="getProjectStatusLabel()"
+                role="button"
+                tabindex="0"
+                (click)="setFirewireWorkspaceTab('SUMMARY')"
+                (keydown.enter)="setFirewireWorkspaceTab('SUMMARY')"
+                (keydown.space)="setFirewireWorkspaceTab('SUMMARY'); $event.preventDefault()">
+                {{getProjectStatusLabel() || 'Status Pending'}}
+            </span>
+            <span
+                *ngIf="project && firewireProject && hasFieldwireProject()"
+                class="project-source-chip project-source-chip--button"
+                role="button"
+                tabindex="0"
+                (click)="setFirewireWorkspaceTab('FIELDWIRE VIEW')"
+                (keydown.enter)="setFirewireWorkspaceTab('FIELDWIRE VIEW')"
+                (keydown.space)="setFirewireWorkspaceTab('FIELDWIRE VIEW'); $event.preventDefault()">
+                fieldwire
+            </span>
             <span *ngIf="isFirewireProjectLocked()" class="project-lock-chip">
                 <mat-icon fontIcon="lock"></mat-icon>
                 {{getProjectLockChipLabel()}}
@@ -757,14 +776,18 @@
                                                 <div class="firewire-bom-grand-total">
                                                     {{getBomGrandTotal() | currency}}
                                                 </div>
+                                                <button mat-stroked-button type="button" (click)="addBomSection()" [disabled]="isActiveFirewireWorkspaceLocked()">ADD NEW SECTION</button>
                                                 <button mat-stroked-button type="button" (click)="exportBomCsv()">EXPORT CSV</button>
                                             </div>
                                         </div>
 
                                         <div *ngFor="let section of bomSections" class="firewire-bom-section">
                                             <div class="firewire-bom-section__header">
-                                                <h5>{{section.title}}</h5>
-                                                <span>{{getBomSectionGrandTotal(section) | currency}}</span>
+                                                <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" [readonly]="isActiveFirewireWorkspaceLocked()" aria-label="BOM section title" />
+                                                <div class="firewire-bom-section__actions">
+                                                    <span>{{getBomSectionGrandTotal(section) | currency}}</span>
+                                                    <button mat-stroked-button type="button" (click)="addBomRow(section)" [disabled]="isActiveFirewireWorkspaceLocked()">ADD ROW</button>
+                                                </div>
                                             </div>
 
                                             <div class="firewire-bom-grid">
@@ -1568,18 +1591,44 @@
                                                 <div class="firewire-workspace-placeholder__eyebrow">Estimate Consolidation</div>
                                                 <h4>Summary</h4>
                                             </div>
-                                            <mat-button-toggle-group class="summary-view-toggle" [value]="summaryViewMode" (valueChange)="onSummaryViewModeChange($event)">
-                                                <mat-button-toggle value="Grid">Grid View</mat-button-toggle>
-                                                <mat-button-toggle value="Chart">Chart View</mat-button-toggle>
-                                            </mat-button-toggle-group>
-                                            <div class="summary-header-badges">
-                                                <div class="summary-grand-total summary-grand-total--pretax">
-                                                    <span>Pre-Tax</span>
-                                                    <strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong>
-                                                </div>
-                                                <div class="summary-grand-total">
-                                                    <span>Quoted Price w/ Tax</span>
-                                                    <strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong>
+                                            <div class="summary-toolbar__actions">
+                                                <button
+                                                    *ngIf="isBiddingProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openJobCostSheet()">
+                                                    SETUP JOB COST SHEET
+                                                </button>
+                                                <button
+                                                    *ngIf="isProposalProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openEstimateFaceSheet()">
+                                                    CREATE FACE SHEET
+                                                </button>
+                                                <button
+                                                    *ngIf="isProposalProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openQuoteSheet()">
+                                                    CREATE QUOTE
+                                                </button>
+                                                <mat-button-toggle-group class="summary-view-toggle" [value]="summaryViewMode" (valueChange)="onSummaryViewModeChange($event)">
+                                                    <mat-button-toggle value="Grid">Grid View</mat-button-toggle>
+                                                    <mat-button-toggle value="Chart">Chart View</mat-button-toggle>
+                                                </mat-button-toggle-group>
+                                                <div class="summary-header-badges">
+                                                    <div class="summary-grand-total summary-grand-total--pretax">
+                                                        <span>Pre-Tax</span>
+                                                        <strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong>
+                                                    </div>
+                                                    <div class="summary-grand-total">
+                                                        <span>Quoted Price w/ Tax</span>
+                                                        <strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

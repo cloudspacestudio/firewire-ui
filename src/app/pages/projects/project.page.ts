@@ -26,6 +26,9 @@ import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.sch
 import { ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
+import { EstimateFaceSheetDialog } from "./estimate-face-sheet.dialog"
+import { JobCostSheetDialog } from "./job-cost-sheet.dialog"
+import { QuoteSheetDialog } from "./quote-sheet.dialog"
 import {
     ProjectTemplateDialog,
     ProjectTemplateDialogItem,
@@ -215,7 +218,6 @@ interface FirewireProjectWorksheetState {
     ssTechFixedAmount: number
     ssTechLaborRows: ServiceSupportLaborRow[]
     ssTechExpenseRows: ServiceSupportExpenseRow[]
-    summaryViewMode: 'Grid' | 'Chart'
     summaryUseMaterialTax: boolean
     summaryMaterialTaxRate: number
     summaryRiskProficiencyPercent: number
@@ -249,6 +251,7 @@ export class ProjectPage implements OnChanges {
     private router = inject(Router)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
     private readonly favoriteProjectsStorageKey = 'firewire.favoriteProjects'
+    private readonly summaryViewModeStorageKey = 'firewire.summaryViewMode'
     private readonly lockedProjectStatuses = ['Design', 'Install', 'Service', 'Closed']
 
     @Input() projectId?: string
@@ -782,6 +785,14 @@ export class ProjectPage implements OnChanges {
         return this.firewireForm.projectStatus || this.firewireProject?.projectStatus || ''
     }
 
+    isProposalProject(): boolean {
+        return this.getProjectStatusLabel() === 'Proposal'
+    }
+
+    isBiddingProject(): boolean {
+        return this.getProjectStatusLabel() === 'Estimation'
+    }
+
     isProjectStatusLocked(): boolean {
         return this.lockedProjectStatuses.includes(this.getProjectStatusLabel())
     }
@@ -1023,6 +1034,19 @@ export class ProjectPage implements OnChanges {
 
     toLocalDateTimeString(input: Date|string) {
         return Utils.toLocalString(input)
+    }
+
+    formatDateForDisplay(input: Date | string | null | undefined): string {
+        if (!input) {
+            return ''
+        }
+
+        const value = input instanceof Date ? input : new Date(input)
+        if (Number.isNaN(value.getTime())) {
+            return ''
+        }
+
+        return value.toLocaleDateString()
     }
 
     formatDocLibraryBytes(input: number): string {
@@ -1294,6 +1318,22 @@ export class ProjectPage implements OnChanges {
         URL.revokeObjectURL(url)
     }
 
+    addBomSection() {
+        const nextNumber = this.bomSections.length + 1
+        this.bomSections = [
+            ...this.bomSections,
+            {
+                title: `NEW SECTION ${nextNumber}`,
+                rows: [this.createEmptyBomRow()]
+            }
+        ]
+    }
+
+    addBomRow(section: ProjectBomSection) {
+        section.rows = [...section.rows, this.createEmptyBomRow()]
+        this.bomSections = [...this.bomSections]
+    }
+
     getExpenseRateLabel(section: ProjectExpenseSection): string {
         return section.mode === 'cost-qty' ? 'Cost' : 'Rate'
     }
@@ -1545,6 +1585,19 @@ export class ProjectPage implements OnChanges {
     getExpenseSectionTotalByTitle(title: string): number {
         const section = this.expenseSections.find((row) => row.title.toLowerCase() === title.toLowerCase())
         return section ? this.getExpenseSectionTotal(section) : 0
+    }
+
+    getPermitAndFeesTotal(): number {
+        return this.getExpenseSectionTotalByTitle('Permit & Fees')
+    }
+
+    getRentalEquipmentTotal(): number {
+        return this.getExpenseSectionTotalByTitle('Rental Equipment')
+    }
+
+    getInstallationHourlyRate(): number {
+        const installationRate = this.laborRates.find((row) => row.label === 'Installation')
+        return Number(installationRate?.effectiveRate || installationRate?.payRate || 0)
     }
 
     getGeneralExpenseTotal(): number {
@@ -1895,12 +1948,7 @@ export class ProjectPage implements OnChanges {
         }
 
         this.summaryViewMode = nextValue
-
-        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
-            return
-        }
-
-        this.saveFirewireProjectRequest({ silent: true }).subscribe()
+        this.storeSummaryViewMode(nextValue)
     }
 
     toggleProjectFavorite() {
@@ -2013,6 +2061,197 @@ export class ProjectPage implements OnChanges {
             this.applyWorksheetState(template.worksheetData)
             this.firewireSaveMessage = `Template "${template.name}" loaded.`
         })
+    }
+
+    openJobCostSheet() {
+        this.dialog.open(JobCostSheetDialog, {
+            width: '980px',
+            maxWidth: '980px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                firetrolJobNumber: this.firewireForm.projectNbr || '',
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                projectAddress: this.firewireForm.address || '',
+                salesperson: this.firewireForm.salesman || '',
+                startDate: this.formatDateForDisplay(this.firewireBidDueDate),
+                completionDate: '',
+                contractAmount: this.getSummaryQuotedWithTax(),
+                estDeviceCount: this.getSummaryDeviceCount(),
+                estSqFootage: Number(this.firewireForm.totalSqFt || 0),
+                jobType: this.firewireForm.jobType || '',
+                projectScope: this.firewireForm.projectScope || '',
+                scopeOfWork: this.firewireForm.projectScope || ''
+            }
+        })
+    }
+
+    openEstimateFaceSheet() {
+        this.dialog.open(EstimateFaceSheetDialog, {
+            width: '980px',
+            maxWidth: '980px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                date: this.formatDateForDisplay(new Date()),
+                firetrolJobNumber: this.firewireForm.projectNbr || '',
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                estimator: this.firewireForm.salesman || '',
+                projectAddress: this.firewireForm.address || '',
+                contractor: '',
+                billingAddress: '',
+                descriptionOfWork: this.firewireForm.projectScope || '',
+                materialBuyout: this.getInstallationMaterialTotal(),
+                rentalTotal: this.getRentalEquipmentTotal(),
+                fieldLaborHours: this.getInstallationLaborTotalHours(),
+                fieldLaborRate: this.getInstallationLaborTotalHours() > 0
+                    ? this.getInstallationLaborTotalCost() / this.getInstallationLaborTotalHours()
+                    : this.getInstallationHourlyRate(),
+                fieldLaborBaseCost: this.getInstallationLaborTotalCost(),
+                fieldLaborCost: this.getInstallationLaborTotalCost(),
+                permitsTotal: this.getPermitAndFeesTotal(),
+                subcontractTotal: this.getSubcontractTotal(),
+                otherTotal: this.getSpecialMarkupTotal(),
+                contractCost: this.getTotalJobCost(),
+                contractGainPercent: this.getSummaryQuotedPreTax() > 0
+                    ? ((this.getSummaryQuotedPreTax() - this.getTotalJobCost()) / this.getSummaryQuotedPreTax()) * 100
+                    : 0,
+                contractGainAmount: this.getSummaryQuotedPreTax() - this.getTotalJobCost(),
+                contractTotalWithoutTax: this.getSummaryQuotedPreTax(),
+                totalHeads: this.getSummaryDeviceCount(),
+                squareFootage: Number(this.firewireForm.totalSqFt || 0),
+                insideHoursPerHead: this.getSummaryMetricPerDevice(this.getSummaryFieldHours()),
+                dollarsPerHead: this.getSummaryMetricPerDevice(this.getSummaryQuotedPreTax()),
+                dollarsPerSquareFoot: this.getSummaryMetricPerSqFt(this.getSummaryQuotedPreTax())
+            }
+        })
+    }
+
+    openQuoteSheet() {
+        const projectAddress = this.firewireForm.address || ''
+        const parsedAddress = this.parseProjectAddress(projectAddress)
+        const cityStateZip = [parsedAddress.city, parsedAddress.state, parsedAddress.zip].filter((value) => value).join(', ').replace(', ,', ',')
+        const quoteScopeLines = [
+            this.firewireForm.projectScope ? `${this.firewireForm.projectScope} scope prepared for ${this.firewireForm.name || 'this project'}.` : '',
+            this.firewireForm.scopeType ? `${this.firewireForm.scopeType} execution is included per current estimate assumptions.` : '',
+            this.firewireForm.jobType ? `Job type classified as ${this.firewireForm.jobType}.` : '',
+            this.firewireForm.difficulty ? `Difficulty profile: ${this.firewireForm.difficulty}.` : ''
+        ].filter((value) => value).join('\n')
+
+        this.dialog.open(QuoteSheetDialog, {
+            width: '980px',
+            maxWidth: '980px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                projectAddress: parsedAddress.street || projectAddress,
+                projectCityStateZip: cityStateZip,
+                phone: '',
+                fax: '',
+                customer: 'Bidding Contractor',
+                department: 'Estimating Department',
+                scopeOfWork: quoteScopeLines || this.firewireForm.projectScope || '',
+                specifications: '',
+                addenda: '',
+                plans: '',
+                deviations: 'Backboxes and conduit to be provided by others unless specifically noted.\nPermit exclusions and other planning assumptions remain as listed in the estimate.',
+                proposalNarrative: 'Firetrol will perform a turnkey installation of the afore mentioned equipment including cable. Electrician is to provide all raceway, accessible j-boxes must be installed per NEC, and all exclusions apply. Price is valid for sixty days. Excludes any applicable taxes unless otherwise noted.',
+                lineItems: [
+                    {
+                        id: '1',
+                        description: `${this.getSummaryScopeLabel()} quotation for ${this.firewireForm.name || 'project'}`,
+                        qty: 1,
+                        amount: this.getSummaryQuotedPreTax()
+                    },
+                    {
+                        id: '2',
+                        description: 'Sales tax if applicable',
+                        qty: 1,
+                        amount: this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
+                    }
+                ],
+                subtotal: this.getSummaryQuotedPreTax(),
+                taxRatePercent: Number(this.summaryUseMaterialTax ? this.summaryMaterialTaxRate : 0),
+                salesTaxAmount: this.isTurnkeyScope()
+                    ? this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
+                    : this.getMaterialTaxAmount(this.getSmartsAndPartsMaterialCost()),
+                shippingHandling: 0,
+                total: this.getSummaryQuotedWithTax(),
+                signatureName: 'Your Name Here',
+                signatureDate: this.formatDateForDisplay(new Date()),
+                termsAndConditions: `TERMS AND CONDITIONS
+
+REPORTS
+The inspection and/or test shall be completed on the Contractors then current Report form, which shall be given to the Owner, with a copy to the authority having jurisdiction. The Report and recommendations by the Contractor are only advisory in nature and are intended to assist Owner in reducing the possibility of loss to property by indicating obvious defects or impairments noted to the system and equipment inspected and/or tested which require prompt consideration. They are not intended to imply that all other defects, hazards, or aspects of the system and equipment are under control at the time of inspection. Final responsibility for the condition and operation of the sprinkler system and/or fire alarm and detection system equipment lies with the Owner.
+
+FIRE ALARM AND DETECTION SYSTEMS
+In the event that the subscriber elects to have the fire alarm and detection system tested, it is understood that a random sampling of detection devices will be tested during each visit so that the entire system will have been tested at the end of each contract year. Prior to any tests, all persons who would automatically receive an alarm shall be notified, so that an unnecessary response shall not take place. Schematics and/or wiring diagrams must be provided by the contract Owner.
+
+EMERGENCY SERVICE
+Emergency service requested by the Owner will be furnished at extra charge.
+
+ADDITIONAL EQUIPMENT
+In the event additional equipment is installed after the date of this contract, the annual inspection charge shall be increased in accordance with contractors prevailing rates as of the first inspection of such additional equipment.
+
+WORK NOT INCLUDED
+The inspection and testing provided under this agreement does not include any maintenance, repairs, alterations, replacement of parts or any field adjustments whatsoever. Should any such work be requested by Owner there will be as an increased amount added to this agreement. The contractor shall furnish the Owner with an estimated price before any additional work is performed.
+
+ACCEPTANCE OF TERMS
+No changes or modifications are to be made without the express written consent of an executive officer of the Company. Contractor is not bound by any provisions printed or otherwise at variance with this agreement that may appear on any acknowledgment or other form used by Owner, such provisions being hereby expressly rejected.
+
+ENTRY
+Contractor may enter Owners premises at all reasonable times to perform the inspections required by this contract.
+
+WATER SUPPLY
+Contractor shall not be liable or responsible for the adequacy or condition of the existing water supply.
+
+RELATED AND OTHER SYSTEMS
+It is the owners/occupants sole responsibility to fully identify and disclose any system or equipment that may be connected, related, interfaced or otherwise affected by the inspections and testing of the systems the owner or occupant requests Service Contractor to inspect or test. Further, the owner/occupant will have experience personnel on hand to disconnect, protect or other wise guard and any related, unrelated, connected or interfaced systems that may be affected as a result of the inspections and testing performed by the Service Contractor.
+
+ASSIGNMENT
+This contract shall constitute a personal agreement between Contractor and Owner and shall be assignable by either party only with the written consent of the other.
+
+LIMITATION OF LIABILITY
+The Service Contractor makes NO WARRANTIES, EXPRIISS, OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF PERFORMANCE OR WARRANTIES OF FITNESS FOR A PARTICULAR PURPOSE. No promise not contained herein or affirmation of fact made by any employee, agent or representative of the Service Contractor shall constitute a warranty by the Service Provider or give rise to any liability or obligation.
+
+Contractors liability to Owner for personal injury, death, or property damage arising from performance under this contract shall be limited to the contract price. Owner shall hold Contractor harmless from any and all third party claims for personal injury, death or property damage, arising from Owners failure to maintain these systems or keep them in operative condition, whether based upon contract, warranty, tort, strict liability or otherwise. In no event shall the Service Contractor be liable for any special, indirect, incidental, consequential or liquidated, penal or any economic loss damages of any character, including but not limited to loss of use of the Owners property, lost profits or lost production, whether claimed by the Owner or by any third party, irrespective of whether claims or actions for such damage are based upon contract, warranty, negligence, tort, strict liability or otherwise.
+
+11111 Landmark 35 Drive San Antonio, Texas 78233  www.firetrol.net
+FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
+            }
+        })
+    }
+
+    private parseProjectAddress(value: string | null | undefined): { street: string, city: string, state: string, zip: string } {
+        const input = String(value || '').trim()
+        if (!input) {
+            return { street: '', city: '', state: '', zip: '' }
+        }
+
+        const normalized = input.replace(/\r?\n/g, ', ').replace(/\s+/g, ' ').trim()
+        const match = /^(.*?)(?:,\s*|\s+)([A-Za-z .'-]+?)(?:,\s*|\s+)([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i.exec(normalized)
+        if (!match) {
+            return { street: input, city: '', state: '', zip: '' }
+        }
+
+        return {
+            street: match[1].trim(),
+            city: match[2].trim(),
+            state: match[3].toUpperCase(),
+            zip: match[4].trim()
+        }
+    }
+
+    private createEmptyBomRow(): ProjectBomRow {
+        return {
+            partNbr: '',
+            description: '',
+            qty: 0,
+            cost: 0,
+            labor: 0,
+            type: ''
+        }
     }
 
     toggleProjectManualLock() {
@@ -2234,6 +2473,7 @@ export class ProjectPage implements OnChanges {
         }
         this.firewireBidDueDate = this.parseDateOnlyValue(this.firewireForm.bidDueDate)
         this.applyWorkRetrofitDefaults(project.scopeType)
+        this.summaryViewMode = this.readStoredSummaryViewMode()
         this.storeRecentProject(project)
     }
 
@@ -2423,7 +2663,6 @@ export class ProjectPage implements OnChanges {
             ssTechFixedAmount: Number(this.ssTechFixedAmount || 0),
             ssTechLaborRows: this.ssTechLaborRows,
             ssTechExpenseRows: this.ssTechExpenseRows,
-            summaryViewMode: this.summaryViewMode,
             summaryUseMaterialTax: !!this.summaryUseMaterialTax,
             summaryMaterialTaxRate: Number(this.summaryMaterialTaxRate || 0),
             summaryRiskProficiencyPercent: Number(this.summaryRiskProficiencyPercent || 0)
@@ -2469,7 +2708,6 @@ export class ProjectPage implements OnChanges {
         this.ssTechFixedAmount = Number(worksheet.ssTechFixedAmount ?? this.worksheetDefaults.ssTechFixedAmount)
         this.ssTechLaborRows = this.cloneJson(worksheet.ssTechLaborRows || this.worksheetDefaults.ssTechLaborRows)
         this.ssTechExpenseRows = this.cloneJson(worksheet.ssTechExpenseRows || this.worksheetDefaults.ssTechExpenseRows)
-        this.summaryViewMode = worksheet.summaryViewMode === 'Grid' ? 'Grid' : 'Chart'
         this.summaryUseMaterialTax = !!worksheet.summaryUseMaterialTax
         this.summaryMaterialTaxRate = Number(worksheet.summaryMaterialTaxRate ?? this.worksheetDefaults.summaryMaterialTaxRate)
         this.summaryRiskProficiencyPercent = Number(worksheet.summaryRiskProficiencyPercent ?? this.worksheetDefaults.summaryRiskProficiencyPercent)
@@ -2574,9 +2812,34 @@ export class ProjectPage implements OnChanges {
 
     private serializeWorksheetState(state: FirewireProjectWorksheetState): string {
         return JSON.stringify({
-            ...state,
-            summaryViewMode: undefined
+            ...state
         })
+    }
+
+    private storeSummaryViewMode(mode: 'Grid' | 'Chart') {
+        if (typeof localStorage === 'undefined' || !this.projectId) {
+            return
+        }
+
+        try {
+            const current = JSON.parse(localStorage.getItem(this.summaryViewModeStorageKey) || '{}') as Record<string, 'Grid' | 'Chart'>
+            current[this.projectId] = mode
+            localStorage.setItem(this.summaryViewModeStorageKey, JSON.stringify(current))
+        } catch {}
+    }
+
+    private readStoredSummaryViewMode(): 'Grid' | 'Chart' {
+        if (typeof localStorage === 'undefined' || !this.projectId) {
+            return 'Chart'
+        }
+
+        try {
+            const current = JSON.parse(localStorage.getItem(this.summaryViewModeStorageKey) || '{}') as Record<string, 'Grid' | 'Chart'>
+            const value = current[this.projectId]
+            return value === 'Grid' || value === 'Chart' ? value : 'Chart'
+        } catch {
+            return 'Chart'
+        }
     }
 
     private cloneJson<T>(value: T): T {
