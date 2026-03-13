@@ -28,6 +28,7 @@ interface RecentProjectLink {
 })
 export class HomePage implements OnInit, AfterViewInit {
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
+    private readonly recentProjectsLimit = 6
     recentProjects: RecentProjectLink[] = []
     @ViewChild('backgroundVideo') backgroundVideo?: ElementRef<HTMLVideoElement>
 
@@ -57,7 +58,7 @@ export class HomePage implements OnInit, AfterViewInit {
         try {
             const rawValue = localStorage.getItem(this.recentProjectsStorageKey)
             const parsed = rawValue ? JSON.parse(rawValue) : []
-            this.recentProjects = Array.isArray(parsed) ? parsed.slice(0, 3) : []
+            this.recentProjects = Array.isArray(parsed) ? parsed.slice(0, this.recentProjectsLimit) : []
         } catch {
             this.recentProjects = []
         }

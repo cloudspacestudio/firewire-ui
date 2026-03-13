@@ -1741,13 +1741,24 @@
                                                 </div>
                                                 <div class="summary-controls">
                                                     <label class="summary-toggle">
-                                                        <span>Use Material Tax</span>
-                                                        <button type="button" class="expenses-toggle-item__button" [class.is-active]="summaryUseMaterialTax" (click)="summaryUseMaterialTax = !summaryUseMaterialTax">{{summaryUseMaterialTax ? 'X' : '--'}}</button>
+                                                        <span>Use Installation Material Tax</span>
+                                                        <button type="button" class="expenses-toggle-item__button" [class.is-active]="summaryUseInstallationMaterialTax" (click)="summaryUseInstallationMaterialTax = !summaryUseInstallationMaterialTax">{{summaryUseInstallationMaterialTax ? 'X' : '--'}}</button>
                                                     </label>
                                                     <label class="ss-pm-summary__field">
-                                                        <span>Tax %</span>
+                                                        <span>Installation Tax %</span>
                                                         <div class="labor-rates-percent-input">
-                                                            <input type="number" min="0" step="0.001" [(ngModel)]="summaryMaterialTaxRate" />
+                                                            <input type="number" min="0" step="0.001" [(ngModel)]="summaryInstallationMaterialTaxRate" />
+                                                            <span>%</span>
+                                                        </div>
+                                                    </label>
+                                                    <label class="summary-toggle">
+                                                        <span>Use Equipment Material Tax</span>
+                                                        <button type="button" class="expenses-toggle-item__button" [class.is-active]="summaryUseEquipmentMaterialTax" (click)="summaryUseEquipmentMaterialTax = !summaryUseEquipmentMaterialTax">{{summaryUseEquipmentMaterialTax ? 'X' : '--'}}</button>
+                                                    </label>
+                                                    <label class="ss-pm-summary__field">
+                                                        <span>Equipment Tax %</span>
+                                                        <div class="labor-rates-percent-input">
+                                                            <input type="number" min="0" step="0.001" [(ngModel)]="summaryEquipmentMaterialTaxRate" />
                                                             <span>%</span>
                                                         </div>
                                                     </label>
@@ -1781,7 +1792,13 @@
                                                     <div class="summary-quote-grid__group">
                                                         <div class="summary-quote-grid__title">Pricing</div>
                                                         <div class="summary-quote-grid__row"><span>Pre-Tax</span><strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong></div>
-                                                        <div class="summary-quote-grid__row"><span>Margin %</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginPercent() : getSmartsAndPartsMarginPercent())}}%</strong></div>
+                                                        <label class="ss-pm-summary__field">
+                                                            <span>Margin %</span>
+                                                            <div class="labor-rates-percent-input">
+                                                                <input type="number" min="0" step="0.01" [(ngModel)]="summaryMarginPercent" />
+                                                                <span>%</span>
+                                                            </div>
+                                                        </label>
                                                         <div class="summary-quote-grid__row"><span>Margin $</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginAmount() : getSmartsAndPartsMarginAmount()) | currency}}</strong></div>
                                                         <div class="summary-quote-grid__row"><span>Quoted Price</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPrice() : getSmartsAndPartsQuotedPrice()) | currency}}</strong></div>
                                                         <div class="summary-quote-grid__row"><span>Quoted Price w/ Tax</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong></div>
@@ -1894,10 +1911,11 @@
                                                         </div>
                                                         <div class="summary-driver-list">
                                                             <div class="summary-driver-list__row"><span>Risk / Proficiency</span><strong>{{summaryRiskProficiencyPercent.toFixed(2)}}%</strong></div>
-                                                            <div class="summary-driver-list__row"><span>Material Tax</span><strong>{{summaryUseMaterialTax ? (summaryMaterialTaxRate.toFixed(3) + '%') : 'Off'}}</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Installation Tax</span><strong>{{summaryUseInstallationMaterialTax ? (summaryInstallationMaterialTaxRate.toFixed(3) + '%') : 'Off'}}</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Equipment Tax</span><strong>{{summaryUseEquipmentMaterialTax ? (summaryEquipmentMaterialTaxRate.toFixed(3) + '%') : 'Off'}}</strong></div>
                                                             <div class="summary-driver-list__row"><span>Engineering Hours</span><strong>{{getSummaryEngineeringHours().toFixed(2)}}</strong></div>
                                                             <div class="summary-driver-list__row"><span>Field Hours</span><strong>{{getSummaryFieldHours().toFixed(2)}}</strong></div>
-                                                            <div class="summary-driver-list__row"><span>Margin</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginPercent() : getSmartsAndPartsMarginPercent())}}%</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Margin</span><strong>{{summaryMarginPercent.toFixed(2)}}%</strong></div>
                                                         </div>
                                                     </div>
 

@@ -218,9 +218,14 @@ interface FirewireProjectWorksheetState {
     ssTechFixedAmount: number
     ssTechLaborRows: ServiceSupportLaborRow[]
     ssTechExpenseRows: ServiceSupportExpenseRow[]
-    summaryUseMaterialTax: boolean
-    summaryMaterialTaxRate: number
+    summaryUseInstallationMaterialTax: boolean
+    summaryInstallationMaterialTaxRate: number
+    summaryUseEquipmentMaterialTax: boolean
+    summaryEquipmentMaterialTaxRate: number
     summaryRiskProficiencyPercent: number
+    summaryMarginPercent: number
+    summaryUseMaterialTax?: boolean
+    summaryMaterialTaxRate?: number
 }
 
 interface ProjectTemplateRecord {
@@ -250,6 +255,7 @@ export class ProjectPage implements OnChanges {
     private dialog = inject(MatDialog)
     private router = inject(Router)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
+    private readonly recentProjectsLimit = 6
     private readonly favoriteProjectsStorageKey = 'firewire.favoriteProjects'
     private readonly summaryViewModeStorageKey = 'firewire.summaryViewMode'
     private readonly lockedProjectStatuses = ['Design', 'Install', 'Service', 'Closed']
@@ -723,9 +729,12 @@ export class ProjectPage implements OnChanges {
         { item: '', cost: 0, qty: 0 }
     ]
     summaryViewMode: 'Grid' | 'Chart' = 'Chart'
-    summaryUseMaterialTax = false
-    summaryMaterialTaxRate = 8.25
+    summaryUseInstallationMaterialTax = false
+    summaryInstallationMaterialTaxRate = 8.25
+    summaryUseEquipmentMaterialTax = false
+    summaryEquipmentMaterialTaxRate = 8.25
     summaryRiskProficiencyPercent = 0
+    summaryMarginPercent = 35
     private readonly worksheetDefaults = this.buildWorksheetStateSnapshot()
     selectedFloorplanId: string = ''
     selectedTeamId: string = ''
@@ -1714,12 +1723,16 @@ export class ProjectPage implements OnChanges {
         return (this.getSmartsAndPartsMaterialCost() + this.getSmartsAndPartsLaborCost()) * this.getSummaryRiskMultiplier()
     }
 
+    getDefaultSummaryMarginPercent(): number {
+        return this.isTurnkeyScope() ? 35 : 20
+    }
+
     getTurnkeyMarginPercent(): number {
-        return 35
+        return Number(this.summaryMarginPercent || 0)
     }
 
     getSmartsAndPartsMarginPercent(): number {
-        return 20
+        return Number(this.summaryMarginPercent || 0)
     }
 
     getTurnkeyMarginAmount(): number {
@@ -1738,16 +1751,33 @@ export class ProjectPage implements OnChanges {
         return this.getSmartsAndPartsCostWithRisk() + this.getSmartsAndPartsMarginAmount()
     }
 
-    getMaterialTaxAmount(materialCost: number): number {
-        return this.summaryUseMaterialTax ? materialCost * (Number(this.summaryMaterialTaxRate || 0) / 100) : 0
+    getInstallationMaterialTaxAmount(): number {
+        return this.summaryUseInstallationMaterialTax
+            ? this.getInstallationMaterialTotal() * (Number(this.summaryInstallationMaterialTaxRate || 0) / 100)
+            : 0
+    }
+
+    getEquipmentMaterialTaxAmount(): number {
+        return this.summaryUseEquipmentMaterialTax
+            ? this.getEquipmentMaterialTotal() * (Number(this.summaryEquipmentMaterialTaxRate || 0) / 100)
+            : 0
+    }
+
+    getSummaryMaterialTaxAmount(): number {
+        return this.getInstallationMaterialTaxAmount() + this.getEquipmentMaterialTaxAmount()
+    }
+
+    getSummaryEffectiveMaterialTaxRate(): number {
+        const totalMaterial = this.getInstallationMaterialTotal() + this.getEquipmentMaterialTotal()
+        return totalMaterial > 0 ? (this.getSummaryMaterialTaxAmount() / totalMaterial) * 100 : 0
     }
 
     getTurnkeyQuotedPriceWithTax(): number {
-        return this.getTurnkeyQuotedPrice() + this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
+        return this.getTurnkeyQuotedPrice() + this.getSummaryMaterialTaxAmount()
     }
 
     getSmartsAndPartsQuotedPriceWithTax(): number {
-        return this.getSmartsAndPartsQuotedPrice() + this.getMaterialTaxAmount(this.getSmartsAndPartsMaterialCost())
+        return this.getSmartsAndPartsQuotedPrice() + this.getSummaryMaterialTaxAmount()
     }
 
     getSummaryDeviceCount(): number {
@@ -2168,14 +2198,12 @@ export class ProjectPage implements OnChanges {
                         id: '2',
                         description: 'Sales tax if applicable',
                         qty: 1,
-                        amount: this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
+                        amount: this.getSummaryMaterialTaxAmount()
                     }
                 ],
                 subtotal: this.getSummaryQuotedPreTax(),
-                taxRatePercent: Number(this.summaryUseMaterialTax ? this.summaryMaterialTaxRate : 0),
-                salesTaxAmount: this.isTurnkeyScope()
-                    ? this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
-                    : this.getMaterialTaxAmount(this.getSmartsAndPartsMaterialCost()),
+                taxRatePercent: this.getSummaryEffectiveMaterialTaxRate(),
+                salesTaxAmount: this.getSummaryMaterialTaxAmount(),
                 shippingHandling: 0,
                 total: this.getSummaryQuotedWithTax(),
                 signatureName: 'Your Name Here',
@@ -2591,7 +2619,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         try {
             const existing = JSON.parse(localStorage.getItem(this.recentProjectsStorageKey) || '[]') as RecentProjectLink[]
-            const output = [nextEntry, ...existing.filter((entry) => entry.id !== nextEntry.id)].slice(0, 3)
+            const output = [nextEntry, ...existing.filter((entry) => entry.id !== nextEntry.id)].slice(0, this.recentProjectsLimit)
             localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify(output))
         } catch {
             localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify([nextEntry]))
@@ -2663,9 +2691,12 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             ssTechFixedAmount: Number(this.ssTechFixedAmount || 0),
             ssTechLaborRows: this.ssTechLaborRows,
             ssTechExpenseRows: this.ssTechExpenseRows,
-            summaryUseMaterialTax: !!this.summaryUseMaterialTax,
-            summaryMaterialTaxRate: Number(this.summaryMaterialTaxRate || 0),
-            summaryRiskProficiencyPercent: Number(this.summaryRiskProficiencyPercent || 0)
+            summaryUseInstallationMaterialTax: !!this.summaryUseInstallationMaterialTax,
+            summaryInstallationMaterialTaxRate: Number(this.summaryInstallationMaterialTaxRate || 0),
+            summaryUseEquipmentMaterialTax: !!this.summaryUseEquipmentMaterialTax,
+            summaryEquipmentMaterialTaxRate: Number(this.summaryEquipmentMaterialTaxRate || 0),
+            summaryRiskProficiencyPercent: Number(this.summaryRiskProficiencyPercent || 0),
+            summaryMarginPercent: Number(this.summaryMarginPercent || 0)
         })
     }
 
@@ -2708,12 +2739,32 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.ssTechFixedAmount = Number(worksheet.ssTechFixedAmount ?? this.worksheetDefaults.ssTechFixedAmount)
         this.ssTechLaborRows = this.cloneJson(worksheet.ssTechLaborRows || this.worksheetDefaults.ssTechLaborRows)
         this.ssTechExpenseRows = this.cloneJson(worksheet.ssTechExpenseRows || this.worksheetDefaults.ssTechExpenseRows)
-        this.summaryUseMaterialTax = !!worksheet.summaryUseMaterialTax
-        this.summaryMaterialTaxRate = Number(worksheet.summaryMaterialTaxRate ?? this.worksheetDefaults.summaryMaterialTaxRate)
+        this.summaryUseInstallationMaterialTax = Boolean(
+            worksheet.summaryUseInstallationMaterialTax
+            ?? worksheet.summaryUseMaterialTax
+            ?? this.worksheetDefaults.summaryUseInstallationMaterialTax
+        )
+        this.summaryInstallationMaterialTaxRate = Number(
+            worksheet.summaryInstallationMaterialTaxRate
+            ?? worksheet.summaryMaterialTaxRate
+            ?? this.worksheetDefaults.summaryInstallationMaterialTaxRate
+        )
+        this.summaryUseEquipmentMaterialTax = Boolean(
+            worksheet.summaryUseEquipmentMaterialTax
+            ?? worksheet.summaryUseMaterialTax
+            ?? this.worksheetDefaults.summaryUseEquipmentMaterialTax
+        )
+        this.summaryEquipmentMaterialTaxRate = Number(
+            worksheet.summaryEquipmentMaterialTaxRate
+            ?? worksheet.summaryMaterialTaxRate
+            ?? this.worksheetDefaults.summaryEquipmentMaterialTaxRate
+        )
         this.summaryRiskProficiencyPercent = Number(worksheet.summaryRiskProficiencyPercent ?? this.worksheetDefaults.summaryRiskProficiencyPercent)
+        this.summaryMarginPercent = Number(worksheet.summaryMarginPercent ?? this.getDefaultSummaryMarginPercent())
 
         if (!hasWorksheet) {
             this.applyWorkRetrofitDefaults(this.firewireForm.scopeType)
+            this.summaryMarginPercent = this.getDefaultSummaryMarginPercent()
         }
     }
 
