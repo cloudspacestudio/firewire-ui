@@ -10,10 +10,15 @@
         <button *ngIf="project" mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
         <button mat-flat-button (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">UPLOAD DOCS</button>
         <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
-        <span *ngIf="projectDocumentUploadMessage" class="project-upload-status">{{projectDocumentUploadMessage}}</span>
     </div>
 
 </page-toolbar>
+
+<div *ngIf="projectUploadErrorToast" class="project-upload-toast" role="alert" aria-live="assertive">
+    <div class="project-upload-toast__title">Upload Failed</div>
+    <div class="project-upload-toast__message">{{projectUploadErrorToast}}</div>
+    <button type="button" class="project-upload-toast__dismiss" (click)="clearProjectUploadErrorToast()">Dismiss</button>
+</div>
 
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
@@ -21,6 +26,45 @@
             <h3 class="project-tabstrip-title">{{getPageTitle()}}</h3>
             <span *ngIf="firewireProject" class="project-source-chip">firewire</span>
             <span *ngIf="project" class="project-source-chip">fieldwire</span>
+            <span *ngIf="isFirewireProjectLocked()" class="project-lock-chip">
+                <mat-icon fontIcon="lock"></mat-icon>
+                {{getProjectLockChipLabel()}}
+            </span>
+            <span class="tabstrip-spacer"></span>
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
+                <button
+                    mat-flat-button
+                    type="button"
+                    class="firewire-save-button firewire-save-button--header"
+                    [class.is-dirty]="isProjectDirty"
+                    (click)="saveFirewireProject()"
+                    [disabled]="firewireSaveWorking || !isProjectDirty">
+                    SAVE CHANGES
+                </button>
+            </div>
+            <div *ngIf="firewireProject" class="tabstrip-actions tabstrip-actions--menu">
+                <button mat-icon-button class="project-overflow-button" [mat-menu-trigger-for]="projectActionsMenu" aria-label="Project actions">
+                    <mat-icon fontIcon="more_vert"></mat-icon>
+                </button>
+                <mat-menu #projectActionsMenu="matMenu" xPosition="before">
+                    <button mat-menu-item type="button" (click)="toggleProjectFavorite()">
+                        <mat-icon [fontIcon]="isProjectFavorite() ? 'star' : 'star_outline'"></mat-icon>
+                        <span>{{isProjectFavorite() ? 'Remove Favorite' : 'Make Favorite'}}</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="saveProjectAsTemplate()">
+                        <mat-icon fontIcon="save_as"></mat-icon>
+                        <span>Save as Template</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="loadProjectFromTemplate()" [disabled]="isFirewireProjectLocked()">
+                        <mat-icon fontIcon="upload_file"></mat-icon>
+                        <span>Load from Template</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="toggleProjectManualLock()" [disabled]="isProjectStatusLocked()">
+                        <mat-icon [fontIcon]="isProjectManuallyLocked() ? 'lock_open' : 'lock'"></mat-icon>
+                        <span>{{isProjectManuallyLocked() ? 'Unlock' : 'Lock'}}</span>
+                    </button>
+                </mat-menu>
+            </div>
         </div>
 
         <div class="content-root with-tabstrip">
@@ -42,15 +86,20 @@
                             </div>
 
                             <div class="firewire-tab-panel">
-                                <div *ngIf="activeFirewireWorkspaceTab === 'PROJECT DETAILS'; else firewireWorkspaceContent" class="firewire-project-details-panel">
+                                <div *ngIf="isActiveFirewireWorkspaceLocked()" class="workspace-lock-banner">
+                                    <mat-icon fontIcon="lock"></mat-icon>
+                                    Firewire estimate fields are read-only while Project Status is {{getProjectStatusLabel()}}.
+                                </div>
+
+                                <div *ngIf="activeFirewireWorkspaceTab === 'PROJECT DETAILS'; else firewireWorkspaceContent" class="firewire-project-details-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                     <div class="firewire-project-form-grid">
                                         <mat-form-field>
                                             <mat-label>Name</mat-label>
-                                            <input matInput [(ngModel)]="firewireForm.name" />
+                                            <input matInput [(ngModel)]="firewireForm.name" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Project Number</mat-label>
-                                            <input matInput [(ngModel)]="firewireForm.projectNbr" />
+                                            <input matInput [(ngModel)]="firewireForm.projectNbr" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
                                         <mat-form-field class="firewire-project-span-2">
                                             <mat-label>Fieldwire Project Link</mat-label>
@@ -66,7 +115,7 @@
                                                 </a>
                                             </ng-container>
                                             <ng-template #editableFieldwireLink>
-                                                <mat-select [(ngModel)]="firewireForm.fieldwireId">
+                                                <mat-select [(ngModel)]="firewireForm.fieldwireId" [disabled]="isFirewireProjectLocked()">
                                                     <mat-option [value]="null">Not linked</mat-option>
                                                     <mat-option *ngFor="let option of fieldwireProjects" [value]="option.id">
                                                         {{option.name}} ({{option.code}})
@@ -76,74 +125,74 @@
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Bid Due Date</mat-label>
-                                            <input matInput [matDatepicker]="bidDueDatePicker" [ngModel]="firewireBidDueDate" (ngModelChange)="onBidDueDateChange($event)" />
-                                            <mat-datepicker-toggle matIconSuffix [for]="bidDueDatePicker"></mat-datepicker-toggle>
-                                            <mat-datepicker #bidDueDatePicker></mat-datepicker>
+                                            <input matInput [matDatepicker]="bidDueDatePicker" [ngModel]="firewireBidDueDate" (ngModelChange)="onBidDueDateChange($event)" [readonly]="isFirewireProjectLocked()" />
+                                            <mat-datepicker-toggle matIconSuffix [for]="bidDueDatePicker" [disabled]="isFirewireProjectLocked()"></mat-datepicker-toggle>
+                                            <mat-datepicker #bidDueDatePicker [disabled]="isFirewireProjectLocked()"></mat-datepicker>
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Project Status</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.projectStatus">
+                                            <mat-select [(ngModel)]="firewireForm.projectStatus" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Total Sq Ft</mat-label>
-                                            <input matInput type="number" min="0" [(ngModel)]="firewireForm.totalSqFt" />
+                                            <input matInput type="number" min="0" [(ngModel)]="firewireForm.totalSqFt" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Salesman</mat-label>
-                                            <input matInput [(ngModel)]="firewireForm.salesman" />
+                                            <input matInput [(ngModel)]="firewireForm.salesman" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Job Type</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.jobType">
+                                            <mat-select [(ngModel)]="firewireForm.jobType" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option [value]="''">None</mat-option>
                                                 <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Scope Type</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.scopeType">
+                                            <mat-select [ngModel]="firewireForm.scopeType" (ngModelChange)="onScopeTypeChanged($event)" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option [value]="''">None</mat-option>
                                                 <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                         <mat-form-field>
                                             <mat-label>Difficulty</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.difficulty">
+                                            <mat-select [(ngModel)]="firewireForm.difficulty" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option [value]="''">None</mat-option>
                                                 <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                         <mat-form-field class="firewire-project-span-2">
                                             <mat-label>Address</mat-label>
-                                            <input matInput [(ngModel)]="firewireForm.address" />
+                                            <input matInput [(ngModel)]="firewireForm.address" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
                                         <mat-form-field class="firewire-project-span-2">
                                             <mat-label>Project Scope</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.projectScope">
+                                            <mat-select [(ngModel)]="firewireForm.projectScope" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option [value]="''">None</mat-option>
                                                 <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                     </div>
 
-                                    <div class="firewire-project-actions">
+                                    <div *ngIf="!isFirewireProjectLocked()" class="firewire-project-actions">
                                         <button
                                             mat-stroked-button
                                             type="button"
                                             class="firewire-reset-button"
                                             (click)="resetFirewireForm()"
-                                            [disabled]="firewireSaveWorking || !isFirewireFormDirty">
+                                            [disabled]="firewireSaveWorking || !isProjectDirty">
                                             RESET
                                         </button>
                                         <button
                                             mat-flat-button
                                             type="button"
                                             class="firewire-save-button"
-                                            [class.is-dirty]="isFirewireFormDirty"
+                                            [class.is-dirty]="isProjectDirty"
                                             (click)="saveFirewireProject()"
-                                            [disabled]="firewireSaveWorking || !isFirewireFormDirty">
+                                            [disabled]="firewireSaveWorking || !isProjectDirty">
                                             SAVE DETAILS
                                         </button>
                                         <span *ngIf="firewireSaveMessage" class="project-upload-status">{{firewireSaveMessage}}</span>
@@ -151,7 +200,202 @@
                                 </div>
 
                                 <ng-template #firewireWorkspaceContent>
-                                    <div *ngIf="activeFirewireWorkspaceTab === 'LABOR RATES'; else firewireWorkspaceTakeoffOrDocLibrary" class="labor-rates-panel">
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'INSTALL LABOR'; else firewireWorkspaceLaborRatesOrTakeoff" class="working-heights-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="working-heights-summary-card">
+                                            <div class="firewire-workspace-placeholder__eyebrow">Base Estimate</div>
+                                            <h4>Base Man Hour Estimate</h4>
+                                            <div class="working-heights-base-entry">
+                                                <label class="working-heights-base-field">
+                                                    <span>Hours</span>
+                                                    <input type="number" min="0" step="1" [(ngModel)]="baseManHourEstimate" />
+                                                </label>
+                                                <div class="working-heights-base-badge">
+                                                    <span class="working-heights-base-badge__label">BOM Labor</span>
+                                                    <strong>{{getBomBaseManHourEstimate().toFixed(2)}} hrs</strong>
+                                                </div>
+                                                <div class="working-heights-base-badge" [attr.data-tone]="getBomLaborVarianceTone()">
+                                                    <span class="working-heights-base-badge__label">{{getBomLaborVarianceLabel()}}</span>
+                                                    <strong>{{getBomLaborVariance() >= 0 ? '+' : ''}}{{getBomLaborVariance().toFixed(2)}} hrs</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="working-heights-final">
+                                            <div class="working-heights-final__item">
+                                                <span>Total Additional Hours</span>
+                                                <strong>{{getTotalAdditionalHours().toFixed(2)}}</strong>
+                                            </div>
+                                            <div class="working-heights-final__item">
+                                                <span>Total Net Factor</span>
+                                                <strong>{{getTotalNetFactor().toFixed(2)}}</strong>
+                                            </div>
+                                            <div class="working-heights-final__item is-primary">
+                                                <span>Adjusted Estimated Man Hours</span>
+                                                <strong>{{getAdjustedEstimatedManHours().toFixed(2)}}</strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="working-heights-construct">
+                                            <div class="working-heights-construct__header">
+                                                <div>
+                                                    <h4>Working Heights</h4>
+                                                </div>
+                                                <div class="working-heights-construct__totals">
+                                                    <span class="takeoff-total-badge" [class.is-grand]="getWorkingHeightPercentTotal() === 100">Percent {{getWorkingHeightPercentTotal()}}%</span>
+                                                    <span class="takeoff-total-badge">Weighted {{toPercentFactor(getWorkingHeightWeightedFactor())}}</span>
+                                                    <span class="takeoff-total-badge is-grand">Additional {{getWorkingHeightAdditionalHours().toFixed(2)}} hrs</span>
+                                                </div>
+                                            </div>
+                                            <div class="working-heights-grid-shell">
+                                                <table class="working-heights-grid">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Working Height (ft)</th>
+                                                            <th *ngFor="let band of workingHeightBands">{{band.label}}</th>
+                                                            <th>Factor</th>
+                                                            <th>Additional Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>%</td>
+                                                            <td *ngFor="let band of workingHeightBands">
+                                                                <input type="number" min="0" max="100" step="1" [(ngModel)]="band.percent" />
+                                                            </td>
+                                                            <td rowspan="2">
+                                                                <input type="number" min="0" step="0.01" [(ngModel)]="workingHeightFactorMultiplier" />
+                                                            </td>
+                                                            <td rowspan="2" class="working-heights-grid__value">{{getWorkingHeightAdditionalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Factor</td>
+                                                            <td *ngFor="let band of workingHeightBands">{{band.factor.toFixed(2)}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="working-heights-construct">
+                                            <div class="working-heights-construct__header">
+                                                <div>
+                                                    <h4>Ceiling and Floors</h4>
+                                                </div>
+                                                <div class="working-heights-construct__totals">
+                                                    <span class="takeoff-total-badge" [class.is-grand]="getCeilingFloorPercentTotal() === 100">Percent {{getCeilingFloorPercentTotal()}}%</span>
+                                                    <span class="takeoff-total-badge">Weighted {{toPercentFactor(getCeilingFloorWeightedFactor())}}</span>
+                                                    <span class="takeoff-total-badge is-grand">Additional {{getCeilingFloorAdditionalHours().toFixed(2)}} hrs</span>
+                                                </div>
+                                            </div>
+                                            <div class="working-heights-grid-shell">
+                                                <table class="working-heights-grid working-heights-grid--compact">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Ceiling and Floors</th>
+                                                            <th>Accessible</th>
+                                                            <th>Inaccessible</th>
+                                                            <th>Ceiling & Floor Factor</th>
+                                                            <th>Additional Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>%</td>
+                                                            <td><input type="number" min="0" max="100" step="1" [(ngModel)]="accessiblePercent" /></td>
+                                                            <td><input type="number" min="0" max="100" step="1" [(ngModel)]="inaccessiblePercent" /></td>
+                                                            <td rowspan="2"><input type="number" min="0" step="0.01" [(ngModel)]="ceilingFloorFactorMultiplier" /></td>
+                                                            <td rowspan="2" class="working-heights-grid__value">{{getCeilingFloorAdditionalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Factor</td>
+                                                            <td>0.00</td>
+                                                            <td>0.20</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="working-heights-construct">
+                                            <div class="working-heights-construct__header">
+                                                <div>
+                                                    <h4>Work Retrofit</h4>
+                                                </div>
+                                                <div class="working-heights-construct__totals">
+                                                    <span class="takeoff-total-badge" [class.is-grand]="getWorkRetrofitPercentTotal() === 100">Percent {{getWorkRetrofitPercentTotal()}}%</span>
+                                                    <span class="takeoff-total-badge">Weighted {{toPercentFactor(getWorkRetrofitWeightedFactor())}}</span>
+                                                    <span class="takeoff-total-badge is-grand">Additional {{getWorkRetrofitAdditionalHours().toFixed(2)}} hrs</span>
+                                                </div>
+                                            </div>
+                                            <div class="working-heights-grid-shell">
+                                                <table class="working-heights-grid working-heights-grid--compact">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Work Retrofit</th>
+                                                            <th>New Construction</th>
+                                                            <th>Retro Fit</th>
+                                                            <th>Work Retrofit Factor</th>
+                                                            <th>Additional Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>%</td>
+                                                            <td><input type="number" min="0" max="100" step="1" [(ngModel)]="newConstructionPercent" /></td>
+                                                            <td><input type="number" min="0" max="100" step="1" [(ngModel)]="retrofitPercent" /></td>
+                                                            <td rowspan="2"><input type="number" min="0" step="0.01" [(ngModel)]="workRetrofitFactorMultiplier" /></td>
+                                                            <td rowspan="2" class="working-heights-grid__value">{{getWorkRetrofitAdditionalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Factor</td>
+                                                            <td>0.00</td>
+                                                            <td>0.20</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="working-heights-construct">
+                                            <div class="working-heights-construct__header">
+                                                <div>
+                                                    <h4>Number of Levels</h4>
+                                                </div>
+                                                <div class="working-heights-construct__totals">
+                                                    <span class="takeoff-total-badge">Net {{getBuildingHeightNetFactor().toFixed(2)}}</span>
+                                                    <span class="takeoff-total-badge is-grand">Additional {{getBuildingHeightAdditionalHours().toFixed(2)}} hrs</span>
+                                                </div>
+                                            </div>
+                                            <div class="working-heights-grid-shell">
+                                                <table class="working-heights-grid working-heights-grid--compact">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Building Heights</th>
+                                                            <th>Number of Levels</th>
+                                                            <th>Building Heights Factor</th>
+                                                            <th>Additional Hours for Building Heights</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Building Heights</td>
+                                                            <td><input type="number" min="1" step="1" [(ngModel)]="buildingLevels" /></td>
+                                                            <td class="working-heights-grid__value">{{getBuildingHeightNetFactor().toFixed(2)}}</td>
+                                                            <td class="working-heights-grid__value">{{getBuildingHeightAdditionalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Factor Rule</td>
+                                                            <td colspan="3">x1.1 for each level over 2</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <ng-template #firewireWorkspaceLaborRatesOrTakeoff>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'LABOR RATES'; else firewireWorkspaceTakeoffOrDocLibrary" class="labor-rates-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                         <div class="labor-rates-card-grid">
                                             <div class="labor-rates-card">
                                                 <div class="firewire-workspace-placeholder__eyebrow">Wage Scale</div>
@@ -241,16 +485,27 @@
                                             </div>
                                         </div>
                                     </div>
+                                    </ng-template>
 
                                     <ng-template #firewireWorkspaceTakeoffOrDocLibrary>
-                                    <div *ngIf="activeFirewireWorkspaceTab === 'TAKE OFF'; else firewireWorkspaceDocLibraryOrFieldwire" class="takeoff-panel">
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'TAKE OFF'; else firewireWorkspaceDocLibraryOrFieldwire" class="takeoff-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                         <div class="takeoff-summary">
-                                            <div class="firewire-workspace-placeholder__eyebrow">Take Off Totals</div>
-                                            <div class="takeoff-summary__badges">
-                                                <span class="takeoff-total-badge" *ngFor="let matrix of takeoffMatrices">
-                                                    {{matrix.title}}: {{getTakeoffMatrixTotal(matrix)}}
-                                                </span>
-                                                <span class="takeoff-total-badge is-grand">Combined: {{getTakeoffGrandTotal()}}</span>
+                                            <div class="takeoff-summary__header">
+                                                <div>
+                                                    <div class="firewire-workspace-placeholder__eyebrow">Take Off Totals</div>
+                                                    <div class="takeoff-summary__badges">
+                                                        <span class="takeoff-total-badge" *ngFor="let matrix of takeoffMatrices">
+                                                            {{matrix.title}}: {{getTakeoffMatrixTotal(matrix)}}
+                                                        </span>
+                                                        <span class="takeoff-total-badge is-grand">Combined: {{getTakeoffGrandTotal()}}</span>
+                                                    </div>
+                                                </div>
+                                                <mat-form-field class="takeoff-drawing-date-field">
+                                                    <mat-label>Drawing Date</mat-label>
+                                                    <input matInput [matDatepicker]="takeoffDrawingDatePicker" [(ngModel)]="takeoffDrawingDate" />
+                                                    <mat-datepicker-toggle matIconSuffix [for]="takeoffDrawingDatePicker"></mat-datepicker-toggle>
+                                                    <mat-datepicker #takeoffDrawingDatePicker></mat-datepicker>
+                                                </mat-form-field>
                                             </div>
                                         </div>
 
@@ -488,7 +743,7 @@
                                     </ng-template>
 
                                     <ng-template #firewireWorkspaceBomOrPlaceholder>
-                                    <div *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspacePlaceholder" class="firewire-bom-panel">
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspaceWireTakeoffOrPlaceholder" class="firewire-bom-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                         <div class="firewire-bom-toolbar">
                                             <div class="firewire-bom-toolbar__meta">
                                                 <div class="firewire-workspace-placeholder__eyebrow">Project BOM</div>
@@ -613,6 +868,1017 @@
                                                 </table>
                                             </div>
                                         </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceWireTakeoffOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'WIRE TAKE OFF'; else firewireWorkspaceExpensesOrPlaceholder" class="wire-takeoff-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="wire-takeoff-layout">
+                                            <div class="wire-takeoff-sidebar">
+                                                <section class="wire-takeoff-card">
+                                                    <div class="firewire-workspace-placeholder__eyebrow">Project Specs</div>
+                                                    <h4>Wire Planning Inputs</h4>
+                                                    <div class="wire-takeoff-spec-grid">
+                                                        <label class="wire-takeoff-inline-field">
+                                                            <span>Floors</span>
+                                                            <input type="number" min="1" step="1" [(ngModel)]="wireTakeoffSpecs.floors" />
+                                                        </label>
+                                                        <label class="wire-takeoff-inline-field">
+                                                            <span>Distance Between Floors</span>
+                                                            <div class="wire-takeoff-feet-input">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="wireTakeoffSpecs.distanceBetweenFloors" />
+                                                                <span>ft</span>
+                                                            </div>
+                                                        </label>
+                                                        <label class="wire-takeoff-inline-field">
+                                                            <span>Distance from FACP to Riser</span>
+                                                            <div class="wire-takeoff-feet-input">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="wireTakeoffSpecs.distanceFacpToRiser" />
+                                                                <span>ft</span>
+                                                            </div>
+                                                        </label>
+                                                        <label class="wire-takeoff-check">
+                                                            <span>Conduit</span>
+                                                            <button type="button" [class.is-active]="wireTakeoffSpecs.conduit" (click)="wireTakeoffSpecs.conduit = !wireTakeoffSpecs.conduit">
+                                                                {{wireTakeoffSpecs.conduit ? 'X' : ''}}
+                                                            </button>
+                                                        </label>
+                                                        <label class="wire-takeoff-check">
+                                                            <span>Plenum</span>
+                                                            <button type="button" [class.is-active]="wireTakeoffSpecs.plenum" (click)="wireTakeoffSpecs.plenum = !wireTakeoffSpecs.plenum">
+                                                                {{wireTakeoffSpecs.plenum ? 'X' : ''}}
+                                                            </button>
+                                                        </label>
+                                                    </div>
+                                                </section>
+
+                                                <section class="wire-takeoff-card">
+                                                    <div class="firewire-workspace-placeholder__eyebrow">Wiring Style</div>
+                                                    <h4>Class Routing</h4>
+                                                    <div class="wire-takeoff-style-grid">
+                                                        <div class="wire-takeoff-style-grid__header">Type</div>
+                                                        <div class="wire-takeoff-style-grid__header">Class A</div>
+                                                        <div class="wire-takeoff-style-grid__header">Class B</div>
+                                                        <ng-container *ngFor="let category of wireCategories">
+                                                            <div class="wire-takeoff-style-grid__label">{{category}}</div>
+                                                            <button type="button" class="wire-takeoff-style-toggle" [class.is-active]="wireWiringStyles[category] === 'Class A'" (click)="wireWiringStyles[category] = 'Class A'">X</button>
+                                                            <button type="button" class="wire-takeoff-style-toggle" [class.is-active]="wireWiringStyles[category] === 'Class B'" (click)="wireWiringStyles[category] = 'Class B'">X</button>
+                                                        </ng-container>
+                                                    </div>
+                                                </section>
+
+                                                <section class="wire-takeoff-card">
+                                                    <div class="firewire-workspace-placeholder__eyebrow">Wire AWG Type</div>
+                                                    <h4>Selections</h4>
+                                                    <div class="wire-takeoff-awg-grid">
+                                                        <div class="wire-takeoff-awg-grid__header">Type</div>
+                                                        <div class="wire-takeoff-awg-grid__header">Selection</div>
+                                                        <div class="wire-takeoff-awg-grid__header wire-takeoff-awg-grid__header--right">Price</div>
+                                                        <ng-container *ngFor="let category of wireCategories">
+                                                            <div class="wire-takeoff-awg-grid__label">{{category}}</div>
+                                                            <select [ngModel]="getWireSelection(category).label" (ngModelChange)="updateWireSelection(category, $event)">
+                                                                <option *ngFor="let option of wireTypeOptions" [value]="option.label">{{option.label}}</option>
+                                                            </select>
+                                                            <div class="wire-takeoff-awg-grid__value">{{getWireCategoryPrice(category) | currency}}</div>
+                                                        </ng-container>
+                                                    </div>
+                                                </section>
+
+                                            </div>
+
+                                            <div class="wire-takeoff-canvas-card">
+                                                <div class="wire-takeoff-canvas-toolbar">
+                                                    <div class="wire-takeoff-canvas-toolbar__meta">
+                                                        <div class="firewire-workspace-placeholder__eyebrow">Visual Take Off</div>
+                                                        <h4>Wire Routing Canvas</h4>
+                                                        <div class="wire-takeoff-canvas-toolbar__totals">
+                                                            <div class="wire-takeoff-total-tile">
+                                                                <span>Installation Material</span>
+                                                                <strong>{{getWireInstallationMaterialTotal() | currency}}</strong>
+                                                            </div>
+                                                            <div class="wire-takeoff-total-tile">
+                                                                <span>Installation Labor</span>
+                                                                <strong>{{getWireInstallationLaborTotal() | currency}}</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="wire-takeoff-canvas-toolbar__badges">
+                                                        <div *ngFor="let category of wireCategories" class="wire-takeoff-wire-badge">
+                                                            <span>{{category}}</span>
+                                                            <strong>{{getWireCategoryAdjustedFeet(category)}} ft.</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="wire-takeoff-canvas">
+                                                    <div class="wire-takeoff-canvas__equipment wire-takeoff-canvas__equipment--air-top">Air Handler / FSD</div>
+                                                    <div class="wire-takeoff-canvas__equipment wire-takeoff-canvas__equipment--air-bottom">Air</div>
+                                                    <div class="wire-takeoff-canvas__panel wire-takeoff-canvas__panel--facp">FACP</div>
+                                                    <div class="wire-takeoff-canvas__panel wire-takeoff-canvas__panel--pwr">PWR</div>
+                                                    <div class="wire-takeoff-canvas__trip wire-takeoff-canvas__trip--upper">Trip From FCP/BPS</div>
+                                                    <div class="wire-takeoff-canvas__trip wire-takeoff-canvas__trip--lower">Trip From FCP/BPS</div>
+                                                    <div class="wire-takeoff-canvas__door" aria-hidden="true">
+                                                        <div class="wire-takeoff-canvas__door-leaf"></div>
+                                                        <div class="wire-takeoff-canvas__door-knob"></div>
+                                                    </div>
+
+                                                    <ng-container *ngFor="let zone of wireDiagramZones">
+                                                        <div *ngFor="let node of getWireRunNodesForZone(zone)" class="wire-takeoff-node" [class.wire-takeoff-node--smoke-heat]="node.id === 'smoke-heat'" [style.grid-area]="node.zone" [attr.data-category]="node.category">
+                                                            <div class="wire-takeoff-node__inputs">
+                                                                <label>
+                                                                    <span>Qty.</span>
+                                                                    <input type="number" min="0" max="99" step="1" [(ngModel)]="node.qty" />
+                                                                </label>
+                                                                <label>
+                                                                    <span>Ft.</span>
+                                                                    <input type="number" min="0" step="1" [(ngModel)]="node.feet" />
+                                                                </label>
+                                                            </div>
+                                                            <div class="wire-takeoff-node__icon"></div>
+                                                            <div class="wire-takeoff-node__label">{{getWireRunNodeDisplayLabel(node)}}</div>
+                                                        </div>
+                                                    </ng-container>
+                                                </div>
+
+                                                <div class="wire-takeoff-vertical-metrics">
+                                                    <label class="wire-takeoff-inline-field">
+                                                        <span>Plenum Space</span>
+                                                        <div class="wire-takeoff-feet-input">
+                                                            <input type="number" min="0" step="1" [(ngModel)]="wireTakeoffSpecs.plenumSpace" />
+                                                            <span>ft</span>
+                                                        </div>
+                                                    </label>
+                                                    <label class="wire-takeoff-inline-field">
+                                                        <span>Ceiling Height</span>
+                                                        <div class="wire-takeoff-feet-input">
+                                                            <input type="number" min="0" step="1" [(ngModel)]="wireTakeoffSpecs.ceilingHeight" />
+                                                            <span>ft</span>
+                                                        </div>
+                                                    </label>
+                                                    <label class="wire-takeoff-inline-field">
+                                                        <span>Finish Floor</span>
+                                                        <div class="wire-takeoff-feet-input">
+                                                            <input type="number" min="0" step="1" [(ngModel)]="wireTakeoffSpecs.finishFloor" />
+                                                            <span>ft</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="wire-takeoff-post-grid">
+                                            <section class="wire-takeoff-card wire-takeoff-post-grid__card wire-takeoff-post-grid__card--calculated">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Calculated Wire</div>
+                                                <h4>Material Summary</h4>
+                                                <div class="wire-takeoff-grid-shell">
+                                                    <div class="wire-takeoff-summary-grid">
+                                                        <div class="wire-takeoff-summary-grid__header">Type</div>
+                                                        <div class="wire-takeoff-summary-grid__header wire-takeoff-summary-grid__header--right">QTY</div>
+                                                        <div class="wire-takeoff-summary-grid__header wire-takeoff-summary-grid__header--right">ADJ</div>
+                                                        <div class="wire-takeoff-summary-grid__header wire-takeoff-summary-grid__header--right">Price</div>
+                                                        <div class="wire-takeoff-summary-grid__header wire-takeoff-summary-grid__header--right">Labor</div>
+                                                        <ng-container *ngFor="let category of wireCategories">
+                                                            <div class="wire-takeoff-summary-grid__label">{{category}}</div>
+                                                            <div class="wire-takeoff-summary-grid__value">{{getWireCategoryMeasuredFeet(category)}} ft.</div>
+                                                            <div class="wire-takeoff-summary-grid__value">{{getWireCategoryAdjustedFeet(category)}} ft.</div>
+                                                            <div class="wire-takeoff-summary-grid__value">{{getWireCategoryMaterialCost(category) | currency}}</div>
+                                                            <div class="wire-takeoff-summary-grid__value">{{0 | currency}}</div>
+                                                        </ng-container>
+                                                    </div>
+                                                </div>
+                                            </section>
+
+                                            <section class="wire-takeoff-card wire-takeoff-post-grid__card wire-takeoff-post-grid__card--double">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Firetrol to Provide</div>
+                                                <h4>Provided Items</h4>
+                                                <div class="wire-takeoff-grid-shell">
+                                                    <div class="wire-takeoff-provide-grid">
+                                                        <div class="wire-takeoff-provide-grid__header">Item</div>
+                                                        <div class="wire-takeoff-provide-grid__header">Include</div>
+                                                        <div class="wire-takeoff-provide-grid__header wire-takeoff-provide-grid__header--right">Est Qty</div>
+                                                        <div class="wire-takeoff-provide-grid__header wire-takeoff-provide-grid__header--right">Price</div>
+                                                        <div class="wire-takeoff-provide-grid__header wire-takeoff-provide-grid__header--right">Ext Price</div>
+                                                        <ng-container *ngFor="let row of firetrolProvideRows">
+                                                            <div class="wire-takeoff-provide-grid__label">{{row.item}}</div>
+                                                            <button type="button" class="wire-takeoff-style-toggle" [class.is-active]="row.included" (click)="row.included = !row.included">{{row.included ? 'X' : '-'}}</button>
+                                                            <input type="number" min="0" step="1" [(ngModel)]="row.estQty" />
+                                                            <div class="bom-currency-input">
+                                                                <span>$</span>
+                                                                <input type="number" min="0" step="0.01" [(ngModel)]="row.price" />
+                                                            </div>
+                                                            <div class="wire-takeoff-provide-grid__value">{{getWireFiretrolExtended(row) | currency}}</div>
+                                                        </ng-container>
+                                                    </div>
+                                                </div>
+                                            </section>
+
+                                            <section class="wire-takeoff-card wire-takeoff-post-grid__card wire-takeoff-post-grid__card--reference">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Wire Type Cost</div>
+                                                <h4>Cost Reference</h4>
+                                                <div class="wire-takeoff-grid-shell">
+                                                    <div class="wire-takeoff-reference-grid">
+                                                        <div class="wire-takeoff-reference-grid__header">Wire Type</div>
+                                                        <div class="wire-takeoff-reference-grid__header wire-takeoff-reference-grid__header--right">Cost</div>
+                                                        <ng-container *ngFor="let option of wireTypeOptions">
+                                                            <div class="wire-takeoff-reference-grid__label">{{option.label}}</div>
+                                                            <div class="wire-takeoff-reference-grid__value">{{option.cost | currency}}</div>
+                                                        </ng-container>
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceExpensesOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'EXPENSES'; else firewireWorkspaceSsPmOrPlaceholder" class="expenses-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="expenses-toolbar">
+                                            <div class="expenses-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Project Expenses</div>
+                                                <h4>Expense Worksheet</h4>
+                                            </div>
+                                            <div class="expenses-grand-total">
+                                                {{getExpenseGrandTotal() | currency}}
+                                            </div>
+                                        </div>
+
+                                        <div *ngFor="let section of expenseSections" class="expenses-section">
+                                            <div class="expenses-section__header">
+                                                <h5>{{section.title}}</h5>
+                                                <span>{{getExpenseSectionTotal(section) | currency}}</span>
+                                            </div>
+
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item</th>
+                                                            <th class="right-align">{{getExpenseRateLabel(section)}}</th>
+                                                            <th *ngIf="section.mode === 'markup'" class="right-align">Markup %</th>
+                                                            <th *ngIf="section.mode !== 'cost-qty'">Rate Type</th>
+                                                            <th class="right-align">Qty</th>
+                                                            <th class="right-align">{{getExpenseExtendedLabel(section)}}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of section.rows; let idx = index">
+                                                            <td>
+                                                                <div *ngIf="row.isToggle; else expenseItemInput" class="expenses-toggle-item">
+                                                                    <div class="expenses-toggle-item__text">
+                                                                        <div>{{row.item}}</div>
+                                                                        <div *ngIf="row.toggleLabel" class="doc-library-muted">{{row.toggleLabel}}</div>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="expenses-toggle-item__button"
+                                                                        [class.is-active]="row.toggleValue"
+                                                                        (click)="row.toggleValue = !row.toggleValue">
+                                                                        {{row.toggleValue ? 'X' : ''}}
+                                                                    </button>
+                                                                </div>
+                                                                <ng-template #expenseItemInput>
+                                                                    <input [(ngModel)]="row.item" [attr.aria-label]="section.title + ' item ' + (idx + 1)" />
+                                                                </ng-template>
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <ng-container *ngIf="section.mode === 'cost-qty'; else expenseRateInput">
+                                                                    <div class="bom-currency-input">
+                                                                        <span>$</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step="0.01"
+                                                                            [(ngModel)]="row.cost"
+                                                                            [attr.aria-label]="section.title + ' cost ' + (idx + 1)" />
+                                                                    </div>
+                                                                </ng-container>
+                                                                <ng-template #expenseRateInput>
+                                                                    <div class="bom-currency-input">
+                                                                        <span>$</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step="0.01"
+                                                                            [(ngModel)]="row.rate"
+                                                                            [attr.aria-label]="section.title + ' rate ' + (idx + 1)" />
+                                                                    </div>
+                                                                </ng-template>
+                                                            </td>
+                                                            <td *ngIf="section.mode === 'markup'" class="right-align">
+                                                                <div class="labor-rates-percent-input">
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.markupPercent" [attr.aria-label]="section.title + ' markup ' + (idx + 1)" />
+                                                                    <span>%</span>
+                                                                </div>
+                                                            </td>
+                                                            <td *ngIf="section.mode !== 'cost-qty'">
+                                                                <input [(ngModel)]="row.rateType" [attr.aria-label]="section.title + ' rate type ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    [(ngModel)]="row.qty"
+                                                                    [disabled]="!!row.isToggle"
+                                                                    [attr.aria-label]="section.title + ' quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getExpenseRowExtended(row, section) | currency}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total</td>
+                                                            <td></td>
+                                                            <td *ngIf="section.mode === 'markup'"></td>
+                                                            <td *ngIf="section.mode !== 'cost-qty'"></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getExpenseSectionTotal(section) | currency}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceSsPmOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SS PM'; else firewireWorkspaceSsCadOrPlaceholder" class="ss-pm-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="ss-pm-toolbar">
+                                            <div class="ss-pm-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Project Manager</div>
+                                                <h4>Project Management Worksheet</h4>
+                                            </div>
+                                            <div class="ss-pm-grand-total">
+                                                {{getSsPmGrandTotal() | currency}}
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-summary">
+                                            <label class="ss-pm-summary__field">
+                                                <span>Rate</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssPmRate" />
+                                                </div>
+                                            </label>
+                                            <div class="ss-pm-summary__stat">
+                                                <span>Actual Hours</span>
+                                                <strong>{{getSsPmLaborTotalHours().toFixed(2)}}</strong>
+                                            </div>
+                                            <label class="ss-pm-summary__field">
+                                                <span>Fixed Amount</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssPmFixedAmount" />
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>Project Management Labor</h5>
+                                                <span>{{getSsPmLaborTotalCost() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Description</th>
+                                                            <th class="right-align">Hours</th>
+                                                            <th class="right-align">Quantity</th>
+                                                            <th class="right-align">Ext Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssPmLaborRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.description" [attr.aria-label]="'SS PM description ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.hours" [attr.aria-label]="'SS PM hours ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.quantity" [attr.aria-label]="'SS PM quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsPmLaborExtendedHours(row).toFixed(2)}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total Hours</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsPmLaborTotalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>Project Management Expenses</h5>
+                                                <span>{{getSsPmExpenseTotal() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item</th>
+                                                            <th class="right-align">Cost</th>
+                                                            <th class="right-align">Qty</th>
+                                                            <th class="right-align">Extended</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssPmExpenseRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.item" [attr.aria-label]="'SS PM expense item ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <div class="bom-currency-input">
+                                                                    <span>$</span>
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'SS PM expense cost ' + (idx + 1)" />
+                                                                </div>
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'SS PM expense quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsPmExpenseExtended(row) | currency}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsPmExpenseTotal() | currency}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceSsCadOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SS CAD'; else firewireWorkspaceSsTechOrSummary" class="ss-pm-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="ss-pm-toolbar">
+                                            <div class="ss-pm-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">CAD Design</div>
+                                                <h4>CAD Design Worksheet</h4>
+                                            </div>
+                                            <div class="ss-pm-grand-total">
+                                                {{getSsCadGrandTotal() | currency}}
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-summary">
+                                            <label class="ss-pm-summary__field">
+                                                <span>Rate</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssCadRate" />
+                                                </div>
+                                            </label>
+                                            <div class="ss-pm-summary__stat">
+                                                <span>Actual Hours</span>
+                                                <strong>{{getSsCadLaborTotalHours().toFixed(2)}}</strong>
+                                            </div>
+                                            <label class="ss-pm-summary__field">
+                                                <span>Fixed Amount</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssCadFixedAmount" />
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>CAD Design Labor</h5>
+                                                <span>{{getSsCadLaborTotalCost() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Description</th>
+                                                            <th class="right-align">Hours</th>
+                                                            <th class="right-align">Quantity</th>
+                                                            <th class="right-align">Ext Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssCadLaborRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.description" [attr.aria-label]="'SS CAD description ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.hours" [attr.aria-label]="'SS CAD hours ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.quantity" [attr.aria-label]="'SS CAD quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsCadLaborExtendedHours(row).toFixed(2)}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total Hours</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsCadLaborTotalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>CAD Design Expenses</h5>
+                                                <span>{{getSsCadExpenseTotal() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item</th>
+                                                            <th class="right-align">Cost</th>
+                                                            <th class="right-align">Qty</th>
+                                                            <th class="right-align">Extended</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssCadExpenseRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.item" [attr.aria-label]="'SS CAD expense item ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <div class="bom-currency-input">
+                                                                    <span>$</span>
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'SS CAD expense cost ' + (idx + 1)" />
+                                                                </div>
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'SS CAD expense quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsCadExpenseExtended(row) | currency}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsCadExpenseTotal() | currency}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceSsTechOrSummary>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SS TECH'; else firewireWorkspaceSummaryOrPlaceholder" class="ss-pm-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="ss-pm-toolbar">
+                                            <div class="ss-pm-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Technical</div>
+                                                <h4>Technical Labor Worksheet</h4>
+                                            </div>
+                                            <div class="ss-pm-grand-total">
+                                                {{getSsTechGrandTotal() | currency}}
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-summary">
+                                            <label class="ss-pm-summary__field">
+                                                <span>Rate</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssTechRate" />
+                                                </div>
+                                            </label>
+                                            <div class="ss-pm-summary__stat">
+                                                <span>Actual Hours</span>
+                                                <strong>{{getSsTechLaborTotalHours().toFixed(2)}}</strong>
+                                            </div>
+                                            <label class="ss-pm-summary__field">
+                                                <span>Fixed Amount</span>
+                                                <div class="bom-currency-input">
+                                                    <span>$</span>
+                                                    <input type="number" min="0" step="0.01" [(ngModel)]="ssTechFixedAmount" />
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>Technical Labor</h5>
+                                                <span>{{getSsTechLaborTotalCost() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Description</th>
+                                                            <th class="right-align">Hours</th>
+                                                            <th class="right-align">Quantity</th>
+                                                            <th class="right-align">Ext Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssTechLaborRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.description" [attr.aria-label]="'SS TECH description ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.hours" [attr.aria-label]="'SS TECH hours ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.quantity" [attr.aria-label]="'SS TECH quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsTechLaborExtendedHours(row).toFixed(2)}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total Hours</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsTechLaborTotalHours().toFixed(2)}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <div class="ss-pm-section">
+                                            <div class="ss-pm-section__header">
+                                                <h5>Technical Expenses</h5>
+                                                <span>{{getSsTechExpenseTotal() | currency}}</span>
+                                            </div>
+                                            <div class="expenses-grid">
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item</th>
+                                                            <th class="right-align">Cost</th>
+                                                            <th class="right-align">Qty</th>
+                                                            <th class="right-align">Extended</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let row of ssTechExpenseRows; let idx = index">
+                                                            <td>
+                                                                <input [(ngModel)]="row.item" [attr.aria-label]="'SS TECH expense item ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <div class="bom-currency-input">
+                                                                    <span>$</span>
+                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'SS TECH expense cost ' + (idx + 1)" />
+                                                                </div>
+                                                            </td>
+                                                            <td class="right-align">
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'SS TECH expense quantity ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="right-align expenses-total-cell">
+                                                                {{getSsTechExpenseExtended(row) | currency}}
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="expenses-total-row">
+                                                            <td>Total</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td class="right-align">{{getSsTechExpenseTotal() | currency}}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceSummaryOrPlaceholder>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SUMMARY'; else firewireWorkspacePlaceholder" class="summary-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="summary-toolbar">
+                                            <div class="summary-toolbar__meta">
+                                                <div class="firewire-workspace-placeholder__eyebrow">Estimate Consolidation</div>
+                                                <h4>Summary</h4>
+                                            </div>
+                                            <mat-button-toggle-group class="summary-view-toggle" [value]="summaryViewMode" (valueChange)="onSummaryViewModeChange($event)">
+                                                <mat-button-toggle value="Grid">Grid View</mat-button-toggle>
+                                                <mat-button-toggle value="Chart">Chart View</mat-button-toggle>
+                                            </mat-button-toggle-group>
+                                            <div class="summary-header-badges">
+                                                <div class="summary-grand-total summary-grand-total--pretax">
+                                                    <span>Pre-Tax</span>
+                                                    <strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong>
+                                                </div>
+                                                <div class="summary-grand-total">
+                                                    <span>Quoted Price w/ Tax</span>
+                                                    <strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div *ngIf="summaryViewMode === 'Grid'; else summaryChartView" class="summary-grid">
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Project Support</h5>
+                                                    <span>Total Costs</span>
+                                                </div>
+                                                <div class="summary-table">
+                                                    <table>
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Support</th>
+                                                                <th class="right-align">Hours</th>
+                                                                <th class="right-align">Cost</th>
+                                                                <th class="right-align">Est %</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td>Project Management</td>
+                                                                <td class="right-align">{{getSsPmLaborTotalHours().toFixed(2)}}</td>
+                                                                <td class="right-align">{{getSsPmGrandTotal() | currency}}</td>
+                                                                <td class="right-align">{{getSummaryCategoryPercent(getSsPmGrandTotal()).toFixed(2)}}%</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>CAD Design</td>
+                                                                <td class="right-align">{{getSsCadLaborTotalHours().toFixed(2)}}</td>
+                                                                <td class="right-align">{{getSsCadGrandTotal() | currency}}</td>
+                                                                <td class="right-align">{{getSummaryCategoryPercent(getSsCadGrandTotal()).toFixed(2)}}%</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>Technical Labor</td>
+                                                                <td class="right-align">{{getSsTechLaborTotalHours().toFixed(2)}}</td>
+                                                                <td class="right-align">{{getSsTechGrandTotal() | currency}}</td>
+                                                                <td class="right-align">{{getSummaryCategoryPercent(getSsTechGrandTotal()).toFixed(2)}}%</td>
+                                                            </tr>
+                                                            <tr class="summary-table__total">
+                                                                <td>Labor Total</td>
+                                                                <td class="right-align">{{getProjectSupportHours().toFixed(2)}}</td>
+                                                                <td class="right-align">{{getProjectSupportCost() | currency}}</td>
+                                                                <td class="right-align">{{getSummaryCategoryPercent(getProjectSupportCost()).toFixed(2)}}%</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Total Costs</h5>
+                                                    <span>% Total Cost</span>
+                                                </div>
+                                                <div class="summary-table">
+                                                    <table>
+                                                        <tbody>
+                                                            <tr><td>Project Support</td><td class="right-align">{{getProjectSupportCost() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getProjectSupportCost()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Installation Labor</td><td class="right-align">{{getInstallationLaborTotalCost() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getInstallationLaborTotalCost()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Installation Material</td><td class="right-align">{{getInstallationMaterialTotal() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getInstallationMaterialTotal()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Equipment</td><td class="right-align">{{getEquipmentMaterialTotal() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getEquipmentMaterialTotal()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Expenses</td><td class="right-align">{{getGeneralExpenseTotal() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getGeneralExpenseTotal()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Subcontracts</td><td class="right-align">{{getSubcontractTotal() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getSubcontractTotal()).toFixed(2)}}%</td></tr>
+                                                            <tr><td>Special Markup Items</td><td class="right-align">{{getSpecialMarkupTotal() | currency}}</td><td class="right-align">{{getSummaryCategoryPercent(getSpecialMarkupTotal()).toFixed(2)}}%</td></tr>
+                                                            <tr class="summary-table__total"><td>Total Job Cost</td><td class="right-align">{{getTotalJobCost() | currency}}</td><td class="right-align">100.00%</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Installation Labor Summary</h5>
+                                                    <span>Costs</span>
+                                                </div>
+                                                <div class="summary-table">
+                                                    <table>
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Labor</th>
+                                                                <th class="right-align">Hours</th>
+                                                                <th class="right-align">OT Hours</th>
+                                                                <th class="right-align">Cost</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr><td>Pipe & Wire Labor</td><td class="right-align">{{getInstallationLaborBaseHours().toFixed(2)}}</td><td class="right-align">{{getInstallationLaborOvertimeHours().toFixed(2)}}</td><td class="right-align">{{getInstallationPipeWireCost() | currency}}</td></tr>
+                                                            <tr><td>Supervision Labor</td><td class="right-align">{{getSupervisionHours().toFixed(2)}}</td><td class="right-align"></td><td class="right-align">{{getSupervisionCost() | currency}}</td></tr>
+                                                            <tr><td>Mobilization Labor</td><td class="right-align">{{getMobilizationHours().toFixed(2)}}</td><td class="right-align"></td><td class="right-align">{{getMobilizationCost() | currency}}</td></tr>
+                                                            <tr class="summary-table__total"><td>Labor Total</td><td class="right-align">{{getInstallationLaborTotalHours().toFixed(2)}}</td><td class="right-align">{{getInstallationLaborOvertimeHours().toFixed(2)}}</td><td class="right-align">{{getInstallationLaborTotalCost() | currency}}</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Material and Equipment Summary</h5>
+                                                    <span>Tax + Totals</span>
+                                                </div>
+                                                <div class="summary-table">
+                                                    <table>
+                                                        <tbody>
+                                                            <tr><td>Installation Material Total</td><td class="right-align">{{getInstallationMaterialTotal() | currency}}</td></tr>
+                                                            <tr><td>Equipment Material Total</td><td class="right-align">{{getEquipmentMaterialTotal() | currency}}</td></tr>
+                                                            <tr><td>Material Total</td><td class="right-align">{{(getInstallationMaterialTotal() + getEquipmentMaterialTotal()) | currency}}</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div class="summary-controls">
+                                                    <label class="summary-toggle">
+                                                        <span>Use Material Tax</span>
+                                                        <button type="button" class="expenses-toggle-item__button" [class.is-active]="summaryUseMaterialTax" (click)="summaryUseMaterialTax = !summaryUseMaterialTax">{{summaryUseMaterialTax ? 'X' : '--'}}</button>
+                                                    </label>
+                                                    <label class="ss-pm-summary__field">
+                                                        <span>Tax %</span>
+                                                        <div class="labor-rates-percent-input">
+                                                            <input type="number" min="0" step="0.001" [(ngModel)]="summaryMaterialTaxRate" />
+                                                            <span>%</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card summary-card--wide">
+                                                <div class="summary-card__header">
+                                                    <h5>Quote Summary</h5>
+                                                    <span>{{isTurnkeyScope() ? 'Turnkey' : 'Smarts & Parts'}}</span>
+                                                </div>
+                                                <div class="summary-quote-grid">
+                                                    <div class="summary-quote-grid__group">
+                                                        <div class="summary-quote-grid__title">Total Cost</div>
+                                                        <div class="summary-quote-grid__row"><span>Turnkey Material</span><strong>{{getTurnkeyMaterialCost() | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Turnkey Labor</span><strong>{{getTurnkeyLaborCost() | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Smarts & Parts Material</span><strong>{{getSmartsAndPartsMaterialCost() | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Smarts & Parts Labor</span><strong>{{getSmartsAndPartsLaborCost() | currency}}</strong></div>
+                                                    </div>
+                                                    <div class="summary-quote-grid__group">
+                                                        <div class="summary-quote-grid__title">Risk / Proficiency</div>
+                                                        <label class="ss-pm-summary__field">
+                                                            <span>Risk / Proficiency</span>
+                                                            <div class="labor-rates-percent-input">
+                                                                <input type="number" min="0" step="0.01" [(ngModel)]="summaryRiskProficiencyPercent" />
+                                                                <span>%</span>
+                                                            </div>
+                                                        </label>
+                                                        <div class="summary-quote-grid__row"><span>Total Cost w/R&P</span><strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong></div>
+                                                    </div>
+                                                    <div class="summary-quote-grid__group">
+                                                        <div class="summary-quote-grid__title">Pricing</div>
+                                                        <div class="summary-quote-grid__row"><span>Pre-Tax</span><strong>{{(isTurnkeyScope() ? getTurnkeyCostWithRisk() : getSmartsAndPartsCostWithRisk()) | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Margin %</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginPercent() : getSmartsAndPartsMarginPercent())}}%</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Margin $</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginAmount() : getSmartsAndPartsMarginAmount()) | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Quoted Price</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPrice() : getSmartsAndPartsQuotedPrice()) | currency}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Quoted Price w/ Tax</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Device Metrics</h5>
+                                                    <span>Estimate</span>
+                                                </div>
+                                                <div class="summary-metric-list">
+                                                    <div class="summary-metric-list__row"><span>Device Count</span><strong>{{getSummaryDeviceCount()}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Engineering Hours / Per</span><strong>{{getSummaryMetricPerDevice(getSummaryEngineeringHours()).toFixed(2)}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Engineering Dollars / Per</span><strong>{{getSummaryMetricPerDevice(getSummaryEngineeringDollars()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Field Hours / Per</span><strong>{{getSummaryMetricPerDevice(getSummaryFieldHours()).toFixed(2)}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Field Dollars / Per</span><strong>{{getSummaryMetricPerDevice(getSummaryFieldDollars()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Material / Per</span><strong>{{getSummaryMetricPerDevice(getInstallationMaterialTotal()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Contract Amount / Per</span><strong>{{getSummaryMetricPerDevice(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="summary-card">
+                                                <div class="summary-card__header">
+                                                    <h5>Square Feet Metrics</h5>
+                                                    <span>Estimate</span>
+                                                </div>
+                                                <div class="summary-metric-list">
+                                                    <div class="summary-metric-list__row"><span>Square Feet</span><strong>{{firewireForm.totalSqFt || 0}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Engineering Hours / Per</span><strong>{{getSummaryMetricPerSqFt(getSummaryEngineeringHours()).toFixed(2)}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Engineering Dollars / Per</span><strong>{{getSummaryMetricPerSqFt(getSummaryEngineeringDollars()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Field Hours / Per</span><strong>{{getSummaryMetricPerSqFt(getSummaryFieldHours()).toFixed(2)}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Field Dollars / Per</span><strong>{{getSummaryMetricPerSqFt(getSummaryFieldDollars()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Material / Per</span><strong>{{getSummaryMetricPerSqFt(getInstallationMaterialTotal()) | currency}}</strong></div>
+                                                    <div class="summary-metric-list__row"><span>Contract Amount / Per</span><strong>{{getSummaryMetricPerSqFt(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency}}</strong></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ng-template #summaryChartView>
+                                            <div class="summary-dashboard">
+                                                <div class="summary-dashboard__hero">
+                                                    <div class="summary-dashboard__hero-copy">
+                                                        <div class="firewire-workspace-placeholder__eyebrow">Live Estimate Signal</div>
+                                                        <h5>{{getSummaryScopeLabel()}} pricing posture</h5>
+                                                        <p>Visualized cost distribution, quote progression, and project density from the current worksheet data.</p>
+                                                    </div>
+                                                    <div class="summary-dashboard__hero-metrics">
+                                                        <div *ngFor="let metric of getSummaryPrimaryMetrics()" class="summary-dashboard-metric">
+                                                            <span>{{metric.label}}</span>
+                                                            <strong>{{metric.value}}</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="summary-dashboard__grid">
+                                                    <div class="summary-dashboard-card summary-dashboard-card--span-2">
+                                                        <div class="summary-card__header">
+                                                            <h5>Cost Distribution</h5>
+                                                            <span>Total Job Cost</span>
+                                                        </div>
+                                                        <div class="summary-distribution-list">
+                                                            <div *ngFor="let item of getSummaryCostBreakdown()" class="summary-distribution-row" [attr.data-tone]="item.tone">
+                                                                <div class="summary-distribution-row__meta">
+                                                                    <span>{{item.label}}</span>
+                                                                    <strong>{{item.cost | currency}}</strong>
+                                                                </div>
+                                                                <div class="summary-distribution-row__track">
+                                                                    <div class="summary-distribution-row__fill" [style.width.%]="item.percent"></div>
+                                                                </div>
+                                                                <div class="summary-distribution-row__percent">{{item.percent.toFixed(2)}}%</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="summary-dashboard-card">
+                                                        <div class="summary-card__header">
+                                                            <h5>Quote Ladder</h5>
+                                                            <span>{{getSummaryScopeLabel()}}</span>
+                                                        </div>
+                                                        <div class="summary-waterfall">
+                                                            <div class="summary-waterfall__row">
+                                                                <span>Cost w/Risk</span>
+                                                                <div class="summary-waterfall__bar">
+                                                                    <div class="summary-waterfall__fill is-cost" [style.width.%]="getSummaryBarWidth(getSummaryCostWithRiskDisplay())"></div>
+                                                                </div>
+                                                                <strong>{{getSummaryCostWithRiskDisplay() | currency}}</strong>
+                                                            </div>
+                                                            <div class="summary-waterfall__row">
+                                                                <span>Quoted Price</span>
+                                                                <div class="summary-waterfall__bar">
+                                                                    <div class="summary-waterfall__fill is-quoted" [style.width.%]="getSummaryBarWidth(getSummaryQuotedPreTax())"></div>
+                                                                </div>
+                                                                <strong>{{getSummaryQuotedPreTax() | currency}}</strong>
+                                                            </div>
+                                                            <div class="summary-waterfall__row">
+                                                                <span>Quoted w/ Tax</span>
+                                                                <div class="summary-waterfall__bar">
+                                                                    <div class="summary-waterfall__fill is-taxed" [style.width.%]="getSummaryBarWidth(getSummaryQuotedWithTax())"></div>
+                                                                </div>
+                                                                <strong>{{getSummaryQuotedWithTax() | currency}}</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="summary-dashboard-card">
+                                                        <div class="summary-card__header">
+                                                            <h5>Estimate Drivers</h5>
+                                                            <span>Rate Inputs</span>
+                                                        </div>
+                                                        <div class="summary-driver-list">
+                                                            <div class="summary-driver-list__row"><span>Risk / Proficiency</span><strong>{{summaryRiskProficiencyPercent.toFixed(2)}}%</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Material Tax</span><strong>{{summaryUseMaterialTax ? (summaryMaterialTaxRate.toFixed(3) + '%') : 'Off'}}</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Engineering Hours</span><strong>{{getSummaryEngineeringHours().toFixed(2)}}</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Field Hours</span><strong>{{getSummaryFieldHours().toFixed(2)}}</strong></div>
+                                                            <div class="summary-driver-list__row"><span>Margin</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginPercent() : getSmartsAndPartsMarginPercent())}}%</strong></div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="summary-dashboard-card">
+                                                        <div class="summary-card__header">
+                                                            <h5>Unit Economics</h5>
+                                                            <span>Per Device / Sq Ft</span>
+                                                        </div>
+                                                        <div class="summary-economics-grid">
+                                                            <div class="summary-economics-grid__cell">
+                                                                <span>Field $ / Device</span>
+                                                                <strong>{{getSummaryMetricPerDevice(getSummaryFieldDollars()) | currency}}</strong>
+                                                            </div>
+                                                            <div class="summary-economics-grid__cell">
+                                                                <span>Material $ / Device</span>
+                                                                <strong>{{getSummaryMetricPerDevice(getInstallationMaterialTotal()) | currency}}</strong>
+                                                            </div>
+                                                            <div class="summary-economics-grid__cell">
+                                                                <span>Field Hrs / Sq Ft</span>
+                                                                <strong>{{getSummaryMetricPerSqFt(getSummaryFieldHours()).toFixed(2)}}</strong>
+                                                            </div>
+                                                            <div class="summary-economics-grid__cell">
+                                                                <span>Contract / Sq Ft</span>
+                                                                <strong>{{getSummaryMetricPerSqFt(getSummaryQuotedWithTax()) | currency}}</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </ng-template>
                                     </div>
                                     </ng-template>
                                     </ng-template>

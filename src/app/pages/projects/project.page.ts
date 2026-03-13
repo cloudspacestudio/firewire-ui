@@ -4,7 +4,7 @@ import { Router, RouterLink } from "@angular/router"
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
-import { map, Observable } from "rxjs"
+import { catchError, map, Observable, of, switchMap } from "rxjs"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -15,6 +15,7 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatDatepickerModule } from "@angular/material/datepicker"
+import { MatMenuModule } from "@angular/material/menu"
 import { MatSelectModule } from "@angular/material/select"
 
 import { Utils } from "../../common/utils"
@@ -25,6 +26,11 @@ import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.sch
 import { ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
+import {
+    ProjectTemplateDialog,
+    ProjectTemplateDialogItem,
+    SaveProjectTemplateDialogResult
+} from "./project-template.dialog"
 import { ProjectSettingsApi } from "./project-settings.api"
 import { ReducedResponse, Reducer } from "../../common/reducer"
 
@@ -59,12 +65,58 @@ interface InstallationOvertimeForm {
     mobilizationFactorPercent: number
 }
 
+interface WorkingHeightBand {
+    label: string
+    percent: number
+    factor: number
+}
+
 type TakeoffValue = number | null
 
 interface TakeoffMatrix {
     title: string
     rows: string[]
     values: Record<string, Record<string, TakeoffValue>>
+}
+
+type WireCategory = 'SLC' | 'Notification' | 'Audio' | '24V' | 'Style 6 or 7'
+
+interface WireTypeOption {
+    label: string
+    cost: number
+}
+
+interface WireSelection {
+    category: WireCategory
+    label: string
+}
+
+interface WireRunNode {
+    id: string
+    label: string
+    category: WireCategory
+    qty: number
+    feet: number
+    zone: string
+}
+
+interface FiretrolProvideRow {
+    item: string
+    included: boolean
+    estQty: number
+    price: number
+    labor: number
+}
+
+interface WireTakeoffSpecs {
+    floors: number
+    distanceBetweenFloors: number
+    distanceFacpToRiser: number
+    conduit: boolean
+    plenum: boolean
+    plenumSpace: number
+    ceilingHeight: number
+    finishFloor: number
 }
 
 interface DocLibraryFolder {
@@ -87,6 +139,99 @@ interface DocLibraryFile {
     status: 'Synced' | 'Needs Review' | 'Draft'
 }
 
+type ProjectExpenseSectionMode = 'cost-qty' | 'rate-type-qty' | 'markup'
+
+interface ProjectExpenseRow {
+    item: string
+    cost?: number
+    rate?: number
+    markupPercent?: number
+    rateType?: string
+    qty?: number
+    isToggle?: boolean
+    toggleLabel?: string
+    toggleValue?: boolean
+}
+
+interface ProjectExpenseSection {
+    title: string
+    mode: ProjectExpenseSectionMode
+    rows: ProjectExpenseRow[]
+}
+
+interface ServiceSupportLaborRow {
+    description: string
+    hours: number
+    quantity: number
+}
+
+interface ServiceSupportExpenseRow {
+    item: string
+    cost: number
+    qty: number
+}
+
+interface RecentProjectLink {
+    id: string
+    name: string
+    projectNbr: string
+    route: string
+    lastViewedAt: string
+}
+
+interface FirewireProjectWorksheetState {
+    baseManHourEstimate: number
+    workingHeightBands: WorkingHeightBand[]
+    workingHeightFactorMultiplier: number
+    accessiblePercent: number
+    inaccessiblePercent: number
+    ceilingFloorFactorMultiplier: number
+    newConstructionPercent: number
+    retrofitPercent: number
+    workRetrofitFactorMultiplier: number
+    buildingLevels: number
+    takeoffDrawingDate: string | null
+    wageScaleJob: boolean
+    wageScaleEffectiveRate: number
+    laborRates: LaborRateRow[]
+    installationOvertime: InstallationOvertimeForm
+    takeoffMatrices: TakeoffMatrix[]
+    wireTakeoffSpecs: WireTakeoffSpecs
+    wireWiringStyles: Record<WireCategory, 'Class A' | 'Class B'>
+    wireSelections: WireSelection[]
+    wireRunNodes: WireRunNode[]
+    firetrolProvideRows: FiretrolProvideRow[]
+    bomSections: ProjectBomSection[]
+    expenseSections: ProjectExpenseSection[]
+    ssPmRate: number
+    ssPmFixedAmount: number
+    ssPmLaborRows: ServiceSupportLaborRow[]
+    ssPmExpenseRows: ServiceSupportExpenseRow[]
+    ssCadRate: number
+    ssCadFixedAmount: number
+    ssCadLaborRows: ServiceSupportLaborRow[]
+    ssCadExpenseRows: ServiceSupportExpenseRow[]
+    ssTechRate: number
+    ssTechFixedAmount: number
+    ssTechLaborRows: ServiceSupportLaborRow[]
+    ssTechExpenseRows: ServiceSupportExpenseRow[]
+    summaryViewMode: 'Grid' | 'Chart'
+    summaryUseMaterialTax: boolean
+    summaryMaterialTaxRate: number
+    summaryRiskProficiencyPercent: number
+}
+
+interface ProjectTemplateRecord {
+    templateId: string
+    name: string
+    visibility: 'Private' | 'Public'
+    ownerUserId: string
+    firewireForm: Partial<FirewireProjectUpsert>
+    worksheetData: FirewireProjectWorksheetState
+    createdAt: string
+    updatedAt: string
+}
+
 @Component({
     standalone: true,
     selector: 'project-page',
@@ -94,7 +239,7 @@ interface DocLibraryFile {
         RouterLink, PageToolbar,
         MatButtonModule, MatFormFieldModule,
         MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule,
-        MatChipsModule, MatIconModule, MatCardModule],
+        MatChipsModule, MatIconModule, MatCardModule, MatMenuModule],
     providers: [HttpClient],
     templateUrl: './project.page.html',
     styleUrls: ['./project.page.scss']
@@ -102,6 +247,9 @@ interface DocLibraryFile {
 export class ProjectPage implements OnChanges {
     private dialog = inject(MatDialog)
     private router = inject(Router)
+    private readonly recentProjectsStorageKey = 'firewire.recentProjects'
+    private readonly favoriteProjectsStorageKey = 'firewire.favoriteProjects'
+    private readonly lockedProjectStatuses = ['Design', 'Install', 'Service', 'Closed']
 
     @Input() projectId?: string
     @Input() projectSource: ProjectSource = 'fieldwire'
@@ -115,6 +263,7 @@ export class ProjectPage implements OnChanges {
     firewireForm: FirewireProjectUpsert = this.createEmptyFirewireForm()
     firewireBidDueDate: Date | null = null
     initialFirewireFormState = ''
+    initialWorksheetState = ''
     firewireSaveWorking = false
     firewireSaveMessage = ''
     projectSettings: ProjectSettingsCatalogSchema = {
@@ -153,16 +302,39 @@ export class ProjectPage implements OnChanges {
     layouts = ['Tabular', 'Raw']
     readonly baseFirewireWorkspaceTabs = [
         'PROJECT DETAILS',
-        'WORKING HEIGHTS',
+        'INSTALL LABOR',
         'LABOR RATES',
         'TAKE OFF',
         'BOM',
+        'WIRE TAKE OFF',
+        'SS PM',
+        'SS CAD',
+        'SS TECH',
         'EXPENSES',
         'SUMMARY',
         'DOC LIBRARY',
         'SYSTEM'
     ]
     activeFirewireWorkspaceTab = 'PROJECT DETAILS'
+    baseManHourEstimate = 0
+    workingHeightBands: WorkingHeightBand[] = [
+        { label: '0 - 10', percent: 100, factor: 0 },
+        { label: '11 - 20', percent: 0, factor: 0 },
+        { label: '21 - 25', percent: 0, factor: 0 },
+        { label: '26 - 30', percent: 0, factor: 0 },
+        { label: '31 - 35', percent: 0, factor: 0.3 },
+        { label: '36 - 40', percent: 0, factor: 0.5 },
+        { label: 'Over', percent: 0, factor: 1 }
+    ]
+    workingHeightFactorMultiplier = 1
+    accessiblePercent = 100
+    inaccessiblePercent = 0
+    ceilingFloorFactorMultiplier = 1
+    newConstructionPercent = 85
+    retrofitPercent = 15
+    workRetrofitFactorMultiplier = 1
+    buildingLevels = 1
+    takeoffDrawingDate: Date | null = new Date()
     wageScaleJob = false
     wageScaleEffectiveRate = 0
     laborRates: LaborRateRow[] = [
@@ -250,6 +422,90 @@ export class ProjectPage implements OnChanges {
             'Roof'
         ])
     ]
+    readonly wireCategories: WireCategory[] = ['SLC', 'Notification', 'Audio', '24V', 'Style 6 or 7']
+    readonly wireDiagramZones = [
+        'top-left',
+        'top-mid-left',
+        'top-mid',
+        'top-right',
+        'mid-top-1',
+        'mid-top-2',
+        'mid-top-3',
+        'mid-top-4',
+        'left-center',
+        'center-left',
+        'center-right',
+        'bottom-mid-left',
+        'bottom-mid-right',
+        'bottom-right'
+    ]
+    wireTakeoffSpecs = {
+        floors: 1,
+        distanceBetweenFloors: 15,
+        distanceFacpToRiser: 22,
+        conduit: false,
+        plenum: true,
+        plenumSpace: 2,
+        ceilingHeight: 10,
+        finishFloor: 0
+    }
+    wireWiringStyles: Record<WireCategory, 'Class A' | 'Class B'> = {
+        'SLC': 'Class B',
+        'Notification': 'Class B',
+        'Audio': 'Class B',
+        '24V': 'Class B',
+        'Style 6 or 7': 'Class B'
+    }
+    readonly wireTypeOptions: WireTypeOption[] = [
+        { label: '12/2 Solid Twisted FPLP', cost: 370 },
+        { label: '12/2 Solid Twisted Shielded FPLP', cost: 490 },
+        { label: '12/2 Solid Twisted FPLR', cost: 350 },
+        { label: '12/2 Solid Twisted Shielded FPLR', cost: 410 },
+        { label: '14/2 Solid Twisted FPLP', cost: 311 },
+        { label: '14/2 Solid Twisted Shielded FPLP', cost: 240 },
+        { label: '14/2 Solid Twisted FPLR', cost: 207 },
+        { label: '14/2 Solid Twisted Shielded FPLR', cost: 247 },
+        { label: '16/2 Solid Twisted FPLP', cost: 217 },
+        { label: '16/2 Solid Twisted Shielded FPLP', cost: 170 },
+        { label: '16/2 Solid Twisted FPLR', cost: 144 },
+        { label: '16/2 Solid Twisted Shielded FPLR', cost: 166 },
+        { label: '18/2 Solid Twisted FPLP', cost: 128 },
+        { label: '18/2 Solid Twisted Shielded FPLP', cost: 147 },
+        { label: '18/2 Solid Twisted FPLR', cost: 96 },
+        { label: '18/2 Solid Twisted Shielded FPLR', cost: 114 },
+        { label: '12/2 CIC', cost: 0 },
+        { label: '14/2 CIC', cost: 0 },
+        { label: '16/2 CIC', cost: 0 },
+        { label: '18/2 CIC', cost: 0 }
+    ]
+    wireSelections: WireSelection[] = [
+        { category: 'SLC', label: '18/2 Solid Twisted FPLP' },
+        { category: 'Notification', label: '14/2 Solid Twisted FPLP' },
+        { category: 'Audio', label: '16/2 Solid Twisted FPLP' },
+        { category: '24V', label: '14/2 Solid Twisted FPLP' },
+        { category: 'Style 6 or 7', label: '18/2 CIC' }
+    ]
+    wireRunNodes: WireRunNode[] = [
+        { id: 'smoke-heat', label: 'Smoke / Heat 4-Wire', category: 'SLC', qty: 0, feet: 75, zone: 'top-left' },
+        { id: 'remote-test', label: 'Remote Test', category: 'SLC', qty: 0, feet: 65, zone: 'top-mid-left' },
+        { id: 'speaker-top', label: 'Speaker', category: 'Audio', qty: 0, feet: 65, zone: 'top-mid' },
+        { id: 'duct-smoke-above', label: 'Duct Smk Above', category: 'SLC', qty: 0, feet: 65, zone: 'top-right' },
+        { id: 'horn-top', label: 'Horn', category: 'Notification', qty: 0, feet: 65, zone: 'mid-top-1' },
+        { id: 'strobe-top', label: 'Strobe', category: 'Notification', qty: 0, feet: 65, zone: 'mid-top-2' },
+        { id: 'horn-strobe-top', label: 'Horn Strobe', category: 'Notification', qty: 0, feet: 65, zone: 'mid-top-3' },
+        { id: 'speaker-strobe-top', label: 'Speaker Strobe', category: 'Audio', qty: 0, feet: 65, zone: 'mid-top-4' },
+        { id: 'door-holder', label: 'Door Holder', category: '24V', qty: 0, feet: 100, zone: 'left-center' },
+        { id: 'udact', label: 'UDACT', category: 'Style 6 or 7', qty: 0, feet: 0, zone: 'center-left' },
+        { id: 'annunciator', label: 'ANN', category: 'Notification', qty: 0, feet: 100, zone: 'center-right' },
+        { id: 'pull-monitor', label: 'Pull / Monitor Module', category: 'SLC', qty: 0, feet: 60, zone: 'bottom-mid-left' },
+        { id: 'control-module', label: 'Control Module', category: 'SLC', qty: 0, feet: 75, zone: 'bottom-mid-right' },
+        { id: 'duct-smoke-below', label: 'Duct Smk Below', category: 'SLC', qty: 0, feet: 0, zone: 'bottom-right' }
+    ]
+    firetrolProvideRows: FiretrolProvideRow[] = [
+        { item: 'BackBoxes', included: true, estQty: 0, price: 15, labor: 0 },
+        { item: 'J-Hooks', included: false, estQty: 1, price: 1.5, labor: 0 },
+        { item: 'Straps/Misc', included: false, estQty: 1, price: 50, labor: 0 }
+    ]
     bomSections: ProjectBomSection[] = [
         {
             title: 'EST EQUIPMENT',
@@ -278,11 +534,204 @@ export class ProjectPage implements OnChanges {
     bomFilter = ''
     bomSortKey: ProjectBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
+    expenseSections: ProjectExpenseSection[] = [
+        {
+            title: 'Permit & Fees',
+            mode: 'cost-qty',
+            rows: [
+                { item: 'plan review and reg hrs insp 1-10', cost: 323, qty: 0 },
+                { item: 'plan review and reg hrs insp 11-25', cost: 446, qty: 0 },
+                { item: 'plan review and reg hrs insp 26-100', cost: 570, qty: 0 },
+                { item: 'plan review 101-200', cost: 693, qty: 0 },
+                { item: 'plan review 200 +see fee schedule', cost: 0, qty: 0 },
+                { item: 'GFD', cost: 150, qty: 0 },
+                { item: 'after hours 2 hour inspection', cost: 337, qty: 0 },
+                { item: 'AHJ', cost: 0, qty: 0 },
+                { item: 'Live Oak', cost: 0, qty: 0 },
+                { item: 'Fast Track Required (X)', cost: 0, qty: 0, isToggle: true, toggleLabel: '--', toggleValue: false }
+            ]
+        },
+        {
+            title: 'Rental Equipment',
+            mode: 'rate-type-qty',
+            rows: [
+                { item: 'Lift Truck', rate: 0, rateType: '', qty: 0 },
+                { item: 'Tools', rate: 0, rateType: '', qty: 0 },
+                { item: 'Forklift', rate: 0, rateType: '', qty: 0 },
+                { item: 'Backhoe', rate: 0, rateType: '', qty: 0 },
+                { item: 'Extended Reach', rate: 0, rateType: '', qty: 0 },
+                { item: 'Low Scissor Lift', rate: 0, rateType: '', qty: 0 },
+                { item: 'Medium Reach Lift', rate: 600, rateType: '', qty: 0 },
+                { item: 'High Reach Lift', rate: 1000, rateType: '', qty: 0 }
+            ]
+        },
+        {
+            title: 'Travel',
+            mode: 'rate-type-qty',
+            rows: [
+                { item: 'Air Travel', rate: 0, rateType: '', qty: 0 },
+                { item: 'Car Rental', rate: 0, rateType: '', qty: 0 },
+                { item: 'Hotel', rate: 200, rateType: '', qty: 0 },
+                { item: 'Meals', rate: 0, rateType: '', qty: 0 },
+                { item: 'Incidentals', rate: 0, rateType: '', qty: 0 },
+                { item: 'Per Diem (Per Night)', rate: 50, rateType: '', qty: 0 },
+                { item: '', rate: 0, rateType: '', qty: 0 },
+                { item: 'PARKING', rate: 30, rateType: '', qty: 0 },
+                { item: '', rate: 0, rateType: '', qty: 0 }
+            ]
+        },
+        {
+            title: 'Freight',
+            mode: 'cost-qty',
+            rows: [
+                { item: 'UPS Next Day', cost: 0, qty: 0 },
+                { item: 'UPS Second Day', cost: 0, qty: 0 },
+                { item: 'Fed Ex Next Day', cost: 0, qty: 0 },
+                { item: 'Fed Ex Second Day', cost: 0, qty: 0 },
+                { item: 'Ground Transit', cost: 0, qty: 0 },
+                { item: 'Misc Frieght', cost: 0, qty: 0 },
+                { item: 'Estimated on Materials (4%)', cost: 0, qty: 1 }
+            ]
+        },
+        {
+            title: 'Subcontracts',
+            mode: 'cost-qty',
+            rows: [
+                { item: 'Engineering', cost: 1000, qty: 0 },
+                { item: 'Electrical', cost: 0, qty: 0 },
+                { item: 'EST Factory Training', cost: 2000, qty: 0 },
+                { item: 'Fiber', cost: 4100, qty: 0 },
+                { item: '', cost: 0, qty: 0 },
+                { item: '', cost: 0, qty: 0 },
+                { item: '', cost: 0, qty: 0 },
+                { item: '', cost: 0, qty: 0 },
+                { item: '', cost: 0, qty: 0 }
+            ]
+        },
+        {
+            title: 'Special Markup Items',
+            mode: 'markup',
+            rows: Array.from({ length: 9 }, () => ({ item: '', rate: 0, markupPercent: 0, rateType: '', qty: 0 }))
+        }
+    ]
+    ssPmRate = 84
+    ssPmFixedAmount = 0
+    ssPmLaborRows: ServiceSupportLaborRow[] = [
+        { description: 'Coordinate Design Activities', hours: 0, quantity: 0 },
+        { description: 'Order Write', hours: 0, quantity: 0 },
+        { description: 'Prebib Review', hours: 0, quantity: 0 },
+        { description: 'Sales Hand-Off Review', hours: 0, quantity: 0 },
+        { description: 'Project Planning', hours: 0, quantity: 0 },
+        { description: 'Project Re-Estimate', hours: 0, quantity: 0 },
+        { description: 'Project Schedule', hours: 0, quantity: 0 },
+        { description: 'Project Meetings', hours: 8, quantity: 0 },
+        { description: 'Project Tracking', hours: 0, quantity: 0 },
+        { description: 'Eng & Technical Coordination', hours: 0, quantity: 0 },
+        { description: "Project RFI's, COR's, CO's, Ect", hours: 0, quantity: 0 },
+        { description: 'Travel Labor', hours: 0, quantity: 0 },
+        { description: 'Time Entry', hours: 0, quantity: 0 },
+        { description: 'Phased Job', hours: 0, quantity: 0 },
+        { description: 'City AHJ Test', hours: 0, quantity: 0 },
+        { description: 'Govt Test', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 }
+    ]
+    ssPmExpenseRows: ServiceSupportExpenseRow[] = [
+        { item: 'Telephone', cost: 0, qty: 0 },
+        { item: 'Management Software', cost: 0, qty: 0 },
+        { item: 'Scheduling Software', cost: 0, qty: 0 },
+        { item: 'Computer', cost: 0, qty: 0 },
+        { item: 'Printer', cost: 0, qty: 0 },
+        { item: 'Rent (Office Trailer)', cost: 0, qty: 0 },
+        { item: 'Utilities', cost: 0, qty: 0 },
+        { item: 'Cell Phone', cost: 0, qty: 0 },
+        { item: 'Consumables', cost: 0, qty: 0 }
+    ]
+    ssCadRate = 80
+    ssCadFixedAmount = 0
+    ssCadLaborRows: ServiceSupportLaborRow[] = [
+        { description: 'Product Application', hours: 8, quantity: 0 },
+        { description: 'Project Scope Letter', hours: 0, quantity: 0 },
+        { description: 'Voltage Drop Calculation', hours: 0, quantity: 0 },
+        { description: 'Battery Calculation', hours: 0, quantity: 0 },
+        { description: 'AHJ Review', hours: 0, quantity: 0 },
+        { description: 'Project Close-Out Documents', hours: 0, quantity: 0 },
+        { description: 'Travel Labor', hours: 0, quantity: 0 },
+        { description: 'Phased Job', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 }
+    ]
+    ssCadExpenseRows: ServiceSupportExpenseRow[] = [
+        { item: 'CAD Software', cost: 0, qty: 0 },
+        { item: 'Plotter', cost: 0, qty: 0 },
+        { item: 'Quotifier Design', cost: 0, qty: 0 },
+        { item: 'AutoCAD', cost: 0, qty: 0 },
+        { item: 'Reproductions', cost: 0, qty: 0 },
+        { item: 'Consumables', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 }
+    ]
+    ssTechRate = 56
+    ssTechFixedAmount = 0
+    ssTechLaborRows: ServiceSupportLaborRow[] = [
+        { description: 'Label Addresses', hours: 0, quantity: 0 },
+        { description: 'Software Generation', hours: 0, quantity: 0 },
+        { description: 'System Testing', hours: 8, quantity: 0 },
+        { description: 'Extra System Testing', hours: 4, quantity: 0 },
+        { description: 'Programming', hours: 8, quantity: 0 },
+        { description: 'Additional Custom Programming', hours: 0, quantity: 0 },
+        { description: 'Connect Others Equipment', hours: 0, quantity: 0 },
+        { description: 'Interface with Existing System', hours: 0, quantity: 0 },
+        { description: 'Terminate Panels', hours: 0, quantity: 0 },
+        { description: 'Terminate Devices', hours: 0, quantity: 0 },
+        { description: 'Travel Labor', hours: 0, quantity: 0 },
+        { description: 'Panel Change Out', hours: 0, quantity: 0 },
+        { description: 'Panel Add-On', hours: 0, quantity: 0 },
+        { description: 'Phased Job', hours: 0, quantity: 0 },
+        { description: 'City AHJ Test', hours: 0, quantity: 0 },
+        { description: 'Govt Test', hours: 0, quantity: 0 },
+        { description: 'Additional Tech Hours', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 },
+        { description: '', hours: 0, quantity: 0 }
+    ]
+    ssTechExpenseRows: ServiceSupportExpenseRow[] = [
+        { item: 'Consumables', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 },
+        { item: '', cost: 0, qty: 0 }
+    ]
+    summaryViewMode: 'Grid' | 'Chart' = 'Chart'
+    summaryUseMaterialTax = false
+    summaryMaterialTaxRate = 8.25
+    summaryRiskProficiencyPercent = 0
+    private readonly worksheetDefaults = this.buildWorksheetStateSnapshot()
     selectedFloorplanId: string = ''
     selectedTeamId: string = ''
     selectedTemplate = 'Default'
+    selectedTemplateId = ''
+    projectTemplates: ProjectTemplateRecord[] = []
     projectDocumentUploadBusy = false
-    projectDocumentUploadMessage = ''
+    projectUploadErrorToast = ''
+    private projectUploadErrorToastTimer?: ReturnType<typeof setTimeout>
 
     constructor(private http: HttpClient, private projectSettingsApi: ProjectSettingsApi) {}
 
@@ -297,6 +746,7 @@ export class ProjectPage implements OnChanges {
         this.applyWorkspaceTabFromRoute()
         this.loadProjectSettings()
         this.loadFieldwireProjects()
+        this.loadProjectTemplates()
 
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
@@ -326,6 +776,55 @@ export class ProjectPage implements OnChanges {
 
     getPageTitle(): string {
         return this.firewireProject?.name || this.project?.name || 'Project'
+    }
+
+    getProjectStatusLabel(): string {
+        return this.firewireForm.projectStatus || this.firewireProject?.projectStatus || ''
+    }
+
+    isProjectStatusLocked(): boolean {
+        return this.lockedProjectStatuses.includes(this.getProjectStatusLabel())
+    }
+
+    isProjectManuallyLocked(): boolean {
+        return !!this.firewireProject?.isManualLocked
+    }
+
+    isFirewireProjectLocked(): boolean {
+        return this.isProjectStatusLocked() || this.isProjectManuallyLocked()
+    }
+
+    getProjectLockChipLabel(): string {
+        if (this.isProjectStatusLocked()) {
+            return `${this.getProjectStatusLabel()} locked`
+        }
+        return this.firewireProject?.manualLockedBy
+            ? `Locked by ${this.firewireProject.manualLockedBy}`
+            : 'Manually locked'
+    }
+
+    isProjectFavorite(): boolean {
+        if (typeof localStorage === 'undefined' || !this.projectId) {
+            return false
+        }
+
+        try {
+            const ids = JSON.parse(localStorage.getItem(this.favoriteProjectsStorageKey) || '[]') as string[]
+            return Array.isArray(ids) && ids.includes(this.projectId)
+        } catch {
+            return false
+        }
+    }
+
+    isWorkspaceEditable(tabName: string = this.activeFirewireWorkspaceTab): boolean {
+        if (!this.isFirewireProjectLocked()) {
+            return true
+        }
+        return tabName === 'DOC LIBRARY' || tabName === 'FIELDWIRE VIEW'
+    }
+
+    isActiveFirewireWorkspaceLocked(): boolean {
+        return !this.isWorkspaceEditable(this.activeFirewireWorkspaceTab)
     }
 
     getFirewireWorkspaceTabs(): string[] {
@@ -363,6 +862,17 @@ export class ProjectPage implements OnChanges {
         return this.initialFirewireFormState !== this.serializeFirewireForm(this.firewireForm)
     }
 
+    get isWorksheetDirty(): boolean {
+        if (!this.firewireProject) {
+            return false
+        }
+        return this.initialWorksheetState !== this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
+    }
+
+    get isProjectDirty(): boolean {
+        return this.isFirewireFormDirty || this.isWorksheetDirty
+    }
+
     getDocLibraryProjectKey(): string {
         return this.firewireProject?.projectNbr?.trim() || this.firewireForm.projectNbr?.trim() || 'UNASSIGNED'
     }
@@ -376,6 +886,79 @@ export class ProjectPage implements OnChanges {
 
     getSelectedDocLibraryFolderLabel(): string {
         return this.docLibraryFolders.find((folder) => folder.id === this.selectedDocLibraryFolder)?.label || 'All Documents'
+    }
+
+    getWorkingHeightPercentTotal(): number {
+        return this.workingHeightBands.reduce((sum, band) => sum + Number(band.percent || 0), 0)
+    }
+
+    getWorkingHeightWeightedFactor(): number {
+        return this.workingHeightBands.reduce((sum, band) => sum + (Number(band.percent || 0) / 100) * band.factor, 0)
+    }
+
+    getWorkingHeightAdditionalHours(): number {
+        return this.baseManHourEstimate * this.getWorkingHeightWeightedFactor() * Number(this.workingHeightFactorMultiplier || 0)
+    }
+
+    getCeilingFloorPercentTotal(): number {
+        return Number(this.accessiblePercent || 0) + Number(this.inaccessiblePercent || 0)
+    }
+
+    getCeilingFloorWeightedFactor(): number {
+        return (Number(this.inaccessiblePercent || 0) / 100) * 0.2
+    }
+
+    getCeilingFloorAdditionalHours(): number {
+        return this.baseManHourEstimate * this.getCeilingFloorWeightedFactor() * Number(this.ceilingFloorFactorMultiplier || 0)
+    }
+
+    getWorkRetrofitPercentTotal(): number {
+        return Number(this.newConstructionPercent || 0) + Number(this.retrofitPercent || 0)
+    }
+
+    onScopeTypeChanged(scopeType: string) {
+        if (this.isFirewireProjectLocked()) {
+            return
+        }
+        this.firewireForm.scopeType = scopeType
+        this.applyWorkRetrofitDefaults(scopeType)
+    }
+
+    getWorkRetrofitWeightedFactor(): number {
+        return (Number(this.retrofitPercent || 0) / 100) * 0.2
+    }
+
+    getWorkRetrofitAdditionalHours(): number {
+        return this.baseManHourEstimate * this.getWorkRetrofitWeightedFactor() * Number(this.workRetrofitFactorMultiplier || 0)
+    }
+
+    getBuildingHeightNetFactor(): number {
+        return this.buildingLevels <= 2 ? 1 : 1 + ((Number(this.buildingLevels || 0) - 2) * 0.1)
+    }
+
+    getBuildingHeightAdditionalHours(): number {
+        return this.baseManHourEstimate * Math.max(this.getBuildingHeightNetFactor() - 1, 0)
+    }
+
+    getTotalAdditionalHours(): number {
+        return this.getWorkingHeightAdditionalHours()
+            + this.getCeilingFloorAdditionalHours()
+            + this.getWorkRetrofitAdditionalHours()
+            + this.getBuildingHeightAdditionalHours()
+    }
+
+    getTotalNetFactor(): number {
+        return this.baseManHourEstimate > 0
+            ? 1 + (this.getTotalAdditionalHours() / this.baseManHourEstimate)
+            : 1
+    }
+
+    getAdjustedEstimatedManHours(): number {
+        return this.baseManHourEstimate + this.getTotalAdditionalHours()
+    }
+
+    toPercentFactor(input: number): string {
+        return `${(Number(input || 0) * 100).toFixed(0)}%`
     }
 
     getDocLibraryStatusCount(status: DocLibraryFile['status']): number {
@@ -435,7 +1018,6 @@ export class ProjectPage implements OnChanges {
         if (this.getFirewireWorkspaceTabs().indexOf(tabName) < 0) {
             return
         }
-        this.activeFirewireWorkspaceTab = tabName
         this.navigateToWorkspaceTab(tabName)
     }
 
@@ -582,6 +1164,40 @@ export class ProjectPage implements OnChanges {
         return Number(row.qty || 0) * Number(row.labor || 0)
     }
 
+    getBomBaseManHourEstimate(): number {
+        return this.bomSections.reduce((sum, section) => {
+            return sum + section.rows.reduce((rowSum, row) => rowSum + this.getBomRowExtLabor(row), 0)
+        }, 0)
+    }
+
+    getBomLaborVariance(): number {
+        return Number(this.baseManHourEstimate || 0) - this.getBomBaseManHourEstimate()
+    }
+
+    getBomLaborVarianceLabel(): string {
+        const variance = this.getBomLaborVariance()
+        if (Math.abs(variance) < 0.005) {
+            return 'Aligned'
+        }
+        return variance > 0 ? 'Over BOM' : 'Under BOM'
+    }
+
+    getBomLaborVarianceTone(): 'muted' | 'notice' | 'warn' {
+        const base = Math.abs(this.getBomBaseManHourEstimate())
+        const variance = Math.abs(this.getBomLaborVariance())
+        if (variance < 0.005) {
+            return 'muted'
+        }
+        const ratio = base > 0 ? variance / base : variance > 0 ? 1 : 0
+        if (ratio >= 0.25 || variance >= 16) {
+            return 'warn'
+        }
+        if (ratio >= 0.1 || variance >= 6) {
+            return 'notice'
+        }
+        return 'muted'
+    }
+
     getBomSectionGrandTotal(section: ProjectBomSection): number {
         return section.rows.reduce((sum, row) => sum + this.getBomRowExtCost(row) + this.getBomRowExtLabor(row), 0)
     }
@@ -678,7 +1294,443 @@ export class ProjectPage implements OnChanges {
         URL.revokeObjectURL(url)
     }
 
+    getExpenseRateLabel(section: ProjectExpenseSection): string {
+        return section.mode === 'cost-qty' ? 'Cost' : 'Rate'
+    }
+
+    getExpenseExtendedLabel(section: ProjectExpenseSection): string {
+        return section.mode === 'cost-qty' ? 'Extended' : 'Extended Cost'
+    }
+
+    getExpenseBaseValue(row: ProjectExpenseRow, section: ProjectExpenseSection): number {
+        if (section.mode === 'cost-qty') {
+            return Number(row.cost || 0)
+        }
+        return Number(row.rate || 0)
+    }
+
+    getExpenseRowExtended(row: ProjectExpenseRow, section: ProjectExpenseSection): number {
+        const qty = Number(row.qty || 0)
+        const baseValue = this.getExpenseBaseValue(row, section)
+
+        if (section.mode === 'markup') {
+            const markupFactor = 1 + (Number(row.markupPercent || 0) / 100)
+            return qty * baseValue * markupFactor
+        }
+
+        if (row.isToggle) {
+            return row.toggleValue ? baseValue : 0
+        }
+
+        return qty * baseValue
+    }
+
+    getExpenseSectionTotal(section: ProjectExpenseSection): number {
+        return section.rows.reduce((sum, row) => sum + this.getExpenseRowExtended(row, section), 0)
+    }
+
+    getExpenseGrandTotal(): number {
+        return this.expenseSections.reduce((sum, section) => sum + this.getExpenseSectionTotal(section), 0)
+    }
+
+    getSsPmLaborExtendedHours(row: ServiceSupportLaborRow): number {
+        return Number(row.hours || 0) * Number(row.quantity || 0)
+    }
+
+    getSsPmLaborTotalHours(): number {
+        return this.ssPmLaborRows.reduce((sum, row) => sum + this.getSsPmLaborExtendedHours(row), 0)
+    }
+
+    getSsPmLaborTotalCost(): number {
+        return this.getSsPmLaborTotalHours() * Number(this.ssPmRate || 0)
+    }
+
+    getSsPmExpenseExtended(row: ServiceSupportExpenseRow): number {
+        return Number(row.cost || 0) * Number(row.qty || 0)
+    }
+
+    getSsPmExpenseTotal(): number {
+        return this.ssPmExpenseRows.reduce((sum, row) => sum + this.getSsPmExpenseExtended(row), 0)
+    }
+
+    getSsPmGrandTotal(): number {
+        return this.getSsPmLaborTotalCost() + this.getSsPmExpenseTotal() + Number(this.ssPmFixedAmount || 0)
+    }
+
+    getSsCadLaborExtendedHours(row: ServiceSupportLaborRow): number {
+        return Number(row.hours || 0) * Number(row.quantity || 0)
+    }
+
+    getSsCadLaborTotalHours(): number {
+        return this.ssCadLaborRows.reduce((sum, row) => sum + this.getSsCadLaborExtendedHours(row), 0)
+    }
+
+    getSsCadLaborTotalCost(): number {
+        return this.getSsCadLaborTotalHours() * Number(this.ssCadRate || 0)
+    }
+
+    getSsCadExpenseExtended(row: ServiceSupportExpenseRow): number {
+        return Number(row.cost || 0) * Number(row.qty || 0)
+    }
+
+    getSsCadExpenseTotal(): number {
+        return this.ssCadExpenseRows.reduce((sum, row) => sum + this.getSsCadExpenseExtended(row), 0)
+    }
+
+    getSsCadGrandTotal(): number {
+        return this.getSsCadLaborTotalCost() + this.getSsCadExpenseTotal() + Number(this.ssCadFixedAmount || 0)
+    }
+
+    getSsTechLaborExtendedHours(row: ServiceSupportLaborRow): number {
+        return Number(row.hours || 0) * Number(row.quantity || 0)
+    }
+
+    getSsTechLaborTotalHours(): number {
+        return this.ssTechLaborRows.reduce((sum, row) => sum + this.getSsTechLaborExtendedHours(row), 0)
+    }
+
+    getSsTechLaborTotalCost(): number {
+        return this.getSsTechLaborTotalHours() * Number(this.ssTechRate || 0)
+    }
+
+    getSsTechExpenseExtended(row: ServiceSupportExpenseRow): number {
+        return Number(row.cost || 0) * Number(row.qty || 0)
+    }
+
+    getSsTechExpenseTotal(): number {
+        return this.ssTechExpenseRows.reduce((sum, row) => sum + this.getSsTechExpenseExtended(row), 0)
+    }
+
+    getSsTechGrandTotal(): number {
+        return this.getSsTechLaborTotalCost() + this.getSsTechExpenseTotal() + Number(this.ssTechFixedAmount || 0)
+    }
+
+    getWireSelection(category: WireCategory): WireSelection {
+        return this.wireSelections.find((row) => row.category === category) || { category, label: '' }
+    }
+
+    updateWireSelection(category: WireCategory, label: string) {
+        const selection = this.wireSelections.find((row) => row.category === category)
+        if (!selection) {
+            this.wireSelections.push({ category, label })
+            return
+        }
+        selection.label = label
+    }
+
+    getWireOptionCost(label: string): number {
+        return this.wireTypeOptions.find((row) => row.label === label)?.cost || 0
+    }
+
+    getWireCategoryPrice(category: WireCategory): number {
+        return this.getWireOptionCost(this.getWireSelection(category).label)
+    }
+
+    getWireCategoryMeasuredFeet(category: WireCategory): number {
+        return this.wireRunNodes
+            .filter((row) => row.category === category)
+            .reduce((sum, row) => sum + Number(row.feet || 0), 0)
+    }
+
+    getWireCategoryAdjustedFeet(category: WireCategory): number {
+        return this.wireRunNodes
+            .filter((row) => row.category === category)
+            .reduce((sum, row) => sum + (Number(row.qty || 0) * Number(row.feet || 0)), 0)
+    }
+
+    getWireCategoryMaterialCost(category: WireCategory): number {
+        const adjustedFeet = this.getWireCategoryAdjustedFeet(category)
+        const unitPrice = this.getWireCategoryPrice(category)
+        if (adjustedFeet <= 0 || unitPrice <= 0) {
+            return 0
+        }
+        return Math.ceil(adjustedFeet / 1000) * unitPrice
+    }
+
+    getWireFiretrolExtended(row: FiretrolProvideRow): number {
+        if (!row.included) {
+            return 0
+        }
+        return Number(row.estQty || 0) * Number(row.price || 0)
+    }
+
+    getWireFiretrolLaborTotal(): number {
+        return this.firetrolProvideRows.reduce((sum, row) => sum + Number(row.labor || 0), 0)
+    }
+
+    getWireFiretrolMaterialTotal(): number {
+        return this.firetrolProvideRows.reduce((sum, row) => sum + this.getWireFiretrolExtended(row), 0)
+    }
+
+    getWireInstallationMaterialTotal(): number {
+        return this.wireCategories.reduce((sum, category) => sum + this.getWireCategoryMaterialCost(category), 0) + this.getWireFiretrolMaterialTotal()
+    }
+
+    getWireInstallationLaborTotal(): number {
+        return this.getWireFiretrolLaborTotal()
+    }
+
+    getWireRunNodesForZone(zone: string): WireRunNode[] {
+        return this.wireRunNodes.filter((row) => row.zone === zone)
+    }
+
+    getWireRunNodeDisplayLabel(node: WireRunNode): string {
+        if (node.label === 'Smoke / Heat 4-Wire') {
+            return 'Smoke / Heat'
+        }
+        return node.label
+    }
+
+    getProjectSupportHours(): number {
+        return this.getSsPmLaborTotalHours() + this.getSsCadLaborTotalHours() + this.getSsTechLaborTotalHours()
+    }
+
+    getProjectSupportCost(): number {
+        return this.getSsPmGrandTotal() + this.getSsCadGrandTotal() + this.getSsTechGrandTotal()
+    }
+
+    getInstallationRateRow(label: string): LaborRateRow | undefined {
+        return this.laborRates.find((row) => row.label === label)
+    }
+
+    getInstallationLaborBaseHours(): number {
+        return this.getAdjustedEstimatedManHours()
+    }
+
+    getInstallationLaborOvertimeHours(): number {
+        return this.getInstallationLaborBaseHours() * (Number(this.installationOvertime.percentTotalInstallHours || 0) / 100)
+    }
+
+    getInstallationPipeWireCost(): number {
+        const installationRate = this.getInstallationRateRow('Installation')
+        const regularCost = this.getInstallationLaborBaseHours() * Number(installationRate?.effectiveRate || installationRate?.payRate || 0)
+        const overtimeRate = Number(this.installationOvertime.overtimeEffectiveRate || this.installationOvertime.overtimeRate || 0)
+        return regularCost + (this.getInstallationLaborOvertimeHours() * overtimeRate)
+    }
+
+    getSupervisionHours(): number {
+        return this.getInstallationLaborBaseHours() * (Number(this.installationOvertime.supervisionFactorPercent || 0) / 100)
+    }
+
+    getSupervisionCost(): number {
+        const supervisionRate = this.getInstallationRateRow('Supervision')
+        return this.getSupervisionHours() * Number(supervisionRate?.effectiveRate || supervisionRate?.payRate || 0)
+    }
+
+    getMobilizationHours(): number {
+        return this.getInstallationLaborBaseHours() * (Number(this.installationOvertime.mobilizationFactorPercent || 0) / 100)
+    }
+
+    getMobilizationCost(): number {
+        const installationRate = this.getInstallationRateRow('Installation')
+        return this.getMobilizationHours() * Number(installationRate?.effectiveRate || installationRate?.payRate || 0)
+    }
+
+    getInstallationLaborTotalHours(): number {
+        return this.getInstallationLaborBaseHours() + this.getInstallationLaborOvertimeHours() + this.getSupervisionHours() + this.getMobilizationHours()
+    }
+
+    getInstallationLaborTotalCost(): number {
+        return this.getInstallationPipeWireCost() + this.getSupervisionCost() + this.getMobilizationCost()
+    }
+
+    getInstallationMaterialTotal(): number {
+        return this.bomSections.reduce((sum, section) => sum + section.rows.reduce((rowSum, row) => rowSum + this.getBomRowExtCost(row), 0), 0)
+    }
+
+    getEquipmentMaterialTotal(): number {
+        return 0
+    }
+
+    getExpenseSectionTotalByTitle(title: string): number {
+        const section = this.expenseSections.find((row) => row.title.toLowerCase() === title.toLowerCase())
+        return section ? this.getExpenseSectionTotal(section) : 0
+    }
+
+    getGeneralExpenseTotal(): number {
+        return this.expenseSections
+            .filter((section) => !['Subcontracts', 'Special Markup Items'].includes(section.title))
+            .reduce((sum, section) => sum + this.getExpenseSectionTotal(section), 0)
+    }
+
+    getSubcontractTotal(): number {
+        return this.getExpenseSectionTotalByTitle('Subcontracts')
+    }
+
+    getSpecialMarkupTotal(): number {
+        return this.getExpenseSectionTotalByTitle('Special Markup Items')
+    }
+
+    getTotalJobCost(): number {
+        return this.getProjectSupportCost()
+            + this.getInstallationLaborTotalCost()
+            + this.getInstallationMaterialTotal()
+            + this.getEquipmentMaterialTotal()
+            + this.getGeneralExpenseTotal()
+            + this.getSubcontractTotal()
+            + this.getSpecialMarkupTotal()
+    }
+
+    getSummaryCategoryPercent(cost: number): number {
+        const total = this.getTotalJobCost()
+        return total > 0 ? (cost / total) * 100 : 0
+    }
+
+    getSummaryCostBreakdown() {
+        return [
+            { label: 'Project Support', cost: this.getProjectSupportCost(), tone: 'support' },
+            { label: 'Installation Labor', cost: this.getInstallationLaborTotalCost(), tone: 'labor' },
+            { label: 'Installation Material', cost: this.getInstallationMaterialTotal(), tone: 'material' },
+            { label: 'Equipment', cost: this.getEquipmentMaterialTotal(), tone: 'equipment' },
+            { label: 'Expenses', cost: this.getGeneralExpenseTotal(), tone: 'expenses' },
+            { label: 'Subcontracts', cost: this.getSubcontractTotal(), tone: 'subcontracts' },
+            { label: 'Special Markup', cost: this.getSpecialMarkupTotal(), tone: 'markup' }
+        ].map((item) => ({
+            ...item,
+            percent: this.getSummaryCategoryPercent(item.cost)
+        }))
+    }
+
+    getSummaryPrimaryMetrics() {
+        return [
+            { label: 'Device Count', value: `${this.getSummaryDeviceCount()}` },
+            { label: 'Square Feet', value: Number(this.firewireForm.totalSqFt || 0).toLocaleString() },
+            { label: 'Project Support', value: `${this.getProjectSupportHours().toFixed(2)} hrs` },
+            { label: 'Field Labor', value: `${this.getInstallationLaborTotalHours().toFixed(2)} hrs` }
+        ]
+    }
+
+    getSummaryScopeLabel(): string {
+        return this.isTurnkeyScope() ? 'Turnkey' : 'Smarts & Parts'
+    }
+
+    getSummaryQuotedPreTax(): number {
+        return this.isTurnkeyScope() ? this.getTurnkeyQuotedPrice() : this.getSmartsAndPartsQuotedPrice()
+    }
+
+    getSummaryQuotedWithTax(): number {
+        return this.isTurnkeyScope() ? this.getTurnkeyQuotedPriceWithTax() : this.getSmartsAndPartsQuotedPriceWithTax()
+    }
+
+    getSummaryCostWithRiskDisplay(): number {
+        return this.isTurnkeyScope() ? this.getTurnkeyCostWithRisk() : this.getSmartsAndPartsCostWithRisk()
+    }
+
+    getSummaryWaterfallMax(): number {
+        return Math.max(
+            this.getSummaryCostWithRiskDisplay(),
+            this.getSummaryQuotedPreTax(),
+            this.getSummaryQuotedWithTax(),
+            1
+        )
+    }
+
+    getSummaryBarWidth(value: number): number {
+        return Math.max((value / this.getSummaryWaterfallMax()) * 100, 4)
+    }
+
+    isTurnkeyScope(): boolean {
+        return (this.firewireForm.projectScope || '').toLowerCase().includes('turnkey')
+    }
+
+    getTurnkeyMaterialCost(): number {
+        return this.isTurnkeyScope() ? this.getInstallationMaterialTotal() + this.getEquipmentMaterialTotal() : 0
+    }
+
+    getTurnkeyLaborCost(): number {
+        return this.isTurnkeyScope() ? this.getProjectSupportCost() + this.getInstallationLaborTotalCost() : 0
+    }
+
+    getSmartsAndPartsMaterialCost(): number {
+        return this.isTurnkeyScope() ? 0 : this.getInstallationMaterialTotal() + this.getEquipmentMaterialTotal()
+    }
+
+    getSmartsAndPartsLaborCost(): number {
+        return this.isTurnkeyScope() ? 0 : this.getProjectSupportCost() + this.getInstallationLaborTotalCost()
+    }
+
+    getSummaryRiskMultiplier(): number {
+        return 1 + (Number(this.summaryRiskProficiencyPercent || 0) / 100)
+    }
+
+    getTurnkeyCostWithRisk(): number {
+        return (this.getTurnkeyMaterialCost() + this.getTurnkeyLaborCost()) * this.getSummaryRiskMultiplier()
+    }
+
+    getSmartsAndPartsCostWithRisk(): number {
+        return (this.getSmartsAndPartsMaterialCost() + this.getSmartsAndPartsLaborCost()) * this.getSummaryRiskMultiplier()
+    }
+
+    getTurnkeyMarginPercent(): number {
+        return 35
+    }
+
+    getSmartsAndPartsMarginPercent(): number {
+        return 20
+    }
+
+    getTurnkeyMarginAmount(): number {
+        return this.getTurnkeyCostWithRisk() * (this.getTurnkeyMarginPercent() / 100)
+    }
+
+    getSmartsAndPartsMarginAmount(): number {
+        return this.getSmartsAndPartsCostWithRisk() * (this.getSmartsAndPartsMarginPercent() / 100)
+    }
+
+    getTurnkeyQuotedPrice(): number {
+        return this.getTurnkeyCostWithRisk() + this.getTurnkeyMarginAmount()
+    }
+
+    getSmartsAndPartsQuotedPrice(): number {
+        return this.getSmartsAndPartsCostWithRisk() + this.getSmartsAndPartsMarginAmount()
+    }
+
+    getMaterialTaxAmount(materialCost: number): number {
+        return this.summaryUseMaterialTax ? materialCost * (Number(this.summaryMaterialTaxRate || 0) / 100) : 0
+    }
+
+    getTurnkeyQuotedPriceWithTax(): number {
+        return this.getTurnkeyQuotedPrice() + this.getMaterialTaxAmount(this.getTurnkeyMaterialCost())
+    }
+
+    getSmartsAndPartsQuotedPriceWithTax(): number {
+        return this.getSmartsAndPartsQuotedPrice() + this.getMaterialTaxAmount(this.getSmartsAndPartsMaterialCost())
+    }
+
+    getSummaryDeviceCount(): number {
+        return this.getTakeoffGrandTotal()
+    }
+
+    getSummaryEngineeringHours(): number {
+        return this.getSsCadLaborTotalHours()
+    }
+
+    getSummaryEngineeringDollars(): number {
+        return this.getSsCadGrandTotal()
+    }
+
+    getSummaryFieldHours(): number {
+        return this.getInstallationLaborTotalHours()
+    }
+
+    getSummaryFieldDollars(): number {
+        return this.getInstallationLaborTotalCost()
+    }
+
+    getSummaryMetricPerDevice(value: number): number {
+        const count = this.getSummaryDeviceCount()
+        return count > 0 ? value / count : 0
+    }
+
+    getSummaryMetricPerSqFt(value: number): number {
+        const sqft = Number(this.firewireForm.totalSqFt || 0)
+        return sqft > 0 ? value / sqft : 0
+    }
+
     onWageScaleJobChange(value: boolean) {
+        if (this.isFirewireProjectLocked()) {
+            return
+        }
         this.wageScaleJob = value
         if (!value) {
             this.wageScaleEffectiveRate = 0
@@ -795,44 +1847,213 @@ export class ProjectPage implements OnChanges {
     }
 
     saveFirewireProject() {
-        if (!this.projectId || !this.firewireProject) {
+        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
             return
         }
 
-        this.firewireSaveWorking = true
-        this.firewireSaveMessage = 'Saving project...'
+        this.saveFirewireProjectRequest().subscribe()
+    }
 
-        this.http.patch(`/api/firewire/projects/firewire/${this.projectId}`, this.firewireForm).subscribe({
-            next: (response: any) => {
+    private saveFirewireProjectRequest(options?: { silent?: boolean }): Observable<boolean> {
+        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
+            return of(false)
+        }
+
+        const silent = !!options?.silent
+        this.firewireSaveWorking = true
+        if (!silent) {
+            this.firewireSaveMessage = 'Saving project...'
+        }
+
+        return this.http.patch(`/api/firewire/projects/firewire/${this.projectId}`, {
+            ...this.firewireForm,
+            worksheetData: this.buildWorksheetStateSnapshot()
+        }).pipe(
+            map((response: any) => {
                 if (response?.data) {
                     this.applyFirewireProject(response.data)
+                    this.applyWorksheetState(response.data.worksheetData)
+                    this.captureInitialProjectState()
                 }
                 this.firewireSaveWorking = false
-                this.firewireSaveMessage = 'Project saved.'
-            },
-            error: (err: any) => {
+                this.firewireSaveMessage = silent ? '' : 'Project saved.'
+                return true
+            }),
+            catchError((err: any) => {
                 this.firewireSaveWorking = false
-                this.firewireSaveMessage = err?.error?.message || err?.message || 'Project save failed.'
+                this.firewireSaveMessage = silent ? '' : (err?.error?.message || err?.message || 'Project save failed.')
                 console.error(err)
+                return of(false)
+            })
+        )
+    }
+
+    onSummaryViewModeChange(value: 'Grid' | 'Chart') {
+        const nextValue = value === 'Grid' ? 'Grid' : 'Chart'
+        if (this.summaryViewMode === nextValue) {
+            return
+        }
+
+        this.summaryViewMode = nextValue
+
+        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
+            return
+        }
+
+        this.saveFirewireProjectRequest({ silent: true }).subscribe()
+    }
+
+    toggleProjectFavorite() {
+        if (typeof localStorage === 'undefined' || !this.projectId) {
+            return
+        }
+
+        try {
+            const ids = JSON.parse(localStorage.getItem(this.favoriteProjectsStorageKey) || '[]') as string[]
+            const nextIds = Array.isArray(ids) ? [...ids] : []
+            const index = nextIds.indexOf(this.projectId)
+            if (index >= 0) {
+                nextIds.splice(index, 1)
+                this.firewireSaveMessage = 'Removed from favorites.'
+            } else {
+                nextIds.unshift(this.projectId)
+                this.firewireSaveMessage = 'Marked as favorite.'
+            }
+            localStorage.setItem(this.favoriteProjectsStorageKey, JSON.stringify(nextIds))
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    saveProjectAsTemplate() {
+        if (!this.firewireProject) {
+            return
+        }
+
+        const suggestedName = this.selectedTemplate || this.firewireForm.projectNbr || this.firewireForm.name || 'Template'
+        this.dialog.open(ProjectTemplateDialog, {
+            width: '420px',
+            maxWidth: '78vw',
+            data: {
+                mode: 'save',
+                templates: this.getProjectTemplateDialogItems(),
+                selectedTemplateId: this.getSelectedTemplateId(),
+                suggestedName,
+                suggestedVisibility: 'Private'
+            }
+        }).afterClosed().subscribe((result?: SaveProjectTemplateDialogResult | null) => {
+            if (!result || !result.name) {
+                return
+            }
+
+            const payload = {
+                templateId: result.templateId || null,
+                name: result.name,
+                visibility: result.visibility,
+                firewireForm: {
+                    jobType: this.firewireForm.jobType,
+                    scopeType: this.firewireForm.scopeType,
+                    projectScope: this.firewireForm.projectScope,
+                    difficulty: this.firewireForm.difficulty
+                },
+                worksheetData: this.buildWorksheetStateSnapshot()
+            }
+
+            this.http.post<{ data: ProjectTemplateRecord }>('/api/firewire/project-templates', payload).subscribe({
+                next: (response) => {
+                    const saved = response?.data
+                    if (!saved) {
+                        return
+                    }
+                    this.selectedTemplate = saved.name
+                    this.selectedTemplateId = saved.templateId
+                    this.upsertProjectTemplate(saved)
+                    this.firewireSaveMessage = `Template "${saved.name}" saved as ${saved.visibility.toLowerCase()}.`
+                },
+                error: (err) => {
+                    console.error(err)
+                    this.firewireSaveMessage = this.resolveErrorMessage(err, 'Unable to save template.')
+                }
+            })
+        })
+    }
+
+    loadProjectFromTemplate() {
+        if (this.isFirewireProjectLocked()) {
+            this.firewireSaveMessage = 'Templates cannot be loaded while this project is locked.'
+            return
+        }
+
+        const templateList = this.projectTemplates
+        if (templateList.length <= 0) {
+            this.firewireSaveMessage = 'No saved templates.'
+            return
+        }
+
+        this.dialog.open(ProjectTemplateDialog, {
+            width: '420px',
+            maxWidth: '78vw',
+            data: {
+                mode: 'load',
+                templates: this.getProjectTemplateDialogItems(),
+                selectedTemplateId: this.getSelectedTemplateId() || templateList[0].templateId
+            }
+        }).afterClosed().subscribe((selectedTemplateId?: string | null) => {
+            const template = this.projectTemplates.find((item) => item.templateId === selectedTemplateId)
+            if (!template) {
+                return
+            }
+
+            this.selectedTemplate = template.name
+            this.selectedTemplateId = template.templateId
+            this.firewireForm = {
+                ...this.firewireForm,
+                ...this.getSanitizedTemplateFirewireForm(template.firewireForm)
+            }
+            this.applyWorksheetState(template.worksheetData)
+            this.firewireSaveMessage = `Template "${template.name}" loaded.`
+        })
+    }
+
+    toggleProjectManualLock() {
+        if (this.isProjectStatusLocked() || !this.projectId || !this.firewireProject) {
+            return
+        }
+
+        const isLocked = !this.isProjectManuallyLocked()
+        this.http.patch<{ data: FirewireProjectSchema }>(`/api/firewire/projects/firewire/${this.projectId}/lock`, {
+            isLocked
+        }).subscribe({
+            next: (response) => {
+                if (response?.data) {
+                    this.firewireProject = response.data
+                    this.firewireSaveMessage = isLocked ? 'Project manually locked.' : 'Manual lock removed.'
+                }
+            },
+            error: (err) => {
+                console.error(err)
+                this.firewireSaveMessage = this.resolveErrorMessage(err, 'Unable to update project lock.')
             }
         })
     }
 
     resetFirewireForm() {
-        if (!this.firewireProject) {
+        if (!this.firewireProject || this.isFirewireProjectLocked()) {
             return
         }
         this.applyFirewireProject(this.firewireProject)
+        this.applyWorksheetState(this.firewireProject.worksheetData)
+        this.captureInitialProjectState()
         this.firewireSaveMessage = ''
     }
 
     onUploadProjectDocumentsClick(fileInput: HTMLInputElement) {
-        this.projectDocumentUploadMessage = ''
+        this.clearProjectUploadErrorToast()
         fileInput.click()
     }
 
     canDeactivate(): boolean | Observable<boolean> {
-        if (!this.isFirewireFormDirty) {
+        if (!this.isProjectDirty) {
             return true
         }
 
@@ -841,10 +2062,20 @@ export class ProjectPage implements OnChanges {
             maxWidth: '92vw',
             data: {
                 title: 'Leave Project Detail?',
-                message: 'You have unsaved Firewire project changes. Leave this page without saving?'
+                message: 'You have unsaved Firewire project changes.',
+                canSave: !this.isFirewireProjectLocked()
             }
         }).afterClosed().pipe(
-            map((result) => !!result)
+            map((result) => result || 'stay'),
+            switchMap((result) => {
+                if (result === 'leave') {
+                    return of(true)
+                }
+                if (result === 'save') {
+                    return this.saveFirewireProjectRequest()
+                }
+                return of(false)
+            })
         )
     }
 
@@ -865,19 +2096,18 @@ export class ProjectPage implements OnChanges {
         }))
 
         this.projectDocumentUploadBusy = true
-        this.projectDocumentUploadMessage = 'Uploading document...'
 
         this.http.post(`/api/fieldwire/projects/${fieldwireProjectId}/projectdocuments/upload`, formData).subscribe({
             next: () => {
                 this.projectDocumentUploadBusy = false
-                this.projectDocumentUploadMessage = 'Document uploaded successfully.'
+                this.clearProjectUploadErrorToast()
                 input.value = ''
             },
             error: (err: any) => {
                 this.projectDocumentUploadBusy = false
-                this.projectDocumentUploadMessage = err?.error?.message || 'Document upload failed.'
+                this.showProjectUploadErrorToast(err?.error?.message || err?.message || 'Document upload failed.')
                 input.value = ''
-                console.error(err)
+                console.error('Project document upload failed.', err)
             }
         })
     }
@@ -888,13 +2118,17 @@ export class ProjectPage implements OnChanges {
         this.firewireProject = undefined
         this.fieldwireProjectId = null
         this.fieldwireProjects = []
+        this.projectTemplates = []
+        this.selectedTemplateId = ''
         this.firewireForm = this.createEmptyFirewireForm()
         this.firewireBidDueDate = null
         this.initialFirewireFormState = this.serializeFirewireForm(this.firewireForm)
+        this.resetWorksheetState()
+        this.initialWorksheetState = this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
         this.firewireSaveWorking = false
         this.firewireSaveMessage = ''
         this.projectDocumentUploadBusy = false
-        this.projectDocumentUploadMessage = ''
+        this.clearProjectUploadErrorToast()
         this.tabs = [...this.fieldwireTabs]
         this.tab = 'STATS'
         this.activeFirewireWorkspaceTab = 'PROJECT DETAILS'
@@ -915,6 +2149,17 @@ export class ProjectPage implements OnChanges {
         this.http.get('/api/fieldwire/account/projects').subscribe({
             next: (response: any) => {
                 this.fieldwireProjects = response?.rows || []
+            },
+            error: (err) => {
+                console.error(err)
+            }
+        })
+    }
+
+    private loadProjectTemplates() {
+        this.http.get<{ rows: ProjectTemplateRecord[] }>('/api/firewire/project-templates').subscribe({
+            next: (response) => {
+                this.projectTemplates = Array.isArray(response?.rows) ? response.rows : []
             },
             error: (err) => {
                 console.error(err)
@@ -951,6 +2196,8 @@ export class ProjectPage implements OnChanges {
             next: (response: any) => {
                 if (response?.data) {
                     this.applyFirewireProject(response.data)
+                    this.applyWorksheetState(response.data.worksheetData)
+                    this.captureInitialProjectState()
                     if (response.data.fieldwireId) {
                         this.fieldwireProjectId = response.data.fieldwireId
                         this.loadLinkedFieldwireProject(response.data.fieldwireId)
@@ -972,6 +2219,7 @@ export class ProjectPage implements OnChanges {
         this.firewireProject = { ...project }
         this.firewireForm = {
             fieldwireId: project.fieldwireId,
+            worksheetData: project.worksheetData,
             name: project.name,
             projectNbr: project.projectNbr,
             address: project.address,
@@ -985,7 +2233,8 @@ export class ProjectPage implements OnChanges {
             totalSqFt: project.totalSqFt
         }
         this.firewireBidDueDate = this.parseDateOnlyValue(this.firewireForm.bidDueDate)
-        this.initialFirewireFormState = this.serializeFirewireForm(this.firewireForm)
+        this.applyWorkRetrofitDefaults(project.scopeType)
+        this.storeRecentProject(project)
     }
 
     private loadLinkedFieldwireProject(fieldwireProjectId: string) {
@@ -1068,6 +2317,47 @@ export class ProjectPage implements OnChanges {
         return tabName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     }
 
+    clearProjectUploadErrorToast() {
+        this.projectUploadErrorToast = ''
+        if (this.projectUploadErrorToastTimer) {
+            clearTimeout(this.projectUploadErrorToastTimer)
+            this.projectUploadErrorToastTimer = undefined
+        }
+    }
+
+    private showProjectUploadErrorToast(message: string) {
+        this.projectUploadErrorToast = message
+        if (this.projectUploadErrorToastTimer) {
+            clearTimeout(this.projectUploadErrorToastTimer)
+        }
+        this.projectUploadErrorToastTimer = setTimeout(() => {
+            this.projectUploadErrorToast = ''
+            this.projectUploadErrorToastTimer = undefined
+        }, 6000)
+    }
+
+    private storeRecentProject(project: FirewireProjectSchema) {
+        if (typeof localStorage === 'undefined' || !project?.uuid) {
+            return
+        }
+
+        const nextEntry: RecentProjectLink = {
+            id: project.uuid,
+            name: project.name || 'Untitled Project',
+            projectNbr: project.projectNbr || '',
+            route: `/projects/firewire/${project.uuid}/project-details`,
+            lastViewedAt: new Date().toISOString()
+        }
+
+        try {
+            const existing = JSON.parse(localStorage.getItem(this.recentProjectsStorageKey) || '[]') as RecentProjectLink[]
+            const output = [nextEntry, ...existing.filter((entry) => entry.id !== nextEntry.id)].slice(0, 3)
+            localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify(output))
+        } catch {
+            localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify([nextEntry]))
+        }
+    }
+
     private createEmptyFirewireForm(): FirewireProjectUpsert {
         return {
             name: '',
@@ -1082,6 +2372,187 @@ export class ProjectPage implements OnChanges {
             difficulty: '',
             totalSqFt: 0
         }
+    }
+
+    private applyWorkRetrofitDefaults(scopeType: string | null | undefined) {
+        const normalizedScopeType = `${scopeType || ''}`.trim().toLowerCase()
+        if (normalizedScopeType === 'retro-fit') {
+            this.newConstructionPercent = 0
+            this.retrofitPercent = 100
+            return
+        }
+
+        this.newConstructionPercent = 100
+        this.retrofitPercent = 0
+    }
+
+    private buildWorksheetStateSnapshot(): FirewireProjectWorksheetState {
+        return this.cloneJson({
+            baseManHourEstimate: Number(this.baseManHourEstimate || 0),
+            workingHeightBands: this.workingHeightBands,
+            workingHeightFactorMultiplier: Number(this.workingHeightFactorMultiplier || 0),
+            accessiblePercent: Number(this.accessiblePercent || 0),
+            inaccessiblePercent: Number(this.inaccessiblePercent || 0),
+            ceilingFloorFactorMultiplier: Number(this.ceilingFloorFactorMultiplier || 0),
+            newConstructionPercent: Number(this.newConstructionPercent || 0),
+            retrofitPercent: Number(this.retrofitPercent || 0),
+            workRetrofitFactorMultiplier: Number(this.workRetrofitFactorMultiplier || 0),
+            buildingLevels: Number(this.buildingLevels || 0),
+            takeoffDrawingDate: this.formatDateOnlyValue(this.takeoffDrawingDate),
+            wageScaleJob: !!this.wageScaleJob,
+            wageScaleEffectiveRate: Number(this.wageScaleEffectiveRate || 0),
+            laborRates: this.laborRates,
+            installationOvertime: this.installationOvertime,
+            takeoffMatrices: this.takeoffMatrices,
+            wireTakeoffSpecs: this.wireTakeoffSpecs,
+            wireWiringStyles: this.wireWiringStyles,
+            wireSelections: this.wireSelections,
+            wireRunNodes: this.wireRunNodes,
+            firetrolProvideRows: this.firetrolProvideRows,
+            bomSections: this.bomSections,
+            expenseSections: this.expenseSections,
+            ssPmRate: Number(this.ssPmRate || 0),
+            ssPmFixedAmount: Number(this.ssPmFixedAmount || 0),
+            ssPmLaborRows: this.ssPmLaborRows,
+            ssPmExpenseRows: this.ssPmExpenseRows,
+            ssCadRate: Number(this.ssCadRate || 0),
+            ssCadFixedAmount: Number(this.ssCadFixedAmount || 0),
+            ssCadLaborRows: this.ssCadLaborRows,
+            ssCadExpenseRows: this.ssCadExpenseRows,
+            ssTechRate: Number(this.ssTechRate || 0),
+            ssTechFixedAmount: Number(this.ssTechFixedAmount || 0),
+            ssTechLaborRows: this.ssTechLaborRows,
+            ssTechExpenseRows: this.ssTechExpenseRows,
+            summaryViewMode: this.summaryViewMode,
+            summaryUseMaterialTax: !!this.summaryUseMaterialTax,
+            summaryMaterialTaxRate: Number(this.summaryMaterialTaxRate || 0),
+            summaryRiskProficiencyPercent: Number(this.summaryRiskProficiencyPercent || 0)
+        })
+    }
+
+    private applyWorksheetState(input: any) {
+        const hasWorksheet = !!input
+        const worksheet = input ? this.cloneJson(input) as Partial<FirewireProjectWorksheetState> : this.cloneJson(this.worksheetDefaults)
+
+        this.baseManHourEstimate = Number(worksheet.baseManHourEstimate ?? this.worksheetDefaults.baseManHourEstimate)
+        this.workingHeightBands = this.cloneJson(worksheet.workingHeightBands || this.worksheetDefaults.workingHeightBands)
+        this.workingHeightFactorMultiplier = Number(worksheet.workingHeightFactorMultiplier ?? this.worksheetDefaults.workingHeightFactorMultiplier)
+        this.accessiblePercent = Number(worksheet.accessiblePercent ?? this.worksheetDefaults.accessiblePercent)
+        this.inaccessiblePercent = Number(worksheet.inaccessiblePercent ?? this.worksheetDefaults.inaccessiblePercent)
+        this.ceilingFloorFactorMultiplier = Number(worksheet.ceilingFloorFactorMultiplier ?? this.worksheetDefaults.ceilingFloorFactorMultiplier)
+        this.newConstructionPercent = Number(worksheet.newConstructionPercent ?? this.worksheetDefaults.newConstructionPercent)
+        this.retrofitPercent = Number(worksheet.retrofitPercent ?? this.worksheetDefaults.retrofitPercent)
+        this.workRetrofitFactorMultiplier = Number(worksheet.workRetrofitFactorMultiplier ?? this.worksheetDefaults.workRetrofitFactorMultiplier)
+        this.buildingLevels = Math.max(1, Number(worksheet.buildingLevels ?? this.worksheetDefaults.buildingLevels))
+        this.takeoffDrawingDate = this.parseDateOnlyValue(worksheet.takeoffDrawingDate || this.worksheetDefaults.takeoffDrawingDate || '')
+        this.wageScaleJob = !!worksheet.wageScaleJob
+        this.wageScaleEffectiveRate = Number(worksheet.wageScaleEffectiveRate ?? this.worksheetDefaults.wageScaleEffectiveRate)
+        this.laborRates = this.cloneJson(worksheet.laborRates || this.worksheetDefaults.laborRates)
+        this.installationOvertime = this.cloneJson(worksheet.installationOvertime || this.worksheetDefaults.installationOvertime)
+        this.takeoffMatrices = this.cloneJson(worksheet.takeoffMatrices || this.worksheetDefaults.takeoffMatrices)
+        this.wireTakeoffSpecs = this.cloneJson(worksheet.wireTakeoffSpecs || this.worksheetDefaults.wireTakeoffSpecs)
+        this.wireWiringStyles = this.cloneJson(worksheet.wireWiringStyles || this.worksheetDefaults.wireWiringStyles)
+        this.wireSelections = this.cloneJson(worksheet.wireSelections || this.worksheetDefaults.wireSelections)
+        this.wireRunNodes = this.cloneJson(worksheet.wireRunNodes || this.worksheetDefaults.wireRunNodes)
+        this.firetrolProvideRows = this.cloneJson(worksheet.firetrolProvideRows || this.worksheetDefaults.firetrolProvideRows)
+        this.bomSections = this.cloneJson(worksheet.bomSections || this.worksheetDefaults.bomSections)
+        this.expenseSections = this.normalizeExpenseSections(this.cloneJson(worksheet.expenseSections || this.worksheetDefaults.expenseSections))
+        this.ssPmRate = Number(worksheet.ssPmRate ?? this.worksheetDefaults.ssPmRate)
+        this.ssPmFixedAmount = Number(worksheet.ssPmFixedAmount ?? this.worksheetDefaults.ssPmFixedAmount)
+        this.ssPmLaborRows = this.cloneJson(worksheet.ssPmLaborRows || this.worksheetDefaults.ssPmLaborRows)
+        this.ssPmExpenseRows = this.cloneJson(worksheet.ssPmExpenseRows || this.worksheetDefaults.ssPmExpenseRows)
+        this.ssCadRate = Number(worksheet.ssCadRate ?? this.worksheetDefaults.ssCadRate)
+        this.ssCadFixedAmount = Number(worksheet.ssCadFixedAmount ?? this.worksheetDefaults.ssCadFixedAmount)
+        this.ssCadLaborRows = this.cloneJson(worksheet.ssCadLaborRows || this.worksheetDefaults.ssCadLaborRows)
+        this.ssCadExpenseRows = this.cloneJson(worksheet.ssCadExpenseRows || this.worksheetDefaults.ssCadExpenseRows)
+        this.ssTechRate = Number(worksheet.ssTechRate ?? this.worksheetDefaults.ssTechRate)
+        this.ssTechFixedAmount = Number(worksheet.ssTechFixedAmount ?? this.worksheetDefaults.ssTechFixedAmount)
+        this.ssTechLaborRows = this.cloneJson(worksheet.ssTechLaborRows || this.worksheetDefaults.ssTechLaborRows)
+        this.ssTechExpenseRows = this.cloneJson(worksheet.ssTechExpenseRows || this.worksheetDefaults.ssTechExpenseRows)
+        this.summaryViewMode = worksheet.summaryViewMode === 'Grid' ? 'Grid' : 'Chart'
+        this.summaryUseMaterialTax = !!worksheet.summaryUseMaterialTax
+        this.summaryMaterialTaxRate = Number(worksheet.summaryMaterialTaxRate ?? this.worksheetDefaults.summaryMaterialTaxRate)
+        this.summaryRiskProficiencyPercent = Number(worksheet.summaryRiskProficiencyPercent ?? this.worksheetDefaults.summaryRiskProficiencyPercent)
+
+        if (!hasWorksheet) {
+            this.applyWorkRetrofitDefaults(this.firewireForm.scopeType)
+        }
+    }
+
+    private resetWorksheetState() {
+        this.applyWorksheetState(null)
+    }
+
+    private normalizeExpenseSections(sections: ProjectExpenseSection[]): ProjectExpenseSection[] {
+        return sections.map((section) => ({
+            ...section,
+            rows: section.rows.map((row) => ({
+                ...row,
+                item: row.item === 'Forklist'
+                    ? 'Forklift'
+                    : row.item === 'Low Sissor Lift'
+                        ? 'Low Scissor Lift'
+                        : row.item
+            }))
+        }))
+    }
+
+    private getProjectTemplateDialogItems(): ProjectTemplateDialogItem[] {
+        return this.projectTemplates.map((template) => ({
+            templateId: template.templateId,
+            name: template.name,
+            visibility: template.visibility,
+            updatedAt: template.updatedAt
+        }))
+    }
+
+    private getSelectedTemplateId(): string {
+        if (this.selectedTemplateId && this.projectTemplates.some((template) => template.templateId === this.selectedTemplateId)) {
+            return this.selectedTemplateId
+        }
+        return this.projectTemplates.find((template) => template.name === this.selectedTemplate)?.templateId || ''
+    }
+
+    private upsertProjectTemplate(template: ProjectTemplateRecord) {
+        template = {
+            ...template,
+            firewireForm: this.getSanitizedTemplateFirewireForm(template.firewireForm)
+        }
+        const existingIndex = this.projectTemplates.findIndex((item) => item.templateId === template.templateId)
+        if (existingIndex >= 0) {
+            this.projectTemplates.splice(existingIndex, 1, template)
+        } else {
+            this.projectTemplates = [...this.projectTemplates, template]
+        }
+
+        this.projectTemplates = [...this.projectTemplates].sort((left, right) => {
+            if (left.visibility !== right.visibility) {
+                return left.visibility.localeCompare(right.visibility)
+            }
+            return left.name.localeCompare(right.name)
+        })
+    }
+
+    private resolveErrorMessage(err: any, fallback: string): string {
+        return err?.error?.message || err?.message || fallback
+    }
+
+    private getSanitizedTemplateFirewireForm(form?: Partial<FirewireProjectUpsert> | null): Partial<FirewireProjectUpsert> {
+        if (!form || typeof form !== 'object') {
+            return {}
+        }
+
+        return {
+            jobType: form.jobType || '',
+            scopeType: form.scopeType || '',
+            projectScope: form.projectScope || '',
+            difficulty: form.difficulty || ''
+        }
+    }
+
+    private captureInitialProjectState() {
+        this.initialFirewireFormState = this.serializeFirewireForm(this.firewireForm)
+        this.initialWorksheetState = this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
     }
 
     private serializeFirewireForm(form: FirewireProjectUpsert): string {
@@ -1099,6 +2570,17 @@ export class ProjectPage implements OnChanges {
             difficulty: form.difficulty || '',
             totalSqFt: Number(form.totalSqFt || 0)
         })
+    }
+
+    private serializeWorksheetState(state: FirewireProjectWorksheetState): string {
+        return JSON.stringify({
+            ...state,
+            summaryViewMode: undefined
+        })
+    }
+
+    private cloneJson<T>(value: T): T {
+        return JSON.parse(JSON.stringify(value))
     }
 
     private parseDateOnlyValue(value: string | null | undefined): Date | null {

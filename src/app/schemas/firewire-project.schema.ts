@@ -1,6 +1,10 @@
 export interface FirewireProjectSchema {
     uuid: string
     fieldwireId: string | null
+    worksheetData?: any | null
+    isManualLocked: boolean
+    manualLockedAt: string | null
+    manualLockedBy: string | null
     name: string
     projectNbr: string
     address: string
@@ -20,6 +24,7 @@ export interface FirewireProjectSchema {
 
 export interface FirewireProjectUpsert {
     fieldwireId?: string | null
+    worksheetData?: any
     name: string
     projectNbr: string
     address: string

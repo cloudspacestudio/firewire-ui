@@ -15,6 +15,7 @@ import { AuthService } from "../../auth/auth.service";
     styles: [`
         :host {
             display: block;
+            position: relative;
         }
 
         .fw-toolbar.page-toolbar {
@@ -31,6 +32,16 @@ import { AuthService } from "../../auth/auth.service";
             box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02);
         }
 
+        .fw-toolbar.page-toolbar.page-toolbar--transparent {
+            position: absolute;
+            inset: 0 0 auto 0;
+            min-height: 56px;
+            border-bottom: 0;
+            background: transparent;
+            backdrop-filter: none;
+            box-shadow: none;
+        }
+
         .fw-toolbar::before {
             content: "";
             position: absolute;
@@ -41,6 +52,10 @@ import { AuthService } from "../../auth/auth.service";
                 linear-gradient(rgba(72, 221, 255, 0.05) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(72, 221, 255, 0.05) 1px, transparent 1px);
             background-size: 28px 28px;
+        }
+
+        .fw-toolbar.page-toolbar.page-toolbar--transparent::before {
+            display: none;
         }
 
         .fw-toolbar > * {
@@ -118,6 +133,134 @@ import { AuthService } from "../../auth/auth.service";
             padding-bottom: 4px;
         }
 
+        :host ::ng-deep .fw-nav-menu {
+            padding: 0 !important;
+            overflow: hidden;
+            border-radius: 0;
+        }
+
+        :host ::ng-deep .fw-nav-menu .mat-mdc-menu-content {
+            padding: 0;
+            display: grid;
+            gap: 0;
+            background:
+                linear-gradient(180deg, rgba(8, 14, 25, 0.96), rgba(9, 18, 32, 0.92)),
+                rgba(8, 14, 25, 0.96);
+        }
+
+        :host ::ng-deep .fw-nav-menu .mat-mdc-menu-item {
+            --mdc-list-list-item-one-line-container-height: auto;
+            --mat-menu-item-hover-state-layer-color: rgba(255, 144, 46, 0.22);
+            min-height: 84px;
+            height: auto;
+            padding: 0;
+            border-radius: 0;
+            overflow: hidden;
+            border: 0;
+            border-bottom: 1px solid rgba(88, 228, 255, 0.12);
+            background: rgba(8, 14, 25, 0.86);
+        }
+
+        :host ::ng-deep .fw-nav-menu .mat-mdc-menu-item:last-child {
+            border-bottom: 0;
+        }
+
+        :host ::ng-deep .fw-nav-menu .mat-mdc-menu-item .mdc-list-item__primary-text {
+            width: 100%;
+            margin: 0;
+        }
+
+        :host ::ng-deep .fw-nav-menu .mat-mdc-menu-item:hover {
+            background: linear-gradient(90deg, rgba(255, 140, 40, 0.26), rgba(8, 14, 25, 0.86) 28%);
+        }
+
+        .fw-nav-item {
+            position: relative;
+            display: flex;
+            align-items: end;
+            width: 100%;
+            min-height: 84px;
+            padding: 14px 16px;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            isolation: isolate;
+        }
+
+        .fw-nav-item::before,
+        .fw-nav-item::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .fw-nav-item::before {
+            background:
+                linear-gradient(180deg, rgba(4, 10, 17, 0.14) 0%, rgba(4, 10, 17, 0.24) 34%, rgba(4, 10, 17, 0.84) 76%, rgba(4, 10, 17, 0.98) 100%),
+                linear-gradient(135deg, rgba(88, 228, 255, 0.1), transparent 46%, rgba(132, 255, 190, 0.08));
+            z-index: -1;
+        }
+
+        .fw-nav-item::after {
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.03),
+                inset 0 -1px 0 rgba(88, 228, 255, 0.08);
+            z-index: -1;
+        }
+
+        .fw-nav-item__content {
+            display: grid;
+            gap: 3px;
+            width: 100%;
+        }
+
+        .fw-nav-item__title {
+            color: #f4fbff;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 3px 16px rgba(0, 0, 0, 0.72);
+        }
+
+        .fw-nav-item__subtitle {
+            color: rgba(232, 243, 250, 0.88);
+            font-size: 0.72rem;
+            line-height: 1.35;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.72);
+        }
+
+        .fw-nav-item--home {
+            background-image:
+                linear-gradient(135deg, rgba(9, 20, 31, 0.78), rgba(9, 20, 31, 0.42)),
+                url('/images/ps3.mp4');
+            background-image:
+                linear-gradient(135deg, rgba(9, 20, 31, 0.78), rgba(9, 20, 31, 0.42)),
+                radial-gradient(circle at 30% 30%, rgba(88, 228, 255, 0.22), transparent 42%),
+                linear-gradient(180deg, #0a1420, #08111b);
+        }
+
+        .fw-nav-item--projects {
+            background-image: url('/images/projects.jpg');
+        }
+
+        .fw-nav-item--devices {
+            background-image: url('/images/devices.jpg');
+        }
+
+        .fw-nav-item--design {
+            background-image: url('/images/design.jpg');
+        }
+
+        .fw-nav-item--install {
+            background-image: url('/images/install.jpg');
+        }
+
+        .fw-nav-item--settings {
+            background-image: url('/images/settings.jpg');
+        }
+
         @media (max-width: 720px) {
             .fw-toolbar__brand {
                 letter-spacing: 0.12em;
@@ -133,15 +276,59 @@ import { AuthService } from "../../auth/auth.service";
         }
     `],
     template: `
-        <mat-toolbar class="page-toolbar fw-toolbar">
-            <button mat-icon-button class="fw-toolbar__menu-btn" [mat-menu-trigger-for]="navMenu" aria-label="Open navigation">
+        <mat-toolbar class="page-toolbar fw-toolbar" [class.page-toolbar--transparent]="transparent">
+            <button *ngIf="!hideMenu" mat-icon-button class="fw-toolbar__menu-btn" [mat-menu-trigger-for]="navMenu" aria-label="Open navigation">
                 <mat-icon fontIcon="menu"></mat-icon>
             </button>
-            <mat-menu #navMenu>
-                <button mat-menu-item [routerLink]="'/root'">Home</button>
-                <button mat-menu-item [routerLink]="'/projects'">Projects</button>
-                <button mat-menu-item [routerLink]="'/devices'">Devices</button>
-                <button mat-menu-item [routerLink]="'/settings'">Settings</button>
+            <mat-menu #navMenu="matMenu" panelClass="fw-nav-menu">
+                <button mat-menu-item [routerLink]="'/root'">
+                    <span class="fw-nav-item fw-nav-item--home">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Home</span>
+                            <span class="fw-nav-item__subtitle">Return to the command overview</span>
+                        </span>
+                    </span>
+                </button>
+                <button mat-menu-item [routerLink]="'/projects'">
+                    <span class="fw-nav-item fw-nav-item--projects">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Projects</span>
+                            <span class="fw-nav-item__subtitle">View and manage projects in Firewire</span>
+                        </span>
+                    </span>
+                </button>
+                <button mat-menu-item [routerLink]="'/devices'">
+                    <span class="fw-nav-item fw-nav-item--devices">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Devices</span>
+                            <span class="fw-nav-item__subtitle">View and manage devices and materials</span>
+                        </span>
+                    </span>
+                </button>
+                <button mat-menu-item [routerLink]="'/design'">
+                    <span class="fw-nav-item fw-nav-item--design">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Design</span>
+                            <span class="fw-nav-item__subtitle">Coordinate design deliverables and drawing workflows</span>
+                        </span>
+                    </span>
+                </button>
+                <button mat-menu-item [routerLink]="'/install'">
+                    <span class="fw-nav-item fw-nav-item--install">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Install</span>
+                            <span class="fw-nav-item__subtitle">Track field execution and installation operations</span>
+                        </span>
+                    </span>
+                </button>
+                <button mat-menu-item [routerLink]="'/settings'">
+                    <span class="fw-nav-item fw-nav-item--settings">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Settings</span>
+                            <span class="fw-nav-item__subtitle">Administer preferences and platform settings</span>
+                        </span>
+                    </span>
+                </button>
             </mat-menu>
 
             <span class="fw-toolbar__brand" [routerLink]="'/root'">FIREWIRE</span>
@@ -171,6 +358,8 @@ export class PageToolbar implements OnInit {
     private readonly auth = inject(AuthService)
 
     @Input() title?: string
+    @Input() hideMenu = false
+    @Input() transparent = false
 
     userName = 'User'
     userEmail = ''

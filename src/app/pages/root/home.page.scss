@@ -74,18 +74,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px 28px;
+    padding: 18px 28px;
 }
 
 .content-root {
     width: min(1180px, 100%);
     display: grid;
-    gap: 24px;
+    gap: 14px;
 }
 
 .home-hero {
+    display: inline-grid;
+    justify-self: start;
+    align-content: start;
     width: min(620px, 100%);
-    padding: 16px 18px;
+    padding: 10px 14px 4px;
     border: 1px solid rgba(88, 228, 255, 0.16);
     border-radius: 18px;
     background:
@@ -96,9 +99,9 @@
 }
 
 .home-hero__eyebrow {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     color: var(--home-accent);
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
 }
@@ -106,14 +109,70 @@
 .home-hero h1 {
     margin: 0;
     color: #eff8ff;
-    font-size: clamp(1.45rem, 2.6vw, 2.4rem);
-    line-height: 1.04;
+    font-size: clamp(1.15rem, 2vw, 1.95rem);
+    line-height: 1.02;
     letter-spacing: -0.03em;
+}
+
+.home-hero__recent {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(88, 228, 255, 0.12);
+}
+
+.home-hero__recent-label {
+    margin-bottom: 6px;
+    color: rgba(165, 211, 229, 0.72);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.home-hero__recent-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.home-hero__recent-link {
+    display: grid;
+    gap: 2px;
+    min-width: min(220px, 100%);
+    padding: 7px 10px;
+    border: 1px solid rgba(88, 228, 255, 0.14);
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(7, 18, 28, 0.92), rgba(10, 29, 37, 0.54)),
+        rgba(10, 18, 31, 0.84);
+    color: inherit;
+    text-decoration: none;
+    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.home-hero__recent-link:hover {
+    transform: translateY(-1px);
+    border-color: rgba(132, 255, 190, 0.24);
+    box-shadow:
+        0 0 0 1px rgba(132, 255, 190, 0.08),
+        0 0 22px rgba(88, 228, 255, 0.08);
+}
+
+.home-hero__recent-number {
+    color: var(--home-accent);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.home-hero__recent-name {
+    color: #f2fbff;
+    font-size: 0.84rem;
+    line-height: 1.18;
 }
 
 .home-tile-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 18px;
 }
 
@@ -181,6 +240,14 @@
     background-image: url('/images/devices.jpg');
 }
 
+.nav-tile--design .nav-tile__media {
+    background-image: url('/images/design.jpg');
+}
+
+.nav-tile--install .nav-tile__media {
+    background-image: url('/images/install.jpg');
+}
+
 .nav-tile--settings .nav-tile__media {
     background-image: url('/images/settings.jpg');
 }
@@ -193,6 +260,7 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    min-width: 0;
 }
 
 :host ::ng-deep .nav-tile .mat-mdc-card-title {
@@ -204,9 +272,17 @@
 }
 
 :host ::ng-deep .nav-tile .mat-mdc-card-subtitle {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     color: rgba(232, 243, 250, 0.9);
     line-height: 1.45;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.72);
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 @media (max-width: 900px) {
@@ -215,7 +291,7 @@
     }
 
     .home-page-content {
-        padding: 28px 18px;
+        padding: 18px 18px;
         align-items: end;
     }
 }
@@ -228,19 +304,24 @@
     }
 
     .content-root {
-        gap: 16px;
+        gap: 10px;
     }
 
     .home-hero {
-        width: min(520px, 100%);
-        padding: 12px 14px;
+        width: min(500px, 100%);
+        padding: 8px 10px 3px;
     }
 
     .home-hero h1 {
-        font-size: clamp(1.2rem, 2.1vw, 1.8rem);
+        font-size: clamp(1rem, 1.8vw, 1.5rem);
     }
 
     .nav-tile mat-card {
         min-height: 152px;
+    }
+
+    .home-hero__recent {
+        margin-top: 6px;
+        padding-top: 6px;
     }
 }

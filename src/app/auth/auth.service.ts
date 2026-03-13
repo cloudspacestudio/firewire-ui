@@ -14,6 +14,7 @@ export class AuthService {
     private initialized = false
     private readonly loginScopes = environment.auth.loginScopes
     private readonly apiScopes = environment.auth.apiScopes
+    private readonly postLogoutMarkerKey = 'firewire.loggedOut'
 
     async initialize(): Promise<void> {
         if (this.initialized) {
@@ -41,9 +42,10 @@ export class AuthService {
         if (!msalInstance.getActiveAccount()) {
             // Never trigger an interactive redirect from iframe context
             // (MSAL silent token renewal uses hidden iframes).
-            if (!this.isInIframe()) {
+            if (!this.isInIframe() && !this.shouldPauseInteractiveLogin()) {
                 await msalInstance.loginRedirect({ scopes: this.loginScopes })
             }
+            this.initialized = true
             return
         }
 
@@ -59,7 +61,7 @@ export class AuthService {
 
         const account = this.getActiveAccount()
         if (!account) {
-            if (!this.isInIframe()) {
+            if (!this.isInIframe() && !this.shouldPauseInteractiveLogin()) {
                 await msalInstance.loginRedirect({ scopes: this.loginScopes })
             }
             return null
@@ -70,10 +72,11 @@ export class AuthService {
                 account,
                 scopes: this.apiScopes
             })
+            this.clearLoggedOutMarker()
             return result.accessToken
         } catch (err) {
             if (err instanceof InteractionRequiredAuthError || this.isMsalTimeoutError(err)) {
-                if (!this.isInIframe()) {
+                if (!this.isInIframe() && !this.shouldPauseInteractiveLogin()) {
                     await msalInstance.acquireTokenRedirect({
                         account,
                         scopes: this.apiScopes
@@ -126,9 +129,20 @@ export class AuthService {
         }
         await msalInstance.initialize()
         const account = this.getActiveAccount()
+        this.setLoggedOutMarker()
         await msalInstance.logoutRedirect({
-            account: account ?? undefined
+            account: account ?? undefined,
+            postLogoutRedirectUri: `${window.location.origin}/logged-out`
         })
+    }
+
+    async signIn(): Promise<void> {
+        if (!this.isConfigured()) {
+            return
+        }
+        await msalInstance.initialize()
+        this.clearLoggedOutMarker()
+        await msalInstance.loginRedirect({ scopes: this.loginScopes })
     }
 
     private getActiveAccount(): AccountInfo | null {
@@ -143,6 +157,35 @@ export class AuthService {
         return window.parent !== window
     }
 
+    private shouldPauseInteractiveLogin(): boolean {
+        return this.isLoggedOutRoute() || this.hasLoggedOutMarker()
+    }
+
+    private isLoggedOutRoute(): boolean {
+        return typeof window !== 'undefined' && window.location.pathname.startsWith('/logged-out')
+    }
+
+    private hasLoggedOutMarker(): boolean {
+        if (typeof sessionStorage === 'undefined') {
+            return false
+        }
+        return sessionStorage.getItem(this.postLogoutMarkerKey) === '1'
+    }
+
+    private setLoggedOutMarker(): void {
+        if (typeof sessionStorage === 'undefined') {
+            return
+        }
+        sessionStorage.setItem(this.postLogoutMarkerKey, '1')
+    }
+
+    private clearLoggedOutMarker(): void {
+        if (typeof sessionStorage === 'undefined') {
+            return
+        }
+        sessionStorage.removeItem(this.postLogoutMarkerKey)
+    }
+
     private isMsalTimeoutError(err: unknown): boolean {
         return err instanceof BrowserAuthError && err.errorCode === 'timed_out'
     }
@@ -155,4 +198,5 @@ export class AuthService {
         }
         return null
     }
+
 }

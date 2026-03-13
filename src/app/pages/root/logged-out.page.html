@@ -1,0 +1,13 @@
+<div class="logged-out-page">
+    <div class="logged-out-page__ambient"></div>
+    <div class="logged-out-card">
+        <div class="logged-out-card__eyebrow">Session Closed</div>
+        <h1>You are signed out.</h1>
+        <p>Your Firewire session has ended. Stay here, return home, or sign in again when ready.</p>
+
+        <div class="logged-out-card__actions">
+            <button mat-stroked-button type="button" [routerLink]="'/root'">HOME</button>
+            <button mat-flat-button type="button" (click)="signIn()">SIGN IN</button>
+        </div>
+    </div>
+</div>

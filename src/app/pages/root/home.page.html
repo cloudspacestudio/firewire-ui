@@ -1,8 +1,9 @@
-<page-toolbar></page-toolbar>
+<page-toolbar [hideMenu]="true" [transparent]="true"></page-toolbar>
 <div class="page-root">
     <div class="home-video-shell">
         <div class="home-video-shell__ambient"></div>
         <video
+            #backgroundVideo
             class="home-video-shell__video"
             autoplay
             muted
@@ -21,6 +22,15 @@
             <div class="home-hero">
                 <div class="home-hero__eyebrow">Firewire Command</div>
                 <h1>Operational systems for projects, devices, and estimating data.</h1>
+                <div *ngIf="recentProjects.length" class="home-hero__recent">
+                    <div class="home-hero__recent-label">Recent Project Detail Views</div>
+                    <div class="home-hero__recent-links">
+                        <a *ngFor="let project of recentProjects" [routerLink]="project.route" class="home-hero__recent-link">
+                            <span class="home-hero__recent-number">{{project.projectNbr || 'No Project #'}}</span>
+                            <span class="home-hero__recent-name">{{project.name}}</span>
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <div class="simple-card-container home-tile-grid">
@@ -40,6 +50,26 @@
                         <mat-card-header>
                             <mat-card-title>Devices</mat-card-title>
                             <mat-card-subtitle>View and manage devices and materials</mat-card-subtitle>
+                        </mat-card-header>
+                    </mat-card>
+                </div>
+
+                <div [routerLink]="'/design'" class="nav-tile nav-tile--design">
+                    <mat-card appearance="outlined">
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Design</mat-card-title>
+                            <mat-card-subtitle>Coordinate design deliverables and drawing workflows</mat-card-subtitle>
+                        </mat-card-header>
+                    </mat-card>
+                </div>
+
+                <div [routerLink]="'/install'" class="nav-tile nav-tile--install">
+                    <mat-card appearance="outlined">
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Install</mat-card-title>
+                            <mat-card-subtitle>Track field execution and installation operations</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
