@@ -1,0 +1,82 @@
+<page-toolbar title="ABOUT">
+    <div class="button-bar">
+        <button mat-fab class="back" type="button" (click)="onBack()">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="content-root">
+            <section class="about-shell">
+                <div class="about-hero">
+                    <div>
+                        <div class="about-kicker">Support Snapshot</div>
+                        <h1>Application About</h1>
+                        <p>Use this page to capture browser context, verify deployed package metadata, and review installed production libraries for both client and server.</p>
+                    </div>
+                    <div class="about-hero__meta">
+                        <div class="about-hero__meta-label">Metadata Generated</div>
+                        <div class="about-hero__meta-value">{{metadata.generatedAt | date:'medium'}}</div>
+                    </div>
+                </div>
+
+                <article class="about-card">
+                    <div class="about-card__head">
+                        <div>
+                            <div class="about-card__eyebrow">Local Environment</div>
+                            <h2>Browser-Derived Support Details</h2>
+                        </div>
+                        <button mat-flat-button type="button" class="fw-button" (click)="copyLocalEnvironment()">COPY TO CLIPBOARD</button>
+                    </div>
+                    <div *ngIf="copyMessage" class="about-copy-message">{{copyMessage}}</div>
+                    <div class="about-detail-grid">
+                        <div class="about-detail" *ngFor="let detail of localEnvironmentDetails">
+                            <div class="about-detail__label">{{detail.label}}</div>
+                            <div class="about-detail__value">{{detail.value}}</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-card">
+                    <div class="about-card__head">
+                        <div>
+                            <div class="about-card__eyebrow">Client</div>
+                            <h2>{{metadata.client.name}} v{{metadata.client.version}}</h2>
+                        </div>
+                    </div>
+                    <div class="about-library-list">
+                        <div class="about-library-list__title">Production Library Attributions</div>
+                        <div class="about-library" *ngFor="let library of clientLibraries">
+                            <div class="about-library__name">{{library.name}}</div>
+                            <div class="about-library__meta">v{{library.version}} · {{library.license}}</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-card">
+                    <div class="about-card__head">
+                        <div>
+                            <div class="about-card__eyebrow">Server</div>
+                            <h2>{{serverMetadata.name}} v{{serverMetadata.version}}</h2>
+                        </div>
+                    </div>
+                    <div class="about-detail-grid">
+                        <div class="about-detail" *ngFor="let detail of derivedServerDetails">
+                            <div class="about-detail__label">{{detail.label}}</div>
+                            <div class="about-detail__value">{{detail.value}}</div>
+                        </div>
+                    </div>
+                    <div class="about-library-list">
+                        <div class="about-library-list__title">Production Library Attributions</div>
+                        <div class="about-library" *ngFor="let library of serverLibraries">
+                            <div class="about-library__name">{{library.name}}</div>
+                            <div class="about-library__meta">v{{library.version}} · {{library.license}}</div>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </div>
+</div>

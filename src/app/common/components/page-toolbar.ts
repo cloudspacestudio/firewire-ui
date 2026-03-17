@@ -362,7 +362,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                 <button mat-menu-item disabled class="fw-user-menu-meta" *ngIf="userEmail">{{userEmail}}</button>
                 <mat-divider></mat-divider>
                 <button mat-menu-item [routerLink]="'/preferences'">Preferences</button>
-                <button mat-menu-item>About</button>
+                <button mat-menu-item [routerLink]="'/about'">About</button>
                 <mat-divider></mat-divider>
                 <button mat-menu-item (click)="onSignOut()">Sign Out</button>
             </mat-menu>

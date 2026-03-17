@@ -31,6 +31,7 @@ export const routes: Routes = [
     {path: 'projects/:projectSource/:projectId/:workspaceTab', canDeactivate: [canDeactivateProjectPage], loadComponent: () => import('./pages/projects/project.page').then(m => m.ProjectPage)},
 
     {path: 'settings', loadComponent: () => import('./pages/settings/settings.page').then(m => m.SettingsPage)},
+    {path: 'about', loadComponent: () => import('./pages/about/about.page').then(m => m.AboutPage)},
     {path: 'preferences', loadComponent: () => import('./pages/preferences/preferences.page').then(m => m.PreferencesPage)},
     {path: 'tech', loadComponent: () => import('./pages/tech/tech.page').then(m => m.TechPage)},
 
