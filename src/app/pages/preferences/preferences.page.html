@@ -1,0 +1,215 @@
+<page-toolbar title="PREFERENCES">
+    <div class="button-bar">
+        <button mat-fab class="back" type="button" (click)="onBack()">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+</page-toolbar>
+
+<div *ngIf="!pageWorking" class="page-root">
+    <div class="page-content">
+        <div class="content-root">
+            <section class="preferences-shell">
+                <div class="preferences-hero">
+                    <div class="preferences-hero__copy">
+                        <div class="preferences-kicker">User Profile</div>
+                        <h1>Preferences Console</h1>
+                        <p>
+                            Personalize the command center, manage your avatar, and stage user-level defaults for the tools you use every day.
+                        </p>
+                    </div>
+
+                    <div class="preferences-hero__status">
+                        <div class="preferences-hero__status-label">Preference Scope</div>
+                        <div class="preferences-hero__status-value">Signed-In User</div>
+                        <div class="preferences-hero__status-note">
+                            Saved against the current MSAL identity and applied across the toolbar and home command view.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preferences-actions preferences-actions--top">
+                    <div class="preferences-message preferences-message--error" *ngIf="errorMessage">{{errorMessage}}</div>
+                    <div class="preferences-message preferences-message--success" *ngIf="saveMessage">{{saveMessage}}</div>
+                    <span class="spacer"></span>
+                    <button mat-stroked-button type="button" class="fw-button-muted" (click)="onBack()">CLOSE</button>
+                    <button mat-flat-button type="button" class="fw-button" [class.fw-button--dirty]="isDirty" [disabled]="!isDirty || isSaving" (click)="savePreferences()">
+                        {{isSaving ? 'SAVING...' : 'SAVE PREFERENCES'}}
+                    </button>
+                </div>
+
+                <div class="preferences-grid">
+                    <article class="preferences-card">
+                        <div class="preferences-card__head">
+                            <div>
+                                <div class="preferences-card__eyebrow">Home Page</div>
+                                <h2>Command Center Defaults</h2>
+                            </div>
+                            <div class="preferences-chip">Live</div>
+                        </div>
+
+                        <div class="preferences-form-grid">
+                            <div class="background-browser">
+                                <div class="background-browser__head">
+                                    <div>
+                                        <div class="preferences-card__eyebrow">Home Background</div>
+                                        <div class="background-browser__title">Visual Theme Source</div>
+                                    </div>
+                                    <div class="background-browser__preview-shell">
+                                        <div class="background-browser__preview-label">Active Preview</div>
+                                        <div class="background-browser__preview">
+                                            <video
+                                                *ngIf="isVideoPreviewMode"
+                                                class="background-browser__preview-video"
+                                                [src]="getVideoUrl(draft.homePage.backgroundVideo)"
+                                                autoplay
+                                                muted
+                                                loop
+                                                playsinline>
+                                            </video>
+                                            <div
+                                                *ngIf="!isVideoPreviewMode"
+                                                class="background-browser__preview-surface"
+                                                [ngStyle]="backgroundPreviewStyle">
+                                            </div>
+                                            <div class="background-browser__preview-overlay"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <mat-button-toggle-group class="background-mode-toggle" [ngModel]="draft.homePage.backgroundMode" (ngModelChange)="selectBackgroundMode($event)">
+                                    <mat-button-toggle *ngFor="let mode of backgroundModes" [value]="mode.value">{{mode.label}}</mat-button-toggle>
+                                </mat-button-toggle-group>
+
+                                <div *ngIf="draft.homePage.backgroundMode === 'video'" class="video-browser">
+                                    <button
+                                        *ngFor="let option of videoOptions"
+                                        type="button"
+                                        class="video-browser__item"
+                                        [attr.aria-label]="option.label"
+                                        [class.video-browser__item--active]="draft.homePage.backgroundVideo === option.fileName"
+                                        (click)="selectBackgroundVideo(option.fileName)">
+                                        <div
+                                            class="video-browser__thumb"
+                                            [ngStyle]="getVideoPosterStyle(option.fileName)"
+                                            aria-hidden="true">
+                                            <img
+                                                *ngIf="getVideoThumbnailUrl(option) as thumbnailUrl"
+                                                class="video-browser__thumb-image"
+                                                [src]="thumbnailUrl"
+                                                [alt]="option.label + ' thumbnail'"
+                                                (error)="onVideoThumbnailError(option.fileName)" />
+                                            <span *ngIf="draft.homePage.backgroundVideo === option.fileName" class="video-browser__selected-indicator">
+                                                Selected
+                                            </span>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <div *ngIf="draft.homePage.backgroundMode === 'solid'" class="color-grid">
+                                    <label class="color-control">
+                                        <span>Solid Background Color</span>
+                                        <input type="color" [(ngModel)]="draft.homePage.solidColor" />
+                                    </label>
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Hex Value</mat-label>
+                                        <input matInput [(ngModel)]="draft.homePage.solidColor" />
+                                    </mat-form-field>
+                                </div>
+
+                                <div *ngIf="draft.homePage.backgroundMode === 'gradient'" class="color-grid">
+                                    <label class="color-control">
+                                        <span>Gradient Start</span>
+                                        <input type="color" [(ngModel)]="draft.homePage.gradientFrom" />
+                                    </label>
+                                    <label class="color-control">
+                                        <span>Gradient End</span>
+                                        <input type="color" [(ngModel)]="draft.homePage.gradientTo" />
+                                    </label>
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Angle</mat-label>
+                                        <input matInput type="number" min="0" max="360" [(ngModel)]="draft.homePage.gradientAngle" />
+                                    </mat-form-field>
+                                </div>
+                            </div>
+
+                            <label class="preferences-toggle">
+                                <mat-slide-toggle [(ngModel)]="draft.homePage.showRecentProjects">
+                                    Show Recent Projects
+                                </mat-slide-toggle>
+                                <span class="preferences-toggle__note">Display the recently viewed project links in the hero panel.</span>
+                            </label>
+
+                            <label class="preferences-toggle">
+                                <mat-slide-toggle [(ngModel)]="draft.homePage.compactHero">
+                                    Compact Hero Mode
+                                </mat-slide-toggle>
+                                <span class="preferences-toggle__note">Tightens the top command card to expose more tile area on shorter displays.</span>
+                            </label>
+                        </div>
+                    </article>
+
+                    <article class="preferences-card">
+                        <div class="preferences-card__head">
+                            <div>
+                                <div class="preferences-card__eyebrow">Profile</div>
+                                <h2>Avatar Management</h2>
+                            </div>
+                            <div class="preferences-chip">Toolbar</div>
+                        </div>
+
+                        <div class="avatar-shell">
+                            <div class="avatar-shell__preview" [class.avatar-shell__preview--has-image]="avatarPreviewUrl">
+                                <img *ngIf="avatarPreviewUrl" [src]="avatarPreviewUrl" alt="Avatar preview" />
+                                <span *ngIf="!avatarPreviewUrl">No Avatar</span>
+                            </div>
+
+                            <div class="avatar-shell__content">
+                                <div class="avatar-shell__title">Profile Image</div>
+                                <div class="avatar-shell__note">
+                                    Upload an image for the top-right user menu. This is persisted to your Firewire user preferences.
+                                </div>
+
+                                <div class="avatar-shell__actions">
+                                    <button mat-flat-button type="button" class="fw-button" (click)="openAvatarPicker()">UPLOAD AVATAR</button>
+                                    <button mat-stroked-button type="button" class="fw-button-muted" (click)="clearAvatar()" [disabled]="!avatarPreviewUrl">REMOVE</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input #avatarInput type="file" accept="image/*" hidden (change)="onAvatarSelected($event)" />
+                    </article>
+
+                    <article class="preferences-card preferences-card--wide">
+                        <div class="preferences-card__head">
+                            <div>
+                                <div class="preferences-card__eyebrow">Expansion Slots</div>
+                                <h2>Upcoming Preference Areas</h2>
+                            </div>
+                            <div class="preferences-chip">Roadmap</div>
+                        </div>
+
+                        <div class="preferences-modules">
+                            <div class="preferences-module">
+                                <div class="preferences-module__title">Notification Controls</div>
+                                <div class="preferences-module__meta">Queued for future rollout</div>
+                            </div>
+                            <div class="preferences-module">
+                                <div class="preferences-module__title">Workspace Defaults</div>
+                                <div class="preferences-module__meta">Tab behavior, layouts, and view modes</div>
+                            </div>
+                            <div class="preferences-module">
+                                <div class="preferences-module__title">Document Output</div>
+                                <div class="preferences-module__meta">Signature assets and default print settings</div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="pageWorking" class="loading-panel">
+    <div>Loading preferences...</div>
+</div>

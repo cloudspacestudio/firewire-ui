@@ -1,6 +1,7 @@
-import { Component, Input, OnInit, inject } from "@angular/core";
+import { Component, DestroyRef, Input, OnInit, inject } from "@angular/core";
 import { NgIf } from "@angular/common";
-import { RouterLink } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 import { MatToolbarModule } from '@angular/material/toolbar'
 import { MatButtonModule } from '@angular/material/button'
@@ -8,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatMenuModule } from '@angular/material/menu'
 import { MatDividerModule } from '@angular/material/divider'
 import { AuthService } from "../../auth/auth.service";
+import { UserPreferencesService } from "../services/user-preferences.service";
 
 @Component({
     selector: 'page-toolbar',
@@ -99,7 +101,8 @@ import { AuthService } from "../../auth/auth.service";
             width: 38px;
             height: 38px;
             max-width: 38px;
-            border-radius: var(--fw-control-radius);
+            min-width: 38px;
+            border-radius: 50%;
             font-size: 0.75rem;
             letter-spacing: 0.08em;
             padding: 0;
@@ -234,7 +237,7 @@ import { AuthService } from "../../auth/auth.service";
         .fw-nav-item--home {
             background-image:
                 linear-gradient(135deg, rgba(9, 20, 31, 0.78), rgba(9, 20, 31, 0.42)),
-                url('/images/ps3.mp4');
+                url('/images/videos/ps3.mp4');
             background-image:
                 linear-gradient(135deg, rgba(9, 20, 31, 0.78), rgba(9, 20, 31, 0.42)),
                 radial-gradient(circle at 30% 30%, rgba(88, 228, 255, 0.22), transparent 42%),
@@ -255,6 +258,10 @@ import { AuthService } from "../../auth/auth.service";
 
         .fw-nav-item--install {
             background-image: url('/images/install.jpg');
+        }
+
+        .fw-nav-item--sales {
+            background-image: url('/images/sales.jpg');
         }
 
         .fw-nav-item--settings {
@@ -281,7 +288,7 @@ import { AuthService } from "../../auth/auth.service";
                 <mat-icon fontIcon="menu"></mat-icon>
             </button>
             <mat-menu #navMenu="matMenu" panelClass="fw-nav-menu">
-                <button mat-menu-item [routerLink]="'/root'">
+                <button *ngIf="false" mat-menu-item [routerLink]="'/root'">
                     <span class="fw-nav-item fw-nav-item--home">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Home</span>
@@ -289,23 +296,15 @@ import { AuthService } from "../../auth/auth.service";
                         </span>
                     </span>
                 </button>
-                <button mat-menu-item [routerLink]="'/projects'">
-                    <span class="fw-nav-item fw-nav-item--projects">
+                <button *ngIf="!isCurrentRoute('/sales')" mat-menu-item [routerLink]="'/sales'">
+                    <span class="fw-nav-item fw-nav-item--sales">
                         <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Projects</span>
-                            <span class="fw-nav-item__subtitle">View and manage projects in Firewire</span>
+                            <span class="fw-nav-item__title">Sales</span>
+                            <span class="fw-nav-item__subtitle">Placeholder for upcoming sales tools and workflows</span>
                         </span>
                     </span>
                 </button>
-                <button mat-menu-item [routerLink]="'/devices'">
-                    <span class="fw-nav-item fw-nav-item--devices">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Devices</span>
-                            <span class="fw-nav-item__subtitle">View and manage devices and materials</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/design'">
+                <button *ngIf="!isCurrentRoute('/design')" mat-menu-item [routerLink]="'/design'">
                     <span class="fw-nav-item fw-nav-item--design">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Design</span>
@@ -313,7 +312,7 @@ import { AuthService } from "../../auth/auth.service";
                         </span>
                     </span>
                 </button>
-                <button mat-menu-item [routerLink]="'/install'">
+                <button *ngIf="!isCurrentRoute('/install')" mat-menu-item [routerLink]="'/install'">
                     <span class="fw-nav-item fw-nav-item--install">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Install</span>
@@ -321,7 +320,23 @@ import { AuthService } from "../../auth/auth.service";
                         </span>
                     </span>
                 </button>
-                <button mat-menu-item [routerLink]="'/settings'">
+                <button *ngIf="!isCurrentRoute('/projects')" mat-menu-item [routerLink]="'/projects'">
+                    <span class="fw-nav-item fw-nav-item--projects">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Projects</span>
+                            <span class="fw-nav-item__subtitle">View and manage projects in Firewire</span>
+                        </span>
+                    </span>
+                </button>
+                <button *ngIf="!isCurrentRoute('/devices')" mat-menu-item [routerLink]="'/devices'">
+                    <span class="fw-nav-item fw-nav-item--devices">
+                        <span class="fw-nav-item__content">
+                            <span class="fw-nav-item__title">Devices</span>
+                            <span class="fw-nav-item__subtitle">View and manage devices and materials</span>
+                        </span>
+                    </span>
+                </button>
+                <button *ngIf="!isCurrentRoute('/settings')" mat-menu-item [routerLink]="'/settings'">
                     <span class="fw-nav-item fw-nav-item--settings">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Settings</span>
@@ -346,7 +361,7 @@ import { AuthService } from "../../auth/auth.service";
                 <button mat-menu-item disabled class="fw-user-menu-meta">{{userName}}</button>
                 <button mat-menu-item disabled class="fw-user-menu-meta" *ngIf="userEmail">{{userEmail}}</button>
                 <mat-divider></mat-divider>
-                <button mat-menu-item>Preferences</button>
+                <button mat-menu-item [routerLink]="'/preferences'">Preferences</button>
                 <button mat-menu-item>About</button>
                 <mat-divider></mat-divider>
                 <button mat-menu-item (click)="onSignOut()">Sign Out</button>
@@ -356,6 +371,9 @@ import { AuthService } from "../../auth/auth.service";
 })
 export class PageToolbar implements OnInit {
     private readonly auth = inject(AuthService)
+    private readonly userPreferences = inject(UserPreferencesService)
+    private readonly destroyRef = inject(DestroyRef)
+    private readonly router = inject(Router)
 
     @Input() title?: string
     @Input() hideMenu = false
@@ -368,13 +386,23 @@ export class PageToolbar implements OnInit {
 
     ngOnInit(): void {
         const profile = this.auth.getUserProfile()
-        if (!profile) {
-            return
+        if (profile) {
+            this.userName = profile.name || this.userName
+            this.userEmail = profile.email || this.userEmail
+            this.userInitials = this.toInitials(this.userName || this.userEmail || this.userInitials)
+            this.userAvatarUrl = profile.avatarUrl || null
         }
-        this.userName = profile.name || this.userName
-        this.userEmail = profile.email || this.userEmail
-        this.userInitials = this.toInitials(this.userName || this.userEmail || this.userInitials)
-        this.userAvatarUrl = profile.avatarUrl || null
+
+        this.userPreferences.preferences$
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((preferences) => {
+                const profileAvatar = this.auth.getUserProfile()?.avatarUrl || null
+                this.userAvatarUrl = preferences.profile.avatarDataUrl || profileAvatar
+            })
+
+        this.userPreferences.load().catch((err) => {
+            console.error('Failed to initialize toolbar preferences.', err)
+        })
     }
 
     private toInitials(value: string): string {
@@ -400,5 +428,10 @@ export class PageToolbar implements OnInit {
 
     onAvatarError(): void {
         this.userAvatarUrl = null
+    }
+
+    isCurrentRoute(route: string): boolean {
+        const currentUrl = this.router.url.split('?')[0].split('#')[0]
+        return currentUrl === route || currentUrl.startsWith(`${route}/`)
     }
 }

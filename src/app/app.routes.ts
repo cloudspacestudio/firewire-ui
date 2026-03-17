@@ -16,6 +16,7 @@ export const routes: Routes = [
     {path: 'admin', loadComponent: () => import('./pages/projects/projects-admin.page').then(m => m.ProjectsAdminPage)},
     {path: 'devices', loadComponent: () => import('./pages/devices/devices.page').then(m => m.DevicesPage)},
     {path: 'devices/:deviceId', loadComponent: () => import('./pages/devices/device.page').then(m => m.DevicePage)},
+    {path: 'sales', loadComponent: () => import('./pages/sales/sales.page').then(m => m.SalesPage)},
     {path: 'design', loadComponent: () => import('./pages/design/design.page').then(m => m.DesignPage)},
     {path: 'install', loadComponent: () => import('./pages/install/install.page').then(m => m.InstallPage)},
     {path: 'materials', loadComponent: () => import('./pages/materials/materials.page').then(m => m.MaterialsPage)},
@@ -30,6 +31,7 @@ export const routes: Routes = [
     {path: 'projects/:projectSource/:projectId/:workspaceTab', canDeactivate: [canDeactivateProjectPage], loadComponent: () => import('./pages/projects/project.page').then(m => m.ProjectPage)},
 
     {path: 'settings', loadComponent: () => import('./pages/settings/settings.page').then(m => m.SettingsPage)},
+    {path: 'preferences', loadComponent: () => import('./pages/preferences/preferences.page').then(m => m.PreferencesPage)},
     {path: 'tech', loadComponent: () => import('./pages/tech/tech.page').then(m => m.TechPage)},
 
     {path: '**', loadComponent: () => import('./pages/root/home.page').then(m => m.HomePage)}

@@ -1,6 +1,6 @@
 <page-toolbar [hideMenu]="true" [transparent]="true"></page-toolbar>
-<div class="page-root">
-    <div class="home-video-shell">
+<div class="page-root" [ngStyle]="backgroundSurfaceStyle" [class.page-root--static-background]="backgroundMode !== 'video'">
+    <div *ngIf="backgroundMode === 'video'" class="home-video-shell">
         <div class="home-video-shell__ambient"></div>
         <video
             #backgroundVideo
@@ -11,18 +11,22 @@
             playsinline
             preload="auto"
             aria-hidden="true">
-            <source src="/images/ps3.mp4" type="video/mp4" />
+            <source [src]="backgroundVideoUrl" type="video/mp4" />
         </video>
         <div class="home-video-shell__scanline"></div>
         <div class="home-video-shell__vignette"></div>
     </div>
+    <div *ngIf="backgroundMode !== 'video'" class="home-static-background">
+        <div class="home-static-background__scanline"></div>
+        <div class="home-static-background__vignette"></div>
+    </div>
 
     <div class="page-content home-page-content">
         <div class="content-root">
-            <div class="home-hero">
+            <div class="home-hero" [class.home-hero--compact]="compactHero">
                 <div class="home-hero__eyebrow">Firewire Command</div>
                 <h1>Operational systems for projects, devices, and estimating data.</h1>
-                <div *ngIf="recentProjects.length" class="home-hero__recent">
+                <div *ngIf="showRecentProjects && recentProjects.length" class="home-hero__recent">
                     <div class="home-hero__recent-label">Recent Project Detail Views</div>
                     <div class="home-hero__recent-links">
                         <a *ngFor="let project of recentProjects" [routerLink]="project.route" class="home-hero__recent-link">
@@ -34,22 +38,12 @@
             </div>
 
             <div class="simple-card-container home-tile-grid">
-                <div [routerLink]="'/projects'" class="nav-tile nav-tile--projects">
+                <div [routerLink]="'/sales'" class="nav-tile nav-tile--sales">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
-                            <mat-card-title>Projects</mat-card-title>
-                            <mat-card-subtitle>View and manage projects in Firewire</mat-card-subtitle>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div [routerLink]="'/devices'" class="nav-tile nav-tile--devices">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Devices</mat-card-title>
-                            <mat-card-subtitle>View and manage devices and materials</mat-card-subtitle>
+                            <mat-card-title>Sales</mat-card-title>
+                            <mat-card-subtitle>Placeholder for upcoming sales tools and workflows</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
@@ -70,6 +64,26 @@
                         <mat-card-header>
                             <mat-card-title>Install</mat-card-title>
                             <mat-card-subtitle>Track field execution and installation operations</mat-card-subtitle>
+                        </mat-card-header>
+                    </mat-card>
+                </div>
+
+                <div [routerLink]="'/projects'" class="nav-tile nav-tile--projects">
+                    <mat-card appearance="outlined">
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Projects</mat-card-title>
+                            <mat-card-subtitle>View and manage projects in Firewire</mat-card-subtitle>
+                        </mat-card-header>
+                    </mat-card>
+                </div>
+
+                <div [routerLink]="'/devices'" class="nav-tile nav-tile--devices">
+                    <mat-card appearance="outlined">
+                        <div class="nav-tile__media" aria-hidden="true"></div>
+                        <mat-card-header>
+                            <mat-card-title>Devices</mat-card-title>
+                            <mat-card-subtitle>View and manage devices and materials</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>

@@ -15,6 +15,10 @@
         linear-gradient(180deg, var(--home-edge), var(--home-bg));
 }
 
+.page-root--static-background {
+    background: var(--home-bg);
+}
+
 .home-video-shell {
     position: absolute;
     inset: 0;
@@ -22,6 +26,36 @@
     place-items: center;
     overflow: hidden;
     pointer-events: none;
+}
+
+.home-static-background,
+.home-static-background__scanline,
+.home-static-background__vignette {
+    position: absolute;
+    inset: 0;
+}
+
+.home-static-background {
+    pointer-events: none;
+}
+
+.home-static-background__scanline {
+    background:
+        linear-gradient(180deg, rgba(121, 255, 190, 0.04), transparent 20%, transparent 80%, rgba(88, 228, 255, 0.05)),
+        repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.025) 0,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px,
+            transparent 4px
+        );
+    mix-blend-mode: screen;
+    opacity: 0.45;
+}
+
+.home-static-background__vignette {
+    background:
+        radial-gradient(circle at center, transparent 42%, rgba(4, 8, 14, 0.46) 72%, rgba(4, 8, 14, 0.92) 100%);
 }
 
 .home-video-shell__ambient,
@@ -96,6 +130,20 @@
         rgba(8, 14, 25, 0.54);
     backdrop-filter: blur(12px);
     box-shadow: 0 14px 44px rgba(0, 0, 0, 0.26);
+}
+
+.home-hero--compact {
+    width: min(520px, 100%);
+    padding-bottom: 2px;
+}
+
+.home-hero--compact h1 {
+    font-size: clamp(1.05rem, 1.8vw, 1.55rem);
+}
+
+.home-hero--compact .home-hero__recent {
+    margin-top: 4px;
+    padding-top: 4px;
 }
 
 .home-hero__eyebrow {
@@ -246,6 +294,10 @@
 
 .nav-tile--install .nav-tile__media {
     background-image: url('/images/install.jpg');
+}
+
+.nav-tile--sales .nav-tile__media {
+    background-image: url('/images/sales.jpg');
 }
 
 .nav-tile--settings .nav-tile__media {
