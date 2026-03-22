@@ -28,7 +28,7 @@ export interface AboutMetadata {
 }
 
 export const ABOUT_METADATA: AboutMetadata = {
-    "generatedAt": "2026-03-17T06:48:04.370Z",
+    "generatedAt": "2026-03-22T08:08:01.948Z",
     "client": {
         "name": "mean-ui",
         "version": "0.0.0",
