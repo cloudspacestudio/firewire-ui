@@ -1,5 +1,5 @@
 import { Component, DestroyRef, Input, OnInit, inject } from "@angular/core";
-import { NgIf } from "@angular/common";
+import { NgIf, NgStyle } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -20,7 +20,7 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
 
 @Component({
     selector: 'page-toolbar',
-    imports: [NgIf, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule, MatFormFieldModule, MatInputModule],
+    imports: [NgIf, NgStyle, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule, MatFormFieldModule, MatInputModule],
     styles: [`
         :host {
             display: block;
@@ -130,19 +130,41 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
             display: grid;
             place-items: center;
             padding: 32px;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(72, 221, 255, 0.12), transparent 28%),
-                radial-gradient(circle at 80% 18%, rgba(255, 164, 61, 0.1), transparent 24%),
-                linear-gradient(180deg, rgba(3, 8, 14, 0.94), rgba(4, 9, 17, 0.98)),
-                rgba(3, 8, 14, 0.98);
-            backdrop-filter: blur(12px);
+            overflow: hidden;
+            background: rgba(3, 8, 14, 0.98);
         }
 
-        .fw-lock-overlay::before {
-            content: "";
+        .fw-lock-overlay__media,
+        .fw-lock-overlay__fallback,
+        .fw-lock-overlay__scrim,
+        .fw-lock-overlay__grid {
             position: absolute;
             inset: 0;
-            opacity: 0.18;
+        }
+
+        .fw-lock-overlay__media {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: saturate(1) brightness(0.72);
+        }
+
+        .fw-lock-overlay__fallback {
+            background-position: center;
+            background-size: cover;
+        }
+
+        .fw-lock-overlay__scrim {
+            background:
+                radial-gradient(circle at 20% 20%, rgba(72, 221, 255, 0.08), transparent 28%),
+                radial-gradient(circle at 80% 18%, rgba(255, 164, 61, 0.06), transparent 24%),
+                linear-gradient(180deg, rgba(3, 8, 14, 0.42), rgba(4, 9, 17, 0.58)),
+                rgba(3, 8, 14, 0.36);
+            backdrop-filter: blur(4px);
+        }
+
+        .fw-lock-overlay__grid {
+            opacity: 0.1;
             background-image:
                 linear-gradient(rgba(72, 221, 255, 0.08) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(72, 221, 255, 0.08) 1px, transparent 1px);
@@ -486,6 +508,22 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
             </mat-menu>
         </mat-toolbar>
         <div *ngIf="isWorkspaceLocked" class="fw-lock-overlay">
+            <video
+                *ngIf="lockBackgroundMode === 'video'"
+                class="fw-lock-overlay__media"
+                [src]="lockBackgroundVideoUrl"
+                autoplay
+                muted
+                loop
+                playsinline>
+            </video>
+            <div
+                *ngIf="lockBackgroundMode !== 'video'"
+                class="fw-lock-overlay__fallback"
+                [ngStyle]="lockBackgroundStyle">
+            </div>
+            <div class="fw-lock-overlay__scrim"></div>
+            <div class="fw-lock-overlay__grid"></div>
             <div class="fw-lock-card">
                 <div class="fw-lock-card__kicker">Secure Session</div>
                 <div class="fw-lock-card__title">Workspace Locked</div>
@@ -529,6 +567,9 @@ export class PageToolbar implements OnInit {
     unlockPin = ''
     unlockWorking = false
     lockErrorMessage = ''
+    lockBackgroundMode: 'video' | 'solid' | 'gradient' = 'video'
+    lockBackgroundVideoUrl = this.userPreferences.getHomeVideoUrl('ps3.mp4')
+    lockBackgroundStyle: Record<string, string> = {}
 
     ngOnInit(): void {
         const profile = this.auth.getUserProfile()
@@ -544,6 +585,7 @@ export class PageToolbar implements OnInit {
             .subscribe((preferences) => {
                 const profileAvatar = this.auth.getUserProfile()?.avatarUrl || null
                 this.userAvatarUrl = preferences.profile.avatarDataUrl || profileAvatar
+                this.applyLockBackgroundPreferences(preferences)
             })
 
         this.workspaceLock.locked$
@@ -636,5 +678,32 @@ export class PageToolbar implements OnInit {
     isCurrentRoute(route: string): boolean {
         const currentUrl = this.router.url.split('?')[0].split('#')[0]
         return currentUrl === route || currentUrl.startsWith(`${route}/`)
+    }
+
+    private applyLockBackgroundPreferences(preferences: {
+        homePage: {
+            backgroundMode: 'video' | 'solid' | 'gradient'
+            backgroundVideo: string
+            solidColor: string
+            gradientFrom: string
+            gradientTo: string
+            gradientAngle: number
+        }
+    }): void {
+        this.lockBackgroundMode = preferences.homePage.backgroundMode
+        if (this.lockBackgroundMode === 'video') {
+            this.lockBackgroundVideoUrl = this.userPreferences.getHomeVideoUrl(preferences.homePage.backgroundVideo)
+            this.lockBackgroundStyle = {}
+            return
+        }
+        if (this.lockBackgroundMode === 'solid') {
+            this.lockBackgroundStyle = {
+                background: preferences.homePage.solidColor
+            }
+            return
+        }
+        this.lockBackgroundStyle = {
+            background: `linear-gradient(${preferences.homePage.gradientAngle}deg, ${preferences.homePage.gradientFrom}, ${preferences.homePage.gradientTo})`
+        }
     }
 }
