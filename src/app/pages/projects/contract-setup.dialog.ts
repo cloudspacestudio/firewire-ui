@@ -650,7 +650,8 @@ export class ContractSetupDialog implements AfterViewInit {
         }
 
         const normalized = input.replace(/\r?\n/g, ', ').replace(/\s+/g, ' ').trim()
-        const match = /^(.*?)(?:,\s*|\s+)([A-Za-z .'-]+?)(?:,\s*|\s+)([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i.exec(normalized)
+        const withoutCountry = normalized.replace(/(?:,\s*|\s+)(usa|united states|united states of america)$/i, '').trim()
+        const match = /^(.*?)(?:,\s*|\s+)([A-Za-z .'-]+?)(?:,\s*|\s+)([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i.exec(withoutCountry)
         if (match) {
             return {
                 street: match[1]?.trim() || '',
@@ -660,18 +661,21 @@ export class ContractSetupDialog implements AfterViewInit {
             }
         }
 
-        const parts = normalized.split(',').map((part) => part.trim()).filter((part) => part)
-        if (parts.length >= 3) {
-            const trailingMatch = /([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i.exec(parts[parts.length - 1] || '')
+        const parts = withoutCountry.split(',').map((part) => part.trim()).filter((part) => part)
+        if (parts.length >= 2) {
+            const trailingSegment = parts[parts.length - 1] || ''
+            const trailingMatch = /^([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/i.exec(trailingSegment)
+                || /([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i.exec(trailingSegment)
+            const cityIndex = trailingMatch ? parts.length - 2 : -1
             return {
                 street: parts[0] || '',
-                city: parts.slice(1, -1).join(', '),
+                city: cityIndex > 0 ? parts[cityIndex] || '' : parts.slice(1, -1).join(', '),
                 state: trailingMatch?.[1] || '',
                 zip: trailingMatch?.[2] || ''
             }
         }
 
-        return { street: normalized, city: '', state: '', zip: '' }
+        return { street: withoutCountry, city: '', state: '', zip: '' }
     }
 
     private formatCurrency(value: number | null | undefined): string {

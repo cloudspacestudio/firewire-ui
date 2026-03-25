@@ -317,6 +317,40 @@
     gap: 16px;
 }
 
+.preferences-security-console {
+    display: grid;
+    gap: 16px;
+}
+
+.preferences-security-console__copy {
+    color: rgba(214, 231, 240, 0.78);
+    line-height: 1.6;
+}
+
+.preferences-security-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    max-width: 100%;
+    padding: 10px 14px;
+    border: 1px solid rgba(88, 228, 255, 0.14);
+    border-radius: 999px;
+    color: rgba(222, 255, 241, 0.92);
+    background: rgba(10, 18, 30, 0.46);
+}
+
+.preferences-security-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.preferences-security-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .preferences-map-console__copy {
     color: rgba(214, 231, 240, 0.78);
     line-height: 1.6;

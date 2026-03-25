@@ -53,6 +53,12 @@ export class PreferencesPage {
     saveMessage = ''
     errorMessage = ''
     previewMapError = ''
+    pinCurrent = ''
+    pinNew = ''
+    pinConfirm = ''
+    pinSaving = false
+    pinErrorMessage = ''
+    pinSaveMessage = ''
 
     draft: UserPreferences = {
         homePage: {
@@ -75,6 +81,9 @@ export class PreferencesPage {
         },
         profile: {
             avatarDataUrl: null
+        },
+        workspaceLock: {
+            hasPin: false
         }
     }
     persistedSnapshot = JSON.stringify(this.draft)
@@ -111,6 +120,26 @@ export class PreferencesPage {
 
     get previewMapStatusLabel(): string {
         return this.draft.projectMap.dimension === '3d' ? '3D Perspective' : '2D Tactical'
+    }
+
+    get hasWorkspacePin(): boolean {
+        return this.draft.workspaceLock.hasPin
+    }
+
+    get canSaveWorkspacePin(): boolean {
+        const newPin = this.pinNew.trim()
+        const confirmPin = this.pinConfirm.trim()
+        const currentPin = this.pinCurrent.trim()
+        if (this.pinSaving) {
+            return false
+        }
+        if (!/^\d{4,8}$/.test(newPin) || confirmPin !== newPin) {
+            return false
+        }
+        if (this.hasWorkspacePin && !/^\d{4,8}$/.test(currentPin)) {
+            return false
+        }
+        return true
     }
 
     get backgroundPreviewStyle(): Record<string, string> {
@@ -295,6 +324,46 @@ export class PreferencesPage {
             this.errorMessage = err?.error?.message || err?.message || 'Preferences could not be saved.'
         } finally {
             this.isSaving = false
+        }
+    }
+
+    async saveWorkspacePin(): Promise<void> {
+        if (!this.canSaveWorkspacePin) {
+            this.pinErrorMessage = this.hasWorkspacePin
+                ? 'Enter your current PIN, then provide a matching new PIN.'
+                : 'Provide a 4 to 8 digit PIN and confirm it.'
+            this.pinSaveMessage = ''
+            return
+        }
+
+        this.pinSaving = true
+        this.pinErrorMessage = ''
+        this.pinSaveMessage = ''
+        try {
+            const result = await this.userPreferences.saveWorkspacePin(
+                this.pinNew.trim(),
+                this.hasWorkspacePin ? this.pinCurrent.trim() : undefined
+            )
+            this.draft = {
+                ...this.draft,
+                workspaceLock: result.preferences.workspaceLock
+            }
+            const persisted = JSON.parse(this.persistedSnapshot) as UserPreferences
+            this.persistedSnapshot = JSON.stringify({
+                ...persisted,
+                workspaceLock: result.preferences.workspaceLock
+            })
+            this.pinCurrent = ''
+            this.pinNew = ''
+            this.pinConfirm = ''
+            this.pinSaveMessage = result.preferences.workspaceLock.hasPin
+                ? 'Workspace PIN updated.'
+                : 'Workspace PIN armed.'
+        } catch (err: any) {
+            console.error('Failed to save workspace PIN.', err)
+            this.pinErrorMessage = err?.error?.message || err?.message || 'Workspace PIN could not be saved.'
+        } finally {
+            this.pinSaving = false
         }
     }
 

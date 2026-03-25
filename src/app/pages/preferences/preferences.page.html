@@ -246,6 +246,60 @@
                         </div>
                     </article>
 
+                    <article class="preferences-card">
+                        <div class="preferences-card__head">
+                            <div>
+                                <div class="preferences-card__eyebrow">Workspace Lock</div>
+                                <h2>Security PIN</h2>
+                            </div>
+                            <div class="preferences-chip">{{hasWorkspacePin ? 'Armed' : 'Not Set'}}</div>
+                        </div>
+
+                        <div class="preferences-form-grid">
+                            <div class="preferences-security-console">
+                                <div class="preferences-security-console__copy">
+                                    Lock the Firewire workspace from the user menu and restore access with a personal numeric PIN. If you rotate the PIN here, the existing PIN must be verified first.
+                                </div>
+
+                                <div class="preferences-security-status">
+                                    <mat-icon [fontIcon]="hasWorkspacePin ? 'lock' : 'lock_open'"></mat-icon>
+                                    <span>{{hasWorkspacePin ? 'Workspace lock is armed for this user.' : 'No lock PIN exists yet. The first lock action will prompt for setup.'}}</span>
+                                </div>
+
+                                <div class="preferences-security-grid">
+                                    <mat-form-field *ngIf="hasWorkspacePin" appearance="outline">
+                                        <mat-label>Current PIN</mat-label>
+                                        <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="pinCurrent" />
+                                    </mat-form-field>
+
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>{{hasWorkspacePin ? 'New PIN' : 'Create PIN'}}</mat-label>
+                                        <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="pinNew" />
+                                    </mat-form-field>
+
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Confirm PIN</mat-label>
+                                        <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="pinConfirm" (keyup.enter)="saveWorkspacePin()" />
+                                    </mat-form-field>
+                                </div>
+
+                                <div *ngIf="pinErrorMessage" class="preferences-message preferences-message--error">{{pinErrorMessage}}</div>
+                                <div *ngIf="pinSaveMessage" class="preferences-message preferences-message--success">{{pinSaveMessage}}</div>
+
+                                <div class="preferences-security-actions">
+                                    <button
+                                        mat-flat-button
+                                        type="button"
+                                        class="fw-button"
+                                        [disabled]="!canSaveWorkspacePin"
+                                        (click)="saveWorkspacePin()">
+                                        {{pinSaving ? 'SECURING...' : (hasWorkspacePin ? 'UPDATE PIN' : 'SET PIN')}}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
                     <article class="preferences-card preferences-card--wide">
                         <div class="preferences-card__head">
                             <div>

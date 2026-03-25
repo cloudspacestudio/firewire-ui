@@ -434,6 +434,27 @@ button.success {
     width: min(980px, calc(100vw - 64px)) !important;
 }
 
+:root .cdk-overlay-pane.fw-compact-dialog-pane {
+    --mdc-dialog-container-min-width: 0px;
+    --mdc-dialog-container-max-width: min(360px, calc(100vw - 32px));
+    max-width: min(360px, calc(100vw - 32px)) !important;
+    min-width: 0 !important;
+    width: min(360px, calc(100vw - 32px)) !important;
+}
+
+:root .cdk-overlay-pane.fw-compact-dialog-pane .mdc-dialog__container {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+:root .cdk-overlay-pane.fw-compact-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-compact-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 :root .cdk-overlay-pane.job-cost-sheet-dialog-pane .mat-mdc-dialog-surface {
     min-width: 0 !important;
     width: 100% !important;

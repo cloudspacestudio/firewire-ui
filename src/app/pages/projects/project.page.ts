@@ -27,11 +27,13 @@ import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { AzureMapsService } from "../../common/services/azure-maps.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
+import { BookingFaceSheetDialog } from "./booking-face-sheet.dialog"
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
 import { ContractSetupDialog } from "./contract-setup.dialog"
 import { EstimateFaceSheetDialog } from "./estimate-face-sheet.dialog"
 import { JobCostSheetDialog } from "./job-cost-sheet.dialog"
 import { QuoteSheetDialog } from "./quote-sheet.dialog"
+import { ScheduleOfValuesDialog } from "./schedule-of-values.dialog"
 import {
     ProjectTemplateDialog,
     ProjectTemplateDialogItem,
@@ -2517,11 +2519,89 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     openBookingFaceSheet() {
-        this.firewireSaveMessage = 'Booking Face Sheet report coming next.'
+        const parsedAddress = this.parseProjectAddress(this.firewireForm.address || '')
+        this.dialog.open(BookingFaceSheetDialog, {
+            width: '1120px',
+            maxWidth: '1120px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                date: this.formatDateForDisplay(new Date()),
+                firetrolJobNumber: this.firewireForm.projectNbr || '',
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                estimator: this.firewireForm.salesman || '',
+                projectStreet: parsedAddress.street || this.firewireForm.address || '',
+                projectCity: parsedAddress.city,
+                projectState: parsedAddress.state,
+                projectZip: parsedAddress.zip,
+                contractor: '',
+                phone: '',
+                fax: '',
+                billingStreet: parsedAddress.street || this.firewireForm.address || '',
+                billingCity: parsedAddress.city,
+                billingState: parsedAddress.state,
+                billingZip: parsedAddress.zip,
+                descriptionOfWork: this.firewireForm.projectScope || '',
+                materialsBuyout: this.getInstallationMaterialTotal(),
+                materialOther: this.getEquipmentMaterialTotal(),
+                rentalInside: this.getRentalEquipmentTotal(),
+                fieldLaborHours: this.getInstallationLaborTotalHours(),
+                fieldLaborRate: this.getInstallationLaborTotalHours() > 0
+                    ? this.getInstallationLaborTotalCost() / this.getInstallationLaborTotalHours()
+                    : this.getInstallationHourlyRate(),
+                fieldLaborCost: this.getInstallationLaborTotalCost(),
+                permitsTotal: this.getPermitAndFeesTotal(),
+                subcontractTotal: this.getSubcontractTotal(),
+                otherTotal: this.getSpecialMarkupTotal(),
+                contractCost: this.getTotalJobCost(),
+                contractGainPercent: this.getSummaryQuotedPreTax() > 0
+                    ? ((this.getSummaryQuotedPreTax() - this.getTotalJobCost()) / this.getSummaryQuotedPreTax()) * 100
+                    : 0,
+                contractGainAmount: this.getSummaryQuotedPreTax() - this.getTotalJobCost(),
+                contractTotal: this.getSummaryQuotedWithTax(),
+                totalHeads: this.getSummaryDeviceCount(),
+                squareFootage: Number(this.firewireForm.totalSqFt || 0),
+                insideHoursPerHead: this.getSummaryMetricPerDevice(this.getSummaryFieldHours()),
+                dollarsPerHead: this.getSummaryMetricPerDevice(this.getSummaryQuotedPreTax()),
+                dollarsPerSquareFoot: this.getSummaryMetricPerSqFt(this.getSummaryQuotedPreTax())
+            }
+        })
     }
 
     openScheduleOfValuesSheet() {
-        this.firewireSaveMessage = 'Schedule of Values report coming next.'
+        this.dialog.open(ScheduleOfValuesDialog, {
+            width: '1160px',
+            maxWidth: '1160px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                applicationNumber: '',
+                applicationDate: this.formatDateForDisplay(new Date()),
+                periodTo: '',
+                firetrolContractNo: this.firewireForm.projectNbr || '0',
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                rows: [
+                    {
+                        itemNo: '01',
+                        description: 'Material',
+                        scheduledValue: this.getInstallationMaterialTotal() + this.getEquipmentMaterialTotal(),
+                        previousApplication: 0,
+                        thisPeriod: 0,
+                        materialsPresentlyStored: 0,
+                        percentGc: 0
+                    },
+                    {
+                        itemNo: '02',
+                        description: 'Labor',
+                        scheduledValue: this.getInstallationLaborTotalCost(),
+                        previousApplication: 0,
+                        thisPeriod: 0,
+                        materialsPresentlyStored: 0,
+                        percentGc: 0
+                    }
+                ]
+            }
+        })
     }
 
     private parseProjectAddress(value: string | null | undefined): { street: string, city: string, state: string, zip: string } {
@@ -2598,8 +2678,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
 
         return this.dialog.open(ConfirmFirewireNavigationDialog, {
-            width: '420px',
-            maxWidth: '92vw',
+            width: '360px',
+            maxWidth: '88vw',
+            panelClass: 'fw-compact-dialog-pane',
             data: {
                 title: 'Leave Project Detail?',
                 message: 'You have unsaved Firewire project changes.',

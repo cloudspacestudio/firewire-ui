@@ -27,6 +27,17 @@ interface ConfirmFirewireNavigationDialogData {
         MatButtonModule,
         MatIconModule
     ],
+    styles: [`
+        :host {
+            display: block;
+            max-width: 360px;
+        }
+
+        .confirm-firewire-navigation__content {
+            max-width: 32ch;
+            line-height: 1.5;
+        }
+    `],
     template: `
         <div mat-dialog-title style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <span>{{data.title || 'Unsaved Changes'}}</span>
@@ -34,7 +45,7 @@ interface ConfirmFirewireNavigationDialogData {
                 <mat-icon>close</mat-icon>
             </button>
         </div>
-        <mat-dialog-content>{{data.message || 'You have unsaved Firewire project changes. Leave this page?'}}</mat-dialog-content>
+        <mat-dialog-content class="confirm-firewire-navigation__content">{{data.message || 'You have unsaved Firewire project changes. Leave this page?'}}</mat-dialog-content>
         <mat-dialog-actions align="end">
             <button mat-button type="button" [mat-dialog-close]="'stay'">Stay</button>
             <button *ngIf="data.canSave !== false" mat-stroked-button type="button" [mat-dialog-close]="'save'">Save Changes</button>

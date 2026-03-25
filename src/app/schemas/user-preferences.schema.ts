@@ -34,6 +34,9 @@ export interface UserPreferences {
     profile: {
         avatarDataUrl: string | null
     }
+    workspaceLock: {
+        hasPin: boolean
+    }
 }
 
 export interface UserPreferencesRecord {

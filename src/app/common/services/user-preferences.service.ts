@@ -152,7 +152,44 @@ export class UserPreferencesService {
                 avatarDataUrl: typeof input?.profile?.avatarDataUrl === 'string' && input.profile.avatarDataUrl.trim()
                     ? input.profile.avatarDataUrl.trim()
                     : null
+            },
+            workspaceLock: {
+                hasPin: !!input?.workspaceLock?.hasPin
             }
+        }
+    }
+
+    async verifyWorkspacePin(pin: string): Promise<boolean> {
+        const result = await firstValueFrom(
+            this.http.post<{ data?: { valid?: boolean } }>('/api/firewire/user-preferences/workspace-lock/verify', { pin }).pipe(
+                map((response) => !!response?.data?.valid)
+            )
+        )
+        return result
+    }
+
+    async saveWorkspacePin(newPin: string, currentPin?: string): Promise<UserPreferencesRecord> {
+        const result = await firstValueFrom(
+            this.http.put<{ data?: UserPreferencesRecord }>('/api/firewire/user-preferences/workspace-lock/pin', {
+                currentPin: currentPin || '',
+                newPin
+            }).pipe(
+                map((response) => response?.data ?? {
+                    userId: '',
+                    preferences: this.snapshot,
+                    createdAt: null,
+                    createdBy: null,
+                    updatedAt: null,
+                    updatedBy: null
+                })
+            )
+        )
+        const persisted = this.normalizePreferences(result.preferences)
+        this.preferencesSubject.next(persisted)
+        this.loaded = true
+        return {
+            ...result,
+            preferences: persisted
         }
     }
 
@@ -237,6 +274,9 @@ export class UserPreferencesService {
             },
             profile: {
                 avatarDataUrl: null
+            },
+            workspaceLock: {
+                hasPin: false
             }
         }
     }

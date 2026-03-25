@@ -1,19 +1,26 @@
 import { Component, DestroyRef, Input, OnInit, inject } from "@angular/core";
 import { NgIf } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { firstValueFrom } from "rxjs";
 
 import { MatToolbarModule } from '@angular/material/toolbar'
 import { MatButtonModule } from '@angular/material/button'
+import { MatDialog } from '@angular/material/dialog'
 import { MatIconModule } from '@angular/material/icon'
 import { MatMenuModule } from '@angular/material/menu'
 import { MatDividerModule } from '@angular/material/divider'
+import { MatFormFieldModule } from '@angular/material/form-field'
+import { MatInputModule } from '@angular/material/input'
 import { AuthService } from "../../auth/auth.service";
 import { UserPreferencesService } from "../services/user-preferences.service";
+import { WorkspaceLockService } from "../services/workspace-lock.service";
+import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
 
 @Component({
     selector: 'page-toolbar',
-    imports: [NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule],
+    imports: [NgIf, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule, MatFormFieldModule, MatInputModule],
     styles: [`
         :host {
             display: block;
@@ -114,6 +121,113 @@ import { UserPreferencesService } from "../services/user-preferences.service";
             height: 100%;
             object-fit: cover;
             display: block;
+        }
+
+        .fw-lock-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: grid;
+            place-items: center;
+            padding: 32px;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(72, 221, 255, 0.12), transparent 28%),
+                radial-gradient(circle at 80% 18%, rgba(255, 164, 61, 0.1), transparent 24%),
+                linear-gradient(180deg, rgba(3, 8, 14, 0.94), rgba(4, 9, 17, 0.98)),
+                rgba(3, 8, 14, 0.98);
+            backdrop-filter: blur(12px);
+        }
+
+        .fw-lock-overlay::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.18;
+            background-image:
+                linear-gradient(rgba(72, 221, 255, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(72, 221, 255, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        .fw-lock-card {
+            position: relative;
+            z-index: 1;
+            width: min(520px, 100%);
+            display: grid;
+            gap: 18px;
+            padding: 26px 28px 28px;
+            border: 1px solid rgba(72, 221, 255, 0.22);
+            border-radius: 22px;
+            background:
+                linear-gradient(180deg, rgba(10, 18, 32, 0.88), rgba(8, 14, 24, 0.94)),
+                rgba(8, 14, 24, 0.94);
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.44), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .fw-lock-card__kicker {
+            color: rgba(177, 213, 228, 0.76);
+            font-size: 0.72rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+
+        .fw-lock-card__title {
+            color: #f4fbff;
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .fw-lock-card__copy {
+            color: rgba(232, 243, 250, 0.82);
+            line-height: 1.55;
+            max-width: 44ch;
+        }
+
+        .fw-lock-card__status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border: 1px solid rgba(72, 221, 255, 0.18);
+            border-radius: 999px;
+            width: max-content;
+            max-width: 100%;
+            color: #9fe7ff;
+            font-size: 0.76rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            background: rgba(72, 221, 255, 0.06);
+        }
+
+        .fw-lock-card__actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .fw-lock-card__error {
+            color: #ffb180;
+            font-weight: 600;
+        }
+
+        .fw-lock-card__hint {
+            color: rgba(177, 213, 228, 0.74);
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .fw-lock-card :is(.mat-mdc-form-field, .mdc-text-field) {
+            width: 100%;
+        }
+
+        .fw-lock-card__actions .mdc-button {
+            min-width: 210px;
+            letter-spacing: 0.12em;
         }
 
         :host ::ng-deep .fw-user-menu .mat-mdc-menu-item.fw-user-menu-meta {
@@ -296,7 +410,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/sales')" mat-menu-item [routerLink]="'/sales'">
+                <button mat-menu-item [routerLink]="'/sales'">
                     <span class="fw-nav-item fw-nav-item--sales">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Sales</span>
@@ -304,7 +418,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/design')" mat-menu-item [routerLink]="'/design'">
+                <button mat-menu-item [routerLink]="'/design'">
                     <span class="fw-nav-item fw-nav-item--design">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Design</span>
@@ -312,7 +426,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/install')" mat-menu-item [routerLink]="'/install'">
+                <button mat-menu-item [routerLink]="'/install'">
                     <span class="fw-nav-item fw-nav-item--install">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Install</span>
@@ -320,7 +434,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/projects')" mat-menu-item [routerLink]="'/projects'">
+                <button mat-menu-item [routerLink]="'/projects'">
                     <span class="fw-nav-item fw-nav-item--projects">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Projects</span>
@@ -328,7 +442,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/devices')" mat-menu-item [routerLink]="'/devices'">
+                <button mat-menu-item [routerLink]="'/devices'">
                     <span class="fw-nav-item fw-nav-item--devices">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Devices</span>
@@ -336,7 +450,7 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                         </span>
                     </span>
                 </button>
-                <button *ngIf="!isCurrentRoute('/settings')" mat-menu-item [routerLink]="'/settings'">
+                <button mat-menu-item [routerLink]="'/settings'">
                     <span class="fw-nav-item fw-nav-item--settings">
                         <span class="fw-nav-item__content">
                             <span class="fw-nav-item__title">Settings</span>
@@ -361,19 +475,47 @@ import { UserPreferencesService } from "../services/user-preferences.service";
                 <button mat-menu-item disabled class="fw-user-menu-meta">{{userName}}</button>
                 <button mat-menu-item disabled class="fw-user-menu-meta" *ngIf="userEmail">{{userEmail}}</button>
                 <mat-divider></mat-divider>
+                <button mat-menu-item (click)="onLockWorkspace()">
+                    <mat-icon fontIcon="lock"></mat-icon>
+                    <span>Lock Workspace</span>
+                </button>
                 <button mat-menu-item [routerLink]="'/preferences'">Preferences</button>
                 <button mat-menu-item [routerLink]="'/about'">About</button>
                 <mat-divider></mat-divider>
                 <button mat-menu-item (click)="onSignOut()">Sign Out</button>
             </mat-menu>
         </mat-toolbar>
+        <div *ngIf="isWorkspaceLocked" class="fw-lock-overlay">
+            <div class="fw-lock-card">
+                <div class="fw-lock-card__kicker">Secure Session</div>
+                <div class="fw-lock-card__title">Workspace Locked</div>
+                <div class="fw-lock-card__copy">The Firewire command surface is sealed. Re-enter your personal PIN to restore access to the active workspace.</div>
+                <div class="fw-lock-card__status">
+                    <mat-icon fontIcon="lock"></mat-icon>
+                    User Command Lock
+                </div>
+                <mat-form-field appearance="outline">
+                    <mat-label>Workspace PIN</mat-label>
+                    <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="unlockPin" (keyup.enter)="onUnlockWorkspace()" />
+                </mat-form-field>
+                <div *ngIf="lockErrorMessage" class="fw-lock-card__error">{{lockErrorMessage}}</div>
+                <div class="fw-lock-card__actions">
+                    <button mat-flat-button type="button" (click)="onUnlockWorkspace()" [disabled]="unlockWorking">
+                        {{unlockWorking ? 'UNLOCKING...' : 'UNLOCK WORKSPACE'}}
+                    </button>
+                </div>
+                <div class="fw-lock-card__hint">Use Preferences to rotate your PIN after unlock.</div>
+            </div>
+        </div>
     `
 })
 export class PageToolbar implements OnInit {
     private readonly auth = inject(AuthService)
     private readonly userPreferences = inject(UserPreferencesService)
+    private readonly workspaceLock = inject(WorkspaceLockService)
     private readonly destroyRef = inject(DestroyRef)
     private readonly router = inject(Router)
+    private readonly dialog = inject(MatDialog)
 
     @Input() title?: string
     @Input() hideMenu = false
@@ -383,6 +525,10 @@ export class PageToolbar implements OnInit {
     userEmail = ''
     userInitials = 'U'
     userAvatarUrl: string | null = null
+    isWorkspaceLocked = false
+    unlockPin = ''
+    unlockWorking = false
+    lockErrorMessage = ''
 
     ngOnInit(): void {
         const profile = this.auth.getUserProfile()
@@ -398,6 +544,17 @@ export class PageToolbar implements OnInit {
             .subscribe((preferences) => {
                 const profileAvatar = this.auth.getUserProfile()?.avatarUrl || null
                 this.userAvatarUrl = preferences.profile.avatarDataUrl || profileAvatar
+            })
+
+        this.workspaceLock.locked$
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((locked) => {
+                this.isWorkspaceLocked = locked
+                if (!locked) {
+                    this.unlockPin = ''
+                    this.lockErrorMessage = ''
+                    this.unlockWorking = false
+                }
             })
 
         this.userPreferences.load().catch((err) => {
@@ -424,6 +581,52 @@ export class PageToolbar implements OnInit {
         this.auth.signOut().catch((err) => {
             console.error('Sign out failed', err)
         })
+    }
+
+    async onLockWorkspace(): Promise<void> {
+        try {
+            await this.userPreferences.load()
+            if (!this.userPreferences.snapshot.workspaceLock.hasPin) {
+                const dialogRef = this.dialog.open(WorkspacePinSetupDialog, {
+                    width: '360px',
+                    maxWidth: '88vw',
+                    panelClass: 'fw-compact-dialog-pane'
+                })
+                const newPin = await firstValueFrom(dialogRef.afterClosed())
+                if (!newPin) {
+                    return
+                }
+                await this.userPreferences.saveWorkspacePin(String(newPin))
+            }
+
+            this.workspaceLock.lock()
+        } catch (err: any) {
+            console.error('Unable to initialize workspace lock.', err)
+            this.lockErrorMessage = err?.error?.message || err?.message || 'Workspace lock could not be initialized.'
+        }
+    }
+
+    async onUnlockWorkspace(): Promise<void> {
+        if (!this.unlockPin.trim()) {
+            this.lockErrorMessage = 'Enter your workspace PIN.'
+            return
+        }
+
+        this.unlockWorking = true
+        this.lockErrorMessage = ''
+        try {
+            const valid = await this.userPreferences.verifyWorkspacePin(this.unlockPin)
+            if (!valid) {
+                this.lockErrorMessage = 'PIN verification failed.'
+                this.unlockWorking = false
+                return
+            }
+            this.workspaceLock.unlock()
+        } catch (err) {
+            console.error('Workspace unlock failed.', err)
+            this.lockErrorMessage = 'Unable to verify PIN right now.'
+            this.unlockWorking = false
+        }
     }
 
     onAvatarError(): void {
