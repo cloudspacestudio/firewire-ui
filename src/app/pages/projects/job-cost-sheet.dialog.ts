@@ -40,6 +40,9 @@ interface OptionRow {
                 <div class="sheet-kicker">Proposal Output</div>
                 <div class="sheet-title">Job Cost Project Set Up Sheet</div>
             </div>
+            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
         </div>
         <mat-dialog-content class="sheet-shell">
             <div class="sheet-kicker">Proposal Package</div>
@@ -153,10 +156,10 @@ interface OptionRow {
         </mat-dialog-actions>
     `,
     styles: [`
-        .sheet-titlebar{display:flex;align-items:center;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
+        .sheet-titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),#0a1019}
         .sheet-kicker{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
         .sheet-title{margin-top:6px;color:#f4fbff;font-size:1.08rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-        .sheet-shell{width:100%;display:grid;gap:16px;padding:10px 0 0;box-sizing:border-box;overflow-x:hidden;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),rgba(8,12,21,.96)}
+        .sheet-shell{width:100%;display:grid;gap:16px;padding:10px 0 0;box-sizing:border-box;overflow-x:hidden;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),#0b111b}
         .sheet-paper{border:1px solid rgba(72,221,255,.16);border-radius:0;background:#fff;overflow:auto;box-shadow:0 18px 40px rgba(0,0,0,.36),0 0 0 1px rgba(72,221,255,.08)}
         .sheet-paper__inner{padding:20px 24px 24px;background:linear-gradient(rgba(120,130,140,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(120,130,140,.16) 1px,transparent 1px),#fff;background-size:38px 22px,38px 22px,auto;font-family:Arial,sans-serif;color:#101820}
         .sheet-paper__brand-row{display:flex;justify-content:space-between;align-items:flex-start}.sheet-paper__logo{display:block;width:220px;max-width:100%;height:auto;object-fit:contain}.sheet-paper__rev{font-size:11px;color:#5d6770}.sheet-paper__title{margin:8px 0 16px;font-size:18px;font-weight:700;text-align:center}
@@ -166,7 +169,7 @@ interface OptionRow {
         .check-head,.check-row{display:grid;grid-template-columns:1fr 42px 42px;gap:8px;align-items:center}.check-head strong{text-align:center;font-size:12px}.check-row{min-height:24px}.check-row span{font-size:12px}
         .check-row input[type='checkbox'],.option-row input[type='checkbox']{width:16px;height:16px;margin:0 auto;accent-color:#d9d36e}
         .option-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px;margin-bottom:14px}.option-row{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center;font-size:12px}
-        .sheet-footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)} .sheet-footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
+        .sheet-footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:#0a1019} .sheet-footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
         @media (max-width:720px){.sheet-titlebar{padding:16px 16px 10px}.sheet-paper__inner{padding:16px}.sheet-grid,.option-grid,.approval-grid,.field-grid{grid-template-columns:1fr}.sheet-footer{padding:8px 16px 16px}}
     `]
 })
@@ -279,7 +282,8 @@ export class JobCostSheetDialog implements AfterViewInit {
         this.editable.estDeviceCount = `${this.data.estDeviceCount || 0}`
         this.editable.estSqFootage = `${this.data.estSqFootage || 0}`
         this.editable.scopeOfWork = this.data.scopeOfWork || ''
-        this.jobTypes.forEach((row) => row.checked = row.label === this.data.jobType)
+        const selectedJobType = this.resolveJobTypeSelection(this.data.jobType)
+        this.jobTypes.forEach((row) => row.checked = row.label === selectedJobType)
     }
 
     ngAfterViewInit() {
@@ -307,6 +311,57 @@ export class JobCostSheetDialog implements AfterViewInit {
         popup.document.close()
         popup.focus()
         popup.print()
+    }
+
+    private resolveJobTypeSelection(input: string): string {
+        const normalizedInput = this.normalizeJobType(input)
+        if (!normalizedInput) {
+            return ''
+        }
+
+        const byExactOption = this.jobTypes.find((row) => this.normalizeJobType(row.label) === normalizedInput)
+        if (byExactOption) {
+            return byExactOption.label
+        }
+
+        const mappedLabel = this.jobTypeSelectionMap[normalizedInput]
+        if (mappedLabel && this.jobTypes.some((row) => row.label === mappedLabel)) {
+            return mappedLabel
+        }
+
+        return ''
+    }
+
+    private normalizeJobType(input: string | null | undefined): string {
+        return `${input || ''}`
+            .trim()
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+    }
+
+    private readonly jobTypeSelectionMap: Record<string, string> = {
+        'educational': 'Education',
+        'health care': 'Healthcare',
+        'high rise': 'High Rise',
+        'hotel and dormitories': 'Hotel',
+        'industrial': 'Industrial',
+        'mercantile': 'Retail',
+        'storage': 'Warehouse',
+        'supermarket': 'Retail',
+        'mall': 'Retail',
+        'shopping center': 'Retail',
+        'business': 'Commercial',
+        'assembly': 'Commercial',
+        'ambulatory': 'Healthcare',
+        'day care': 'Education',
+        'detention and correctional': 'Commercial',
+        'lodging or rooming houses': 'Residential',
+        'apartment buildings': 'Residential',
+        'residential board and care': 'Residential',
+        'one and two family dwelling': 'Residential'
     }
 
     private renderPrintableDocument(): string {

@@ -1,4 +1,4 @@
-<page-toolbar>
+<page-toolbar title="Projects">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/home'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
@@ -18,6 +18,28 @@
                     {{createPanelOpen ? 'CLOSE FIREWIRE FORM' : 'NEW FIREWIRE PROJECT'}}
                 </button>
                 <span *ngIf="createStatusText" class="project-create-status">{{createStatusText}}</span>
+                <span class="project-actions-spacer"></span>
+                <mat-button-toggle-group class="project-view-toggle" [value]="projectsViewMode" (valueChange)="onProjectsViewModeChange($event)">
+                    <mat-button-toggle value="Grid">Grid View</mat-button-toggle>
+                    <mat-button-toggle value="Map">Map View</mat-button-toggle>
+                </mat-button-toggle-group>
+                <button
+                    *ngIf="selectedProjectStatuses.length > 0"
+                    mat-icon-button
+                    type="button"
+                    class="project-filter-clear"
+                    (click)="clearProjectStatusFilter()"
+                    aria-label="Clear project status filter">
+                    <mat-icon fontIcon="filter_alt_off"></mat-icon>
+                </button>
+                <mat-form-field class="project-status-filter">
+                    <mat-label>Project Status</mat-label>
+                    <mat-select [(ngModel)]="selectedProjectStatuses" multiple (selectionChange)="onProjectStatusFilterChange()">
+                        <mat-option *ngFor="let option of getProjectStatusFilterOptions()" [value]="option">
+                            {{option}}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
             </div>
         </div>
         <div class="content-root with-tabstrip">
@@ -28,10 +50,6 @@
                         <input matInput [(ngModel)]="createModel.name" />
                     </mat-form-field>
                     <mat-form-field>
-                        <mat-label>Project Number</mat-label>
-                        <input matInput [(ngModel)]="createModel.projectNbr" />
-                    </mat-form-field>
-                    <mat-form-field>
                         <mat-label>Bid Due Date</mat-label>
                         <input matInput type="date" [(ngModel)]="createModel.bidDueDate" />
                     </mat-form-field>
@@ -40,6 +58,14 @@
                         <mat-select [(ngModel)]="createModel.projectStatus">
                             <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">
                                 {{option.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Project Type</mat-label>
+                        <mat-select [(ngModel)]="createModel.projectType">
+                            <mat-option *ngFor="let option of projectTypeOptions" [value]="option">
+                                {{option}}
                             </mat-option>
                         </mat-select>
                     </mat-form-field>
@@ -93,15 +119,31 @@
                     </mat-form-field>
                 </div>
                 <div class="project-create-actions">
-                    <button mat-flat-button type="button" (click)="createProject()" [disabled]="saveWorking">SAVE PROJECT</button>
+                    <button mat-flat-button type="button" (click)="createProject()" [disabled]="saveWorking">CREATE PROJECT</button>
                     <button mat-button type="button" (click)="toggleCreatePanel()" [disabled]="saveWorking">CANCEL</button>
                 </div>
             </div>
 
-            <table mat-table [dataSource]="datasource" matSort>
+            <ng-container *ngIf="projectsViewMode === 'Grid'; else projectsMapView">
+            <table
+                mat-table
+                [dataSource]="datasource"
+                matSort
+                [matSortActive]="currentSortActive"
+                [matSortDirection]="currentSortDirection"
+                (matSortChange)="onSortChange($event)">
+                <ng-container matColumnDef="projectTypeIcon">
+                    <th mat-header-cell *matHeaderCellDef class="project-type-column"></th>
+                    <td mat-cell *matCellDef="let row" class="project-type-column">
+                        <mat-icon [class]="getProjectTypeIconClass(row.projectType)" [fontIcon]="getProjectTypeIcon(row.projectType)"></mat-icon>
+                    </td>
+                </ng-container>
+
                 <ng-container matColumnDef="name" sticky="true">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
-                    <td mat-cell *matCellDef="let row"> {{row.name}} </td>
+                    <td mat-cell *matCellDef="let row">
+                        <a class="project-name-link" [routerLink]="getProjectLink(row)">{{row.name}}</a>
+                    </td>
                 </ng-container>
 
                 <ng-container matColumnDef="projectNbr">
@@ -109,9 +151,25 @@
                     <td mat-cell *matCellDef="let row"> {{row.projectNbr}} </td>
                 </ng-container>
 
+                <ng-container matColumnDef="projectStatus">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Project Status </th>
+                    <td mat-cell *matCellDef="let row"> {{row.projectStatus || ''}} </td>
+                </ng-container>
+
                 <ng-container matColumnDef="address">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Address </th>
-                    <td mat-cell *matCellDef="let row"> {{row.address}} </td>
+                    <td mat-cell *matCellDef="let row">
+                        <span class="project-address-cell">
+                            <span>{{row.address}}</span>
+                            <mat-icon
+                                *ngIf="row.latitude !== null && row.longitude !== null"
+                                class="project-address-geo-icon"
+                                fontIcon="my_location"
+                                aria-hidden="true"
+                                title="Geocoded address recorded">
+                            </mat-icon>
+                        </span>
+                    </td>
                 </ng-container>
 
                 <ng-container matColumnDef="bidDueDate">
@@ -121,10 +179,21 @@
 
                 <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef style="width: 55px;"></th>
-                    <td mat-cell *matCellDef="let row;" style="width: 80px;">
-                        <button mat-icon-button [routerLink]="getProjectLink(row)">
-                            <mat-icon>edit</mat-icon>
-                        </button>
+                    <td mat-cell *matCellDef="let row;" class="project-actions-cell" style="width: 120px;">
+                        <div class="project-actions-cell__inner">
+                            <a
+                                *ngIf="getFieldwireProjectUrl(row) as fieldwireProjectUrl"
+                                class="fieldwire-link-button"
+                                [href]="fieldwireProjectUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open Fieldwire project in a new tab">
+                                <img src="/fieldwire-logo.webp" alt="" />
+                            </a>
+                            <button mat-icon-button [routerLink]="getProjectLink(row)">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                        </div>
                     </td>
                 </ng-container>
 
@@ -132,11 +201,59 @@
                 <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
 
                 <tr class="mat-row" *matNoDataRow>
-                <td class="mat-cell" colspan="5">{{getNoDataRowText(input.value)}}</td>
+                <td class="mat-cell" colspan="7">{{getNoDataRowText(input.value)}}</td>
                 </tr>
             </table>
 
             <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of projects"></mat-paginator>
+            </ng-container>
+
+            <ng-template #projectsMapView>
+                <section class="project-map-shell">
+                    <div class="project-map-stage">
+                        <div *ngIf="mapLoadError" class="project-map-empty">
+                            {{mapLoadError}}
+                        </div>
+                        <div *ngIf="!mapLoadError && getMapProjectCards().length <= 0" class="project-map-empty">
+                            No geocoded projects match the current filters.
+                        </div>
+                        <div #projectsMapHost class="project-map-canvas" [class.is-hidden]="!!mapLoadError || getMapProjectCards().length <= 0"></div>
+                    </div>
+
+                    <aside class="project-map-rail">
+                        <div class="project-map-rail__eyebrow">Geo Project Feed</div>
+                        <button
+                            *ngFor="let row of getMapProjectCards()"
+                            #mapProjectCard
+                            type="button"
+                            class="project-map-card"
+                            [attr.data-project-id]="row.firewireProjectId || row.fieldwireProjectId || null"
+                            [class.is-selected]="isMapProjectSelected(row)"
+                            (click)="selectMapProject(row, true)">
+                            <div class="project-map-card__header">
+                                <span class="project-map-card__status" [attr.data-tone]="getProjectStatusTone(row.projectStatus)">{{row.projectStatus || 'Status Pending'}}</span>
+                                <span class="project-map-card__type">{{row.projectType || 'Firewire'}}</span>
+                            </div>
+                            <div class="project-map-card__title">{{row.name}}</div>
+                            <div class="project-map-card__meta">{{row.address}}</div>
+                            <div class="project-map-card__meta" *ngIf="row.projectNbr"># {{row.projectNbr}}</div>
+                            <div class="project-map-card__actions" *ngIf="row.firewireProjectId">
+                                <a
+                                    class="project-map-card__edit"
+                                    [routerLink]="getProjectLink(row)"
+                                    (click)="$event.stopPropagation()">
+                                    <mat-icon fontIcon="edit"></mat-icon>
+                                    <span>DETAILS</span>
+                                </a>
+                            </div>
+                        </button>
+                    </aside>
+                </section>
+                <div *ngIf="getMapExclusionNote() as mapExclusionNote" class="project-map-note">
+                    <div class="project-map-note__eyebrow">Map Telemetry</div>
+                    <div class="project-map-note__text">{{mapExclusionNote}}</div>
+                </div>
+            </ng-template>
 
         </div>
     </div>

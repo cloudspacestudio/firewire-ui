@@ -6,7 +6,7 @@ import { PageToolbar } from '../../common/components/page-toolbar'
     standalone: true,
     imports: [PageToolbar],
     template: `
-        <page-toolbar></page-toolbar>
+        <page-toolbar title="INSTALL"></page-toolbar>
         <div class="placeholder-page">
             <div class="placeholder-card">
                 <div class="placeholder-eyebrow">Install</div>

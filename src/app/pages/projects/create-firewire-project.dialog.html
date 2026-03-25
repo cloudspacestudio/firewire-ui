@@ -1,6 +1,11 @@
-<div mat-dialog-title>
-    <h2>Create Firewire Project</h2>
-    <div>{{data.fieldwireProject.name}}</div>
+<div mat-dialog-title style="display:flex;align-items:flex-start;gap:12px;">
+    <div style="flex:1 1 auto;min-width:0;">
+        <h2 style="margin:0;">Create Firewire Project</h2>
+        <div>{{data.fieldwireProject.name}}</div>
+    </div>
+    <button mat-icon-button aria-label="Close dialog" mat-dialog-close [disabled]="saveWorking">
+        <mat-icon>close</mat-icon>
+    </button>
 </div>
 
 <mat-dialog-content>
@@ -21,6 +26,12 @@
             <mat-label>Project Status</mat-label>
             <mat-select [(ngModel)]="model.projectStatus">
                 <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
+            </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+            <mat-label>Project Type</mat-label>
+            <mat-select [(ngModel)]="model.projectType">
+                <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
             </mat-select>
         </mat-form-field>
         <mat-form-field>

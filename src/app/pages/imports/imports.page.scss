@@ -1,0 +1,39 @@
+:host {
+    display: block;
+}
+
+.imports-toolbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    flex-wrap: wrap;
+}
+
+.imports-toolbar-nav button {
+    margin-right: 0 !important;
+    border-radius: var(--fw-control-radius) !important;
+    min-height: 38px;
+    min-width: 0;
+    padding-inline: 12px;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+}
+
+.imports-toolbar-nav button.active {
+    border: 1px solid rgba(255, 164, 61, 0.72);
+    background:
+        linear-gradient(180deg, rgba(255, 170, 72, 0.34), rgba(255, 132, 28, 0.14)),
+        rgba(10, 18, 32, 0.95) !important;
+    color: #ffe2b2 !important;
+    box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.28), 0 0 22px rgba(255, 140, 40, 0.22);
+}
+
+.imports-toolbar-nav button.inactive {
+    border: 1px solid rgba(72, 221, 255, 0.20);
+    background:
+        linear-gradient(180deg, rgba(72, 221, 255, 0.10), rgba(72, 221, 255, 0.03)),
+        rgba(10, 18, 32, 0.94) !important;
+    color: var(--fw-text) !important;
+}

@@ -56,7 +56,7 @@ import { MatMenuModule } from '@angular/material/menu'
     <div class="button-bar">
         @for (item of navItems; track item) {
         <button *ngIf="isActiveItem(item)" mat-flat-button class="active">{{item.caption}}</button>
-        <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [routerLink]="item.route">{{item.caption}}</button>
+        <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
         }
     </div>
 
@@ -67,8 +67,13 @@ export class NavToolbar {
 
     @Input() navItems?: NavItem[] = []
     @Input() selectedItem: string = 'devices'
+    @Input() disableRouteMatch = false
 
     isActiveItem(item: NavItem): boolean {
+        if (this.disableRouteMatch) {
+            return item.id === this.selectedItem
+        }
+
         const currentUrl = this.router.url.split('?')[0].split('#')[0]
         const matchedItem = this.getBestRouteMatch(currentUrl)
         if (matchedItem) {
@@ -84,6 +89,9 @@ export class NavToolbar {
         }
 
         const matches = this.navItems.filter((item) => {
+            if (typeof item.route !== 'string') {
+                return false
+            }
             return currentUrl === item.route || currentUrl.startsWith(`${item.route}/`)
         })
 
@@ -104,7 +112,8 @@ export class NavToolbar {
 
     static ProjectNavItems = [
         {id: 'projects', caption: 'PROJECTS', route: `/projects`},
-        {id: 'fieldwire-projects', caption: 'FIELDWIRE', route: `/projects/fieldwire-list`},
+        {id: 'awaiting-project-nbr', caption: 'AWAITING PROJECT NBR', route: `/projects/awaiting-project-nbr`},
+        {id: 'fieldwire-projects', caption: 'FIELDWIRE ONLY', route: `/projects/fieldwire-list`},
         {id: 'administration', caption: 'ADMIN', route: `/admin`}
     ]
 }
@@ -112,5 +121,6 @@ export class NavToolbar {
 export interface NavItem {
     id: string
     caption: string
-    route: string
+    route: string | any[]
+    queryParams?: Record<string, string> | null
 }

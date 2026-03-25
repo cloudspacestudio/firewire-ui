@@ -1,14 +1,15 @@
-<page-toolbar>
+<page-toolbar title="Daily Report">
     <div class="button-bar">
         <button mat-fab class="back dr-btn dr-nav-btn" [routerLink]="backLink" aria-label="Back to project">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div *ngIf="project" class="dr-toolbar-project">{{project.name}}</div>
-    <!-- <div class="button-bar">
-        <button mat-flat-button class="inactive">IMPORTS</button>
-        <button mat-flat-button class="active">UPLOAD</button>
-    </div> -->
+    <div class="dr-toolbar-nav">
+        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">DETAILS</button>
+        <button mat-flat-button type="button" class="active">DAILY REPORT</button>
+        <button mat-raised-button type="button" class="inactive" [routerLink]="getImportsRoute()" [queryParams]="{ returnTo: detailsLink }">IMPORT TASKS</button>
+        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">UPLOAD DOCS</button>
+    </div>
 </page-toolbar>
 <!--Loaded, Init, No Data-->
 <div *ngIf="pageState===2 || pageState===0 || pageState===4" class="page-root">
@@ -17,6 +18,10 @@
             <section class="dr-shell">
                 <div class="dr-header">
                     <div>
+                        <div *ngIf="project" class="dr-project-banner">
+                            <div class="dr-project-label">Project</div>
+                            <div class="dr-project-name">{{project.name}}</div>
+                        </div>
                         <h1 class="dr-title">Daily Report Uplink</h1>
                         <div class="dr-subtitle">
                             Build Fieldwire summaries and transmit daily production data.

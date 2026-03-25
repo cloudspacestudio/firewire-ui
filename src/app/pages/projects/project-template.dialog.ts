@@ -51,7 +51,12 @@ export interface SaveProjectTemplateDialogResult {
         MatIconModule
     ],
     template: `
-        <div mat-dialog-title>{{data.mode === 'save' ? 'Save Project Template' : 'Load Project Template'}}</div>
+        <div mat-dialog-title class="template-dialog__titlebar">
+            <span>{{data.mode === 'save' ? 'Save Project Template' : 'Load Project Template'}}</span>
+            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
         <mat-dialog-content class="template-dialog">
             <mat-form-field *ngIf="data.mode === 'save'" appearance="outline" class="template-dialog__field">
                 <mat-label>Template Name</mat-label>
@@ -98,6 +103,13 @@ export interface SaveProjectTemplateDialogResult {
         </mat-dialog-actions>
     `,
     styles: [`
+        .template-dialog__titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
         .template-dialog {
             display: grid;
             gap: 14px;

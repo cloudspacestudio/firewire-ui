@@ -1,12 +1,14 @@
-<page-toolbar>
+<page-toolbar title="Imports">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="backLink">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div class="button-bar">
-        <button mat-flat-button class="inactive">IMPORTS</button>
-        <button mat-flat-button class="active">UPLOAD</button>
+    <div class="imports-toolbar-nav">
+        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">DETAILS</button>
+        <button mat-raised-button type="button" class="inactive" [routerLink]="getDailyReportRoute()" [queryParams]="{ returnTo: detailsLink }">DAILY REPORT</button>
+        <button mat-flat-button type="button" class="active">IMPORT TASKS</button>
+        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">UPLOAD DOCS</button>
     </div>
 </page-toolbar>
 <div *ngIf="!pageWorking" class="page-root">

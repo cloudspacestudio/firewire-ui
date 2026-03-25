@@ -9,6 +9,413 @@
     flex-wrap: wrap;
 }
 
+.project-actions-spacer {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.project-status-filter {
+    min-width: 240px;
+    margin-left: -8px;
+}
+
+.project-filter-clear {
+    border: 1px solid rgba(72, 221, 255, 0.2);
+    border-radius: 12px;
+    background:
+        linear-gradient(180deg, rgba(72, 221, 255, 0.1), rgba(72, 221, 255, 0.03)),
+        rgba(10, 18, 32, 0.94);
+    color: var(--fw-text);
+}
+
+.project-view-toggle {
+    margin-right: 2px;
+}
+
+.project-map-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+    min-height: 680px;
+}
+
+.project-map-stage {
+    position: relative;
+    min-height: 680px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 18px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(72, 221, 255, 0.12), transparent 34%),
+        radial-gradient(circle at 80% 0%, rgba(255, 170, 72, 0.12), transparent 28%),
+        linear-gradient(135deg, rgba(8, 14, 24, 0.98), rgba(12, 20, 34, 0.94));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 24px 48px rgba(0, 0, 0, 0.32);
+}
+
+.project-map-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background-image:
+        linear-gradient(rgba(72, 221, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(72, 221, 255, 0.03) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.35;
+}
+
+.project-map-canvas {
+    position: absolute;
+    inset: 0;
+}
+
+.project-map-canvas.is-hidden {
+    visibility: hidden;
+}
+
+.project-map-empty {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    color: var(--fw-text);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.84rem;
+}
+
+.project-map-rail {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(8, 14, 24, 0.96), rgba(11, 20, 34, 0.92)),
+        rgba(8, 14, 24, 0.96);
+    max-height: 680px;
+    overflow: auto;
+    box-shadow: var(--fw-shadow);
+}
+
+.project-map-note {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at right top, rgba(255, 170, 72, 0.08), transparent 34%),
+        linear-gradient(135deg, rgba(8, 14, 24, 0.95), rgba(10, 18, 32, 0.92));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.project-map-note__eyebrow {
+    color: #9fe7ff;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.project-map-note__text {
+    margin-top: 6px;
+    color: var(--fw-text);
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.project-map-rail__eyebrow {
+    color: #9fe7ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.project-map-card {
+    display: grid;
+    gap: 6px;
+    padding: 12px 13px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.08), rgba(255, 170, 72, 0.03)),
+        rgba(9, 14, 24, 0.88);
+    color: var(--fw-text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.project-map-card:hover,
+.project-map-card.is-selected {
+    border-color: rgba(72, 221, 255, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px rgba(72, 221, 255, 0.12), 0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.project-map-card.is-selected {
+    border-color: rgba(132, 255, 190, 0.72);
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.14), rgba(132, 255, 190, 0.08)),
+        rgba(9, 16, 27, 0.96);
+    box-shadow:
+        0 0 0 1px rgba(132, 255, 190, 0.18),
+        0 0 28px rgba(132, 255, 190, 0.16),
+        0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
+.project-map-card.is-selected .project-map-card__title {
+    color: #f4fff8;
+}
+
+.project-map-card.is-selected .project-map-card__meta {
+    color: rgba(222, 246, 236, 0.92);
+}
+
+.project-map-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.project-map-card__status,
+.project-map-card__type {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.project-map-card__status {
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    background: rgba(72, 221, 255, 0.08);
+}
+
+.project-map-card__status[data-tone='cyan'] { color: #9fe7ff; }
+.project-map-card__status[data-tone='amber'] { color: #ffd98b; }
+.project-map-card__status[data-tone='lime'] { color: #d4ff8b; }
+.project-map-card__status[data-tone='violet'] { color: #d6b5ff; }
+.project-map-card__status[data-tone='orange'] { color: #ffb37d; }
+.project-map-card__status[data-tone='teal'] { color: #9fffe2; }
+.project-map-card__status[data-tone='slate'] { color: #d3d9e8; }
+
+.project-map-card__type {
+    color: var(--fw-muted);
+}
+
+.project-map-card__title {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.project-map-card__meta {
+    color: var(--fw-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.project-map-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.project-map-card__edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(72, 221, 255, 0.1), rgba(72, 221, 255, 0.03)),
+        rgba(9, 14, 24, 0.9);
+    color: #dff8ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.project-map-card__edit mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+:host ::ng-deep .atlas-map {
+    font-family: inherit;
+}
+
+:host ::ng-deep .atlas-control-container {
+    z-index: 4;
+}
+
+:host ::ng-deep .atlas-popup {
+    z-index: 5;
+    background: transparent !important;
+    filter: none !important;
+}
+
+:host ::ng-deep .atlas-popup-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+:host ::ng-deep .atlas-popup-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+:host ::ng-deep .atlas-popup-content-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+:host ::ng-deep .atlas-popup-tip {
+    border-top-color: rgba(10, 18, 32, 0.96) !important;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+:host ::ng-deep .atlas-popup-tip-container {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+:host ::ng-deep .project-map-popup {
+    min-width: 200px;
+    padding: 12px 14px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 0;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at top right, rgba(255, 170, 72, 0.12), transparent 34%),
+        linear-gradient(135deg, rgba(8, 14, 24, 0.98), rgba(10, 18, 32, 0.96));
+    color: var(--fw-text);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 16px 36px rgba(0, 0, 0, 0.32);
+}
+
+:host ::ng-deep .project-map-popup__eyebrow {
+    color: #9fe7ff;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+:host ::ng-deep .project-map-popup__title {
+    margin-top: 6px;
+    color: #f4fbff;
+    font-size: 0.96rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+:host ::ng-deep .project-map-popup__meta {
+    margin-top: 4px;
+    color: #b7c8d8;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+:host ::ng-deep .project-map-marker {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+:host ::ng-deep .project-map-marker__core {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px 999px 999px 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 18px rgba(72, 221, 255, 0.22);
+}
+
+:host ::ng-deep .project-map-marker__core::after {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    background: rgba(7, 12, 20, 0.88);
+}
+
+:host ::ng-deep .project-map-marker__pulse {
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    width: 20px;
+    height: 8px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: rgba(72, 221, 255, 0.22);
+    filter: blur(4px);
+    opacity: 0.8;
+}
+
+:host ::ng-deep .project-map-marker.is-selected {
+    transform: scale(1.12);
+}
+
+:host ::ng-deep .project-map-marker.is-selected .project-map-marker__pulse {
+    opacity: 1;
+}
+
+:host ::ng-deep .project-map-marker--cyan .project-map-marker__core {
+    background: linear-gradient(180deg, #6ae5ff, #25a5ff);
+}
+
+:host ::ng-deep .project-map-marker--amber .project-map-marker__core {
+    background: linear-gradient(180deg, #ffd978, #ff9f43);
+}
+
+:host ::ng-deep .project-map-marker--lime .project-map-marker__core {
+    background: linear-gradient(180deg, #dbff73, #88e857);
+}
+
+:host ::ng-deep .project-map-marker--violet .project-map-marker__core {
+    background: linear-gradient(180deg, #d8a6ff, #8a63ff);
+}
+
+:host ::ng-deep .project-map-marker--orange .project-map-marker__core {
+    background: linear-gradient(180deg, #ffbf86, #ff7a45);
+}
+
+:host ::ng-deep .project-map-marker--teal .project-map-marker__core {
+    background: linear-gradient(180deg, #92ffe0, #1fc7aa);
+}
+
+:host ::ng-deep .project-map-marker--slate .project-map-marker__core {
+    background: linear-gradient(180deg, #d9dfec, #8c98ad);
+}
+
 .project-create-panel {
     margin-bottom: 14px;
     padding: 14px;
@@ -19,6 +426,54 @@
         linear-gradient(135deg, rgba(72, 221, 255, 0.05), rgba(125, 211, 255, 0.03)),
         rgba(9, 14, 24, 0.94);
     box-shadow: var(--fw-shadow);
+}
+
+.project-briefing {
+    margin-bottom: 14px;
+    padding: 16px 18px;
+    border: 1px solid rgba(72, 221, 255, 0.2);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at top right, rgba(255, 170, 72, 0.12), transparent 34%),
+        radial-gradient(circle at left center, rgba(72, 221, 255, 0.12), transparent 42%),
+        linear-gradient(135deg, rgba(8, 14, 24, 0.96), rgba(12, 20, 34, 0.92));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 16px 40px rgba(0, 0, 0, 0.28);
+    position: relative;
+    overflow: hidden;
+}
+
+.project-briefing::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(72, 221, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(72, 221, 255, 0.035) 1px, transparent 1px);
+    background-size: 26px 26px;
+    opacity: 0.32;
+}
+
+.project-briefing > * {
+    position: relative;
+    z-index: 1;
+}
+
+.project-briefing__eyebrow {
+    color: #9fe7ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.project-briefing__text {
+    margin: 8px 0 0;
+    max-width: 980px;
+    color: var(--fw-text);
+    font-size: 0.95rem;
+    line-height: 1.6;
 }
 
 .project-create-grid {
@@ -57,4 +512,175 @@ td.mat-column-mappedFieldwireProjectName {
 .project-create-status {
     font-size: 0.82rem;
     color: var(--fw-muted);
+}
+
+.project-name-link {
+    color: #7fd6ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.project-name-link:hover {
+    color: #b9ebff;
+}
+
+.project-address-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.project-address-geo-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    color: #9fe7ff;
+    opacity: 0.92;
+}
+
+.project-nbr-inline-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.project-nbr-inline-edit__input {
+    width: 140px;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid rgba(72, 221, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(9, 14, 24, 0.88);
+    color: var(--fw-text);
+}
+
+.project-nbr-inline-edit__input:focus {
+    outline: 1px solid rgba(72, 221, 255, 0.4);
+    outline-offset: 0;
+    border-color: rgba(72, 221, 255, 0.36);
+}
+
+.project-nbr-inline-edit__input:disabled {
+    opacity: 0.56;
+    cursor: not-allowed;
+}
+
+.project-nbr-inline-edit__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.project-nbr-inline-edit__save,
+.project-nbr-inline-edit__cancel {
+    min-width: 0;
+    min-height: 30px;
+    padding-inline: 10px;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 9px !important;
+}
+
+.project-nbr-inline-edit__save {
+    background: linear-gradient(180deg, rgba(255, 170, 72, 0.34), rgba(255, 132, 28, 0.14)), rgba(10, 18, 32, 0.95) !important;
+    color: #ffe2b2 !important;
+}
+
+.project-type-column {
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    text-align: center;
+    padding-left: 12px;
+    padding-right: 8px;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+th.mat-column-projectTypeIcon,
+td.mat-column-projectTypeIcon {
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.project-type-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(72, 221, 255, 0.2);
+    background: rgba(10, 18, 32, 0.78);
+    font-size: 18px;
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+.project-type-icon--fire-alarm {
+    color: #ff8f6b;
+    border-color: rgba(255, 143, 107, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(255, 143, 107, 0.12);
+}
+
+.project-type-icon--sprinkler {
+    color: #67d7ff;
+    border-color: rgba(103, 215, 255, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(103, 215, 255, 0.12);
+}
+
+.project-type-icon--security {
+    color: #b4ff7f;
+    border-color: rgba(180, 255, 127, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(180, 255, 127, 0.12);
+}
+
+.fieldwire-link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    padding: 0;
+    line-height: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.fieldwire-link-button img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+td.mat-column-actions {
+    white-space: nowrap;
+}
+
+td.mat-column-actions .mat-mdc-icon-button {
+    margin-left: 2px;
+}
+
+.project-actions-cell {
+    vertical-align: middle;
+}
+
+.project-actions-cell__inner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
 }

@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common'
-import { Component, ElementRef, ViewChild } from '@angular/core'
+import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import { MatButtonToggleModule } from '@angular/material/button-toggle'
@@ -7,9 +7,13 @@ import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatIconModule } from '@angular/material/icon'
 import { MatInputModule } from '@angular/material/input'
 import { MatSlideToggleModule } from '@angular/material/slide-toggle'
+import { MatSelectModule } from '@angular/material/select'
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { UserPreferencesService } from '../../common/services/user-preferences.service'
-import { HomeBackgroundMode, HomeBackgroundVideo, HomeBackgroundVideoManifestItem, UserPreferences } from '../../schemas/user-preferences.schema'
+import { AzureMapsService } from '../../common/services/azure-maps.service'
+import { HomeBackgroundMode, HomeBackgroundVideo, HomeBackgroundVideoManifestItem, PROJECT_MAP_DIMENSION_OPTIONS, PROJECT_MAP_STYLE_OPTIONS, ProjectMapDimension, ProjectMapStyle, UserPreferences } from '../../schemas/user-preferences.schema'
+
+declare const atlas: any
 
 @Component({
     standalone: true,
@@ -23,19 +27,32 @@ import { HomeBackgroundMode, HomeBackgroundVideo, HomeBackgroundVideoManifestIte
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
-        MatSlideToggleModule
+        MatSlideToggleModule,
+        MatSelectModule
     ],
     templateUrl: './preferences.page.html',
     styleUrls: ['./preferences.page.scss']
 })
 export class PreferencesPage {
     @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>
+    @ViewChild('preferencesMapHost')
+    set preferencesMapHostRef(value: ElementRef<HTMLDivElement> | undefined) {
+        this.preferencesMapHost = value
+        if (value) {
+            this.queuePreviewMapRender()
+        }
+    }
     private readonly failedThumbnailFiles = new Set<string>()
+    private preferencesMapHost?: ElementRef<HTMLDivElement>
+    private previewMapReady = false
+    private previewAtlasMap: any
+    private previewAtlasMarkers: any[] = []
 
     pageWorking = true
     isSaving = false
     saveMessage = ''
     errorMessage = ''
+    previewMapError = ''
 
     draft: UserPreferences = {
         homePage: {
@@ -47,6 +64,14 @@ export class PreferencesPage {
             gradientFrom: '#09111d',
             gradientTo: '#060a12',
             gradientAngle: 135
+        },
+        projectMap: {
+            version: 1,
+            style: 'night',
+            dimension: '2d',
+            showRoadDetails: true,
+            showBuildingFootprints: true,
+            autoFitPins: true
         },
         profile: {
             avatarDataUrl: null
@@ -61,10 +86,13 @@ export class PreferencesPage {
         { value: 'solid', label: 'Solid' },
         { value: 'gradient', label: 'Gradient' }
     ]
+    readonly projectMapStyleOptions = PROJECT_MAP_STYLE_OPTIONS
+    readonly projectMapDimensionOptions = PROJECT_MAP_DIMENSION_OPTIONS
 
     constructor(
         private readonly location: Location,
-        private readonly userPreferences: UserPreferencesService
+        private readonly userPreferences: UserPreferencesService,
+        private readonly azureMapsService: AzureMapsService
     ) {
         this.initialize()
     }
@@ -79,6 +107,10 @@ export class PreferencesPage {
 
     get isVideoPreviewMode(): boolean {
         return this.draft.homePage.backgroundMode === 'video'
+    }
+
+    get previewMapStatusLabel(): string {
+        return this.draft.projectMap.dimension === '3d' ? '3D Perspective' : '2D Tactical'
     }
 
     get backgroundPreviewStyle(): Record<string, string> {
@@ -141,6 +173,12 @@ export class PreferencesPage {
         this.location.back()
     }
 
+    ngOnDestroy(): void {
+        if (this.previewAtlasMap?.dispose) {
+            this.previewAtlasMap.dispose()
+        }
+    }
+
     selectBackgroundMode(mode: HomeBackgroundMode): void {
         this.draft = {
             ...this.draft,
@@ -163,6 +201,38 @@ export class PreferencesPage {
         }
         this.saveMessage = ''
         this.errorMessage = ''
+    }
+
+    onProjectMapStyleSelected(style: ProjectMapStyle): void {
+        this.draft = {
+            ...this.draft,
+            projectMap: {
+                ...this.draft.projectMap,
+                style
+            }
+        }
+        this.saveMessage = ''
+        this.errorMessage = ''
+        this.queuePreviewMapRender()
+    }
+
+    onProjectMapDimensionSelected(dimension: ProjectMapDimension): void {
+        this.draft = {
+            ...this.draft,
+            projectMap: {
+                ...this.draft.projectMap,
+                dimension
+            }
+        }
+        this.saveMessage = ''
+        this.errorMessage = ''
+        this.queuePreviewMapRender()
+    }
+
+    onProjectMapToggleChange(): void {
+        this.saveMessage = ''
+        this.errorMessage = ''
+        this.queuePreviewMapRender()
     }
 
     onAvatarSelected(event: Event): void {
@@ -239,6 +309,110 @@ export class PreferencesPage {
             this.errorMessage = 'Preferences could not be loaded.'
         } finally {
             this.pageWorking = false
+            this.queuePreviewMapRender()
+        }
+    }
+
+    private queuePreviewMapRender(): void {
+        setTimeout(() => {
+            void this.ensurePreviewMapReady()
+        }, 0)
+    }
+
+    private async ensurePreviewMapReady(): Promise<void> {
+        if (!this.preferencesMapHost?.nativeElement) {
+            return
+        }
+
+        const subscriptionKey = await this.azureMapsService.getSubscriptionKey()
+        if (!subscriptionKey) {
+            this.previewMapError = 'Azure Maps key unavailable for preview.'
+            return
+        }
+
+        try {
+            await this.azureMapsService.loadSdk()
+            this.previewMapError = ''
+
+            if (!this.previewAtlasMap) {
+                this.previewAtlasMap = new atlas.Map(this.preferencesMapHost.nativeElement, {
+                    authOptions: {
+                        authType: 'subscriptionKey',
+                        subscriptionKey
+                    },
+                    center: [-97.7431, 30.2672],
+                    zoom: 9,
+                    style: this.draft.projectMap.style,
+                    language: 'en-US'
+                })
+
+                this.previewAtlasMap.events.add('ready', () => {
+                    this.previewMapReady = true
+                    this.previewAtlasMap.controls.add([
+                        new atlas.control.ZoomControl(),
+                        new atlas.control.CompassControl()
+                    ], {
+                        position: 'top-right'
+                    })
+                    this.renderPreviewMap()
+                })
+                return
+            }
+
+            if (this.previewMapReady) {
+                this.renderPreviewMap()
+            }
+        } catch (err) {
+            console.error(err)
+            this.previewMapError = 'Preview map could not be loaded.'
+        }
+    }
+
+    private renderPreviewMap(): void {
+        if (!this.previewAtlasMap || !this.previewMapReady) {
+            return
+        }
+
+        this.previewAtlasMap.setStyle({
+            style: this.draft.projectMap.style,
+            styleOverrides: {
+                roadDetails: {
+                    visible: this.draft.projectMap.showRoadDetails
+                },
+                buildingFootprint: {
+                    visible: this.draft.projectMap.showBuildingFootprints
+                }
+            }
+        })
+
+        this.previewAtlasMap.setCamera({
+            center: [-97.7431, 30.2672],
+            zoom: 9,
+            pitch: this.draft.projectMap.dimension === '3d' ? 58 : 0,
+            bearing: this.draft.projectMap.dimension === '3d' ? -18 : 0,
+            type: 'ease',
+            duration: 450
+        })
+
+        for (const marker of this.previewAtlasMarkers) {
+            this.previewAtlasMap.markers.remove(marker)
+        }
+        this.previewAtlasMarkers = []
+
+        const previewProjects = [
+            { position: [-97.7431, 30.2672], tone: 'cyan', label: 'Estimation' },
+            { position: [-97.7014, 30.3054], tone: 'amber', label: 'Proposal' },
+            { position: [-97.7899, 30.2304], tone: 'lime', label: 'Booking' }
+        ]
+
+        this.previewAtlasMarkers = previewProjects.map((item) => new atlas.HtmlMarker({
+            htmlContent: `<div class="preferences-map-marker preferences-map-marker--${item.tone}" aria-label="${item.label}"><span class="preferences-map-marker__core"></span><span class="preferences-map-marker__pulse"></span></div>`,
+            position: item.position,
+            anchor: 'bottom'
+        }))
+
+        for (const marker of this.previewAtlasMarkers) {
+            this.previewAtlasMap.markers.add(marker)
         }
     }
 

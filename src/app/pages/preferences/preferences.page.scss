@@ -312,6 +312,78 @@
     background: rgba(10, 18, 30, 0.46);
 }
 
+.preferences-map-console {
+    display: grid;
+    gap: 16px;
+}
+
+.preferences-map-console__copy {
+    color: rgba(214, 231, 240, 0.78);
+    line-height: 1.6;
+}
+
+.preferences-map-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.preferences-map-toggles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.preferences-map-preview-shell {
+    display: grid;
+    gap: 8px;
+}
+
+.preferences-map-preview__label {
+    color: var(--fw-accent);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.preferences-map-preview {
+    position: relative;
+    min-height: 340px;
+    overflow: hidden;
+    border: 1px solid rgba(88, 228, 255, 0.18);
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(72, 221, 255, 0.12), transparent 34%),
+        radial-gradient(circle at 80% 0%, rgba(255, 170, 72, 0.12), transparent 28%),
+        linear-gradient(135deg, rgba(8, 14, 24, 0.98), rgba(12, 20, 34, 0.94));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 18px 38px rgba(0, 0, 0, 0.24);
+}
+
+.preferences-map-preview__canvas {
+    position: absolute;
+    inset: 0;
+}
+
+.preferences-map-preview__canvas.is-hidden {
+    visibility: hidden;
+}
+
+.preferences-map-preview__empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    color: rgba(214, 231, 240, 0.78);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    z-index: 2;
+}
+
 .avatar-shell {
     display: grid;
     grid-template-columns: 148px minmax(0, 1fr);
@@ -452,6 +524,56 @@
     }
 }
 
+:host ::ng-deep .preferences-map-preview .atlas-map {
+    font-family: inherit;
+}
+
+:host ::ng-deep .preferences-map-marker {
+    position: relative;
+    width: 22px;
+    height: 22px;
+}
+
+:host ::ng-deep .preferences-map-marker__core {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px 999px 999px 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 14px rgba(72, 221, 255, 0.18);
+}
+
+:host ::ng-deep .preferences-map-marker__core::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: rgba(7, 12, 20, 0.88);
+}
+
+:host ::ng-deep .preferences-map-marker__pulse {
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    width: 16px;
+    height: 6px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: rgba(72, 221, 255, 0.22);
+    filter: blur(4px);
+}
+
+:host ::ng-deep .preferences-map-marker--cyan .preferences-map-marker__core {
+    background: linear-gradient(180deg, #6ae5ff, #25a5ff);
+}
+
+:host ::ng-deep .preferences-map-marker--amber .preferences-map-marker__core {
+    background: linear-gradient(180deg, #ffd978, #ff9f43);
+}
+
+:host ::ng-deep .preferences-map-marker--lime .preferences-map-marker__core {
+    background: linear-gradient(180deg, #dbff73, #88e857);
+}
+
 @media (max-width: 900px) {
     .preferences-hero,
     .preferences-grid,
@@ -463,6 +585,10 @@
     .background-browser__head {
         align-items: start;
         flex-direction: column;
+    }
+
+    .preferences-map-controls {
+        align-items: stretch;
     }
 
     .video-browser__thumb {

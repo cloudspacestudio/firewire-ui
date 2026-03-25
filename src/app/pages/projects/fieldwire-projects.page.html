@@ -1,4 +1,4 @@
-<page-toolbar>
+<page-toolbar title="Fieldwire">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/home'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
@@ -18,6 +18,13 @@
             </div>
         </div>
         <div class="content-root with-tabstrip">
+            <section class="project-briefing project-briefing--fieldwire">
+                <div class="project-briefing__eyebrow">Fieldwire Intake Queue</div>
+                <p class="project-briefing__text">
+                    This is a list of projects available in Fieldwire that are not currently listed as Firewire projects. Use this table to create a corresponding Firewire project.
+                </p>
+            </section>
+
             <table mat-table [dataSource]="datasource" matSort>
                 <ng-container matColumnDef="name" sticky="true">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>

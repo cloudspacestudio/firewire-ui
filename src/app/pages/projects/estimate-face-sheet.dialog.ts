@@ -58,6 +58,9 @@ export interface EstimateFaceSheetData {
                 <div class="estimate-face-sheet__title-kicker">Bidding Output</div>
                 <div class="estimate-face-sheet__title">Estimate Face Sheet</div>
             </div>
+            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
         </div>
         <mat-dialog-content class="estimate-face-sheet">
             <div class="estimate-face-sheet__toolbar">
@@ -199,6 +202,7 @@ export interface EstimateFaceSheetData {
         .estimate-face-sheet__titlebar {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             padding: 18px 22px 10px;
             border-bottom: 1px solid rgba(72, 221, 255, 0.12);
             background:

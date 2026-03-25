@@ -1,3 +1,5 @@
+import type { FirewireProjectType } from './firewire-project.schema'
+
 export type ProjectSource = 'fieldwire' | 'firewire' | 'both'
 
 export interface ProjectListItemSchema {
@@ -9,8 +11,14 @@ export interface ProjectListItemSchema {
     name: string
     projectNbr: string
     address: string
+    addressNeedsVerification: boolean
+    latitude: number | null
+    longitude: number | null
+    geocodeStatus: string | null
+    geocodedAt: string | null
     bidDueDate: string | null
     projectStatus: string | null
+    projectType: FirewireProjectType | null
     salesman: string | null
     jobType: string | null
     scopeType: string | null

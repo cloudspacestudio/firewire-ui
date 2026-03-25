@@ -12,6 +12,7 @@ export const routes: Routes = [
     {path: 'logged-out', loadComponent: () => import('./pages/root/logged-out.page').then(m => m.LoggedOutPage)},
 
     {path: 'projects', loadComponent: () => import('./pages/projects/projects.page').then(m => m.ProjectsPage)},
+    {path: 'projects/awaiting-project-nbr', loadComponent: () => import('./pages/projects/awaiting-project-nbr.page').then(m => m.AwaitingProjectNbrPage)},
     {path: 'projects/fieldwire-list', loadComponent: () => import('./pages/projects/fieldwire-projects.page').then(m => m.FieldwireProjectsPage)},
     {path: 'admin', loadComponent: () => import('./pages/projects/projects-admin.page').then(m => m.ProjectsAdminPage)},
     {path: 'devices', loadComponent: () => import('./pages/devices/devices.page').then(m => m.DevicesPage)},

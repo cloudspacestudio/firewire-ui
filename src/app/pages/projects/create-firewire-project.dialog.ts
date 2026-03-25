@@ -11,9 +11,10 @@ import {
 } from '@angular/material/dialog'
 import { MatButtonModule } from '@angular/material/button'
 import { MatFormFieldModule } from '@angular/material/form-field'
+import { MatIconModule } from '@angular/material/icon'
 import { MatInputModule } from '@angular/material/input'
 import { MatSelectModule } from '@angular/material/select'
-import { FirewireProjectUpsert } from '../../schemas/firewire-project.schema'
+import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectUpsert } from '../../schemas/firewire-project.schema'
 import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
 import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { ProjectSettingsApi } from './project-settings.api'
@@ -35,6 +36,7 @@ interface CreateFirewireProjectDialogData {
         MatDialogActions,
         MatDialogClose,
         MatButtonModule,
+        MatIconModule,
         MatFormFieldModule,
         MatInputModule,
         MatSelectModule
@@ -47,6 +49,7 @@ export class CreateFirewireProjectDialog {
     saveWorking = false
     saveError = ''
     projectSettingsLoaded = false
+    readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
 
     model: FirewireProjectUpsert = this.createInitialModel()
 
@@ -81,8 +84,8 @@ export class CreateFirewireProjectDialog {
             this.saveError = 'Name is required.'
             return
         }
-        if (this.shouldShowProjectNbrInput() && !this.model.projectNbr.trim()) {
-            this.saveError = 'Project Number is required when Fieldwire does not provide one.'
+        if (this.model.projectStatus === 'Install' && !this.model.projectNbr.trim()) {
+            this.saveError = 'Project Number is required when project status is Install.'
             return
         }
         this.saveWorking = true
@@ -92,6 +95,7 @@ export class CreateFirewireProjectDialog {
             projectNbr: this.model.projectNbr.trim(),
             address: this.model.address.trim(),
             salesman: this.model.salesman.trim(),
+            projectType: this.model.projectType,
             jobType: this.model.jobType.trim(),
             scopeType: this.model.scopeType.trim(),
             projectScope: this.model.projectScope.trim(),
@@ -123,6 +127,7 @@ export class CreateFirewireProjectDialog {
             address: fieldwireProject.address || '',
             bidDueDate: defaultBidDate.toISOString().slice(0, 10),
             projectStatus: 'Estimation',
+            projectType: 'Fire Alarm',
             salesman: '',
             jobType: '',
             scopeType: '',

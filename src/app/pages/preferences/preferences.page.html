@@ -180,6 +180,72 @@
                         <input #avatarInput type="file" accept="image/*" hidden (change)="onAvatarSelected($event)" />
                     </article>
 
+                    <article class="preferences-card">
+                        <div class="preferences-card__head">
+                            <div>
+                                <div class="preferences-card__eyebrow">Project Map</div>
+                                <h2>Geo Command Defaults</h2>
+                            </div>
+                            <div class="preferences-chip">{{previewMapStatusLabel}}</div>
+                        </div>
+
+                        <div class="preferences-form-grid">
+                            <div class="preferences-map-console">
+                                <div class="preferences-map-console__copy">
+                                    Default the Firewire project map to the visual mode you want every time it boots. Changes here match the controls available on the live Projects map view.
+                                </div>
+
+                                <div class="preferences-map-controls">
+                                    <mat-form-field appearance="outline">
+                                        <mat-label>Map Style</mat-label>
+                                        <mat-select [ngModel]="draft.projectMap.style" (ngModelChange)="onProjectMapStyleSelected($event)">
+                                            <mat-option *ngFor="let option of projectMapStyleOptions" [value]="option.value">
+                                                {{option.label}} · {{option.note}}
+                                            </mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+
+                                    <mat-button-toggle-group [ngModel]="draft.projectMap.dimension" (ngModelChange)="onProjectMapDimensionSelected($event)">
+                                        <mat-button-toggle *ngFor="let option of projectMapDimensionOptions" [value]="option.value">
+                                            {{option.label}}
+                                        </mat-button-toggle>
+                                    </mat-button-toggle-group>
+                                </div>
+
+                                <div class="preferences-map-toggles">
+                                    <label class="preferences-toggle">
+                                        <mat-slide-toggle [(ngModel)]="draft.projectMap.showRoadDetails" (ngModelChange)="onProjectMapToggleChange()">
+                                            Show Road Detail
+                                        </mat-slide-toggle>
+                                        <span class="preferences-toggle__note">Keep street and routing details visible in tactical map mode.</span>
+                                    </label>
+
+                                    <label class="preferences-toggle">
+                                        <mat-slide-toggle [(ngModel)]="draft.projectMap.showBuildingFootprints" (ngModelChange)="onProjectMapToggleChange()">
+                                            Show Building Footprints
+                                        </mat-slide-toggle>
+                                        <span class="preferences-toggle__note">Render structure outlines for denser project context.</span>
+                                    </label>
+
+                                    <label class="preferences-toggle">
+                                        <mat-slide-toggle [(ngModel)]="draft.projectMap.autoFitPins" (ngModelChange)="onProjectMapToggleChange()">
+                                            Auto-Fit Pins
+                                        </mat-slide-toggle>
+                                        <span class="preferences-toggle__note">Automatically frame the visible project markers when the map view loads.</span>
+                                    </label>
+                                </div>
+
+                                <div class="preferences-map-preview-shell">
+                                    <div class="preferences-map-preview__label">Live Preview</div>
+                                    <div class="preferences-map-preview">
+                                        <div *ngIf="previewMapError" class="preferences-map-preview__empty">{{previewMapError}}</div>
+                                        <div #preferencesMapHost class="preferences-map-preview__canvas" [class.is-hidden]="!!previewMapError"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
                     <article class="preferences-card preferences-card--wide">
                         <div class="preferences-card__head">
                             <div>

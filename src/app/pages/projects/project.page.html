@@ -1,14 +1,15 @@
-<page-toolbar>
+<page-toolbar title="Project Details">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/projects'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
 
-    <div class="project-toolbar-actions">
-        <button *ngIf="project" mat-flat-button [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
-        <button *ngIf="project" mat-flat-button [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
-        <button mat-flat-button (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">UPLOAD DOCS</button>
+    <div class="project-toolbar-nav">
+        <button mat-flat-button type="button" class="active">DETAILS</button>
+        <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
+        <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
+        <button mat-raised-button type="button" class="inactive" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">UPLOAD DOCS</button>
         <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
     </div>
 
@@ -50,7 +51,7 @@
                 {{getProjectLockChipLabel()}}
             </span>
             <span class="tabstrip-spacer"></span>
-            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && activeFirewireWorkspaceTab !== 'FIELDWIRE VIEW' && activeFirewireWorkspaceTab !== 'DOC LIBRARY' && activeFirewireWorkspaceTab !== 'SYSTEM' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
                 <button
                     mat-flat-button
                     type="button"
@@ -116,11 +117,11 @@
                                             <mat-label>Name</mat-label>
                                             <input matInput [(ngModel)]="firewireForm.name" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
-                                        <mat-form-field>
+                                        <mat-form-field *ngIf="shouldShowProjectIdentityFields()">
                                             <mat-label>Project Number</mat-label>
                                             <input matInput [(ngModel)]="firewireForm.projectNbr" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
-                                        <mat-form-field class="firewire-project-span-2">
+                                        <mat-form-field *ngIf="shouldShowProjectIdentityFields()" class="firewire-project-span-2">
                                             <mat-label>Fieldwire Project Link</mat-label>
                                             <ng-container *ngIf="firewireProject.fieldwireId; else editableFieldwireLink">
                                                 <input matInput [value]="getSelectedFieldwireProjectName()" readonly />
@@ -136,8 +137,8 @@
                                             <ng-template #editableFieldwireLink>
                                                 <mat-select [(ngModel)]="firewireForm.fieldwireId" [disabled]="isFirewireProjectLocked()">
                                                     <mat-option [value]="null">Not linked</mat-option>
-                                                    <mat-option *ngFor="let option of fieldwireProjects" [value]="option.id">
-                                                        {{option.name}} ({{option.code}})
+                                                    <mat-option *ngFor="let option of getAvailableFieldwireProjects()" [value]="option.id">
+                                                        {{getFieldwireProjectOptionLabel(option)}}
                                                     </mat-option>
                                                 </mat-select>
                                             </ng-template>
@@ -152,6 +153,12 @@
                                             <mat-label>Project Status</mat-label>
                                             <mat-select [(ngModel)]="firewireForm.projectStatus" [disabled]="isFirewireProjectLocked()">
                                                 <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field>
+                                            <mat-label>Project Type</mat-label>
+                                            <mat-select [(ngModel)]="firewireForm.projectType" [disabled]="isProjectTypeLocked()">
+                                                <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                         <mat-form-field>
@@ -186,6 +193,9 @@
                                         <mat-form-field class="firewire-project-span-2">
                                             <mat-label>Address</mat-label>
                                             <input matInput [(ngModel)]="firewireForm.address" [readonly]="isFirewireProjectLocked()" />
+                                            <mat-hint *ngIf="firewireProject?.addressNeedsVerification" class="address-verification-hint">
+                                                Address needs verification. Azure Maps could not standardize it.
+                                            </mat-hint>
                                         </mat-form-field>
                                         <mat-form-field class="firewire-project-span-2">
                                             <mat-label>Project Scope</mat-label>
@@ -196,7 +206,7 @@
                                         </mat-form-field>
                                     </div>
 
-                                    <div *ngIf="!isFirewireProjectLocked()" class="firewire-project-actions">
+                                    <div *ngIf="!isFirewireProjectLocked() && isProjectDirty" class="firewire-project-actions">
                                         <button
                                             mat-stroked-button
                                             type="button"
@@ -215,6 +225,52 @@
                                             SAVE DETAILS
                                         </button>
                                         <span *ngIf="firewireSaveMessage" class="project-upload-status">{{firewireSaveMessage}}</span>
+                                    </div>
+
+                                    <div *ngIf="hasSystemLocationInsights()" class="system-insights-shell">
+                                        <mat-card class="system-weather-card">
+                                            <mat-card-header>
+                                                <mat-card-title>7-Day Forecast</mat-card-title>
+                                            </mat-card-header>
+                                            <mat-card-content>
+                                                <div *ngIf="systemWeatherLoading" class="system-weather-empty">Loading weather uplink...</div>
+                                                <div *ngIf="!systemWeatherLoading && getSystemWeatherForecast().length <= 0" class="system-weather-empty">
+                                                    {{systemWeatherStatus === 'not-configured' ? 'Weather service not configured.' : 'Forecast unavailable for this location.'}}
+                                                </div>
+                                                <div *ngIf="!systemWeatherLoading && getSystemWeatherForecast().length > 0" class="system-weather-row">
+                                                    <div *ngFor="let day of getSystemWeatherForecast()" class="system-weather-tile" [class.is-today]="isSystemWeatherToday(day.date)">
+                                                        <div class="system-weather-tile__date">
+                                                            <span class="system-weather-tile__month">{{formatSystemWeatherMonth(day.date)}}</span>
+                                                            <span class="system-weather-tile__day-number">{{formatSystemWeatherDayNumber(day.date)}}</span>
+                                                        </div>
+                                                        <div class="system-weather-tile__day">{{day.dayLabel || 'Day'}}</div>
+                                                        <div class="system-weather-tile__icon">
+                                                            <mat-icon [fontIcon]="getSystemWeatherIcon(day)"></mat-icon>
+                                                        </div>
+                                                        <div class="system-weather-tile__temps">
+                                                            <strong>{{formatSystemTemp(day.maxTemp)}}</strong>
+                                                            <span>{{formatSystemTemp(day.minTemp)}}</span>
+                                                        </div>
+                                                        <div class="system-weather-tile__phrase">{{day.phrase}}</div>
+                                                        <div class="system-weather-tile__precip" *ngIf="day.precipitationProbability !== null">
+                                                            {{day.precipitationProbability}}% precip
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </mat-card-content>
+                                        </mat-card>
+
+                                        <mat-card class="system-map-card">
+                                            <mat-card-header>
+                                                <mat-card-title>Project Location</mat-card-title>
+                                            </mat-card-header>
+                                            <mat-card-content>
+                                                <div class="system-map-stage">
+                                                    <div *ngIf="systemMapError" class="system-map-empty">{{systemMapError}}</div>
+                                                    <div #systemMapHost class="system-map-canvas" [class.is-hidden]="!!systemMapError"></div>
+                                                </div>
+                                            </mat-card-content>
+                                        </mat-card>
                                     </div>
                                 </div>
 
@@ -721,6 +777,15 @@
                                                 <mat-button-toggle *ngFor="let layoutItem of layouts" [value]="layoutItem"
                                                 [checked]="layout===layoutItem" (click)="setLayout(layoutItem)">{{layoutItem}}</mat-button-toggle>
                                             </mat-button-toggle-group>
+                                            <a
+                                                *ngIf="getLinkedFieldwireProjectUrl() as fieldwireProjectUrl"
+                                                class="fieldwire-view-launch"
+                                                [href]="fieldwireProjectUrl"
+                                                target="_blank"
+                                                rel="noopener noreferrer">
+                                                <mat-icon fontIcon="open_in_new"></mat-icon>
+                                                VIEW IN FIELDWIRE
+                                            </a>
                                         </div>
                                         <ng-container *ngTemplateOutlet="fieldwireOutputContent"></ng-container>
                                     </div>
@@ -1597,6 +1662,14 @@
                                                     mat-stroked-button
                                                     type="button"
                                                     class="summary-job-cost-button"
+                                                    (click)="generateProposal()">
+                                                    GENERATE PROPOSAL
+                                                </button>
+                                                <button
+                                                    *ngIf="isProposalProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
                                                     (click)="openJobCostSheet()">
                                                     SETUP JOB COST SHEET
                                                 </button>
@@ -1615,6 +1688,30 @@
                                                     class="summary-job-cost-button"
                                                     (click)="openQuoteSheet()">
                                                     CREATE QUOTE
+                                                </button>
+                                                <button
+                                                    *ngIf="isBookingProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openContractSetupSheet()">
+                                                    CONTRACT SETUP
+                                                </button>
+                                                <button
+                                                    *ngIf="isBookingProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openBookingFaceSheet()">
+                                                    FACE SHEET
+                                                </button>
+                                                <button
+                                                    *ngIf="isBookingProject()"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    class="summary-job-cost-button"
+                                                    (click)="openScheduleOfValuesSheet()">
+                                                    SCHEDULE OF VALUES
                                                 </button>
                                                 <mat-button-toggle-group class="summary-view-toggle" [value]="summaryViewMode" (valueChange)="onSummaryViewModeChange($event)">
                                                     <mat-button-toggle value="Grid">Grid View</mat-button-toggle>

@@ -6,7 +6,7 @@ import { PageToolbar } from '../../common/components/page-toolbar'
     standalone: true,
     imports: [PageToolbar],
     template: `
-        <page-toolbar></page-toolbar>
+        <page-toolbar title="DESIGN"></page-toolbar>
         <div class="placeholder-page">
             <div class="placeholder-card">
                 <div class="placeholder-eyebrow">Design</div>
@@ -27,16 +27,16 @@ import { PageToolbar } from '../../common/components/page-toolbar'
         .placeholder-card {
             width: min(680px, 100%);
             padding: 28px;
-            border: 1px solid rgba(88, 228, 255, 0.18);
+            border: 1px solid rgba(132, 255, 190, 0.18);
             border-radius: 20px;
-            background: linear-gradient(135deg, rgba(7, 15, 25, 0.92), rgba(9, 24, 38, 0.72));
+            background: linear-gradient(135deg, rgba(7, 15, 25, 0.92), rgba(14, 28, 29, 0.72));
             box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
             color: #edf8ff;
         }
 
         .placeholder-eyebrow {
             margin-bottom: 8px;
-            color: #58e4ff;
+            color: #84ffbe;
             font-size: 0.72rem;
             letter-spacing: 0.2em;
             text-transform: uppercase;

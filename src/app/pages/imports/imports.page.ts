@@ -40,7 +40,8 @@ import { PreviewResponse } from "../../schemas/previewresponse.schema"
         PageToolbar, FormsModule, 
         ReactiveFormsModule],
     providers: [HttpClient],
-    templateUrl: './imports.page.html'
+    templateUrl: './imports.page.html',
+    styleUrls: ['./imports.page.scss']
 })
 export class ImportsPage implements OnChanges {
     @Input() projectId?: string
@@ -50,6 +51,7 @@ export class ImportsPage implements OnChanges {
     actionsLoaded = false
     floorplanImageLoaded: string | null = null
     backLink = '/projects'
+    detailsLink = '/projects'
 
     form: FormGroup
     pageWorking = true
@@ -76,7 +78,8 @@ export class ImportsPage implements OnChanges {
     ngOnChanges(): void {
         this.pageWorking = true
         this.project = undefined
-        this.backLink = this.route.snapshot.queryParamMap.get('returnTo') || '/projects'
+        this.backLink = '/projects'
+        this.detailsLink = this.route.snapshot.queryParamMap.get('returnTo') || (this.projectId ? `/projects/fieldwire/${this.projectId}/project-details` : '/projects')
 
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
@@ -161,6 +164,14 @@ export class ImportsPage implements OnChanges {
 
     getSafeFloorplanImageUrl() {
         return this.sanitizer.bypassSecurityTrustStyle('url(' + this.floorplanImageLoaded + ')')
+    }
+
+    getDailyReportRoute(): string[] {
+        return this.projectId ? ['/projects', this.projectId, 'dailyreport'] : ['/projects']
+    }
+
+    getImportsRoute(): string[] {
+        return this.projectId ? ['/projects', this.projectId, 'imports'] : ['/projects']
     }
 
     verifyFloorplanTasks(floorplanId: string) {

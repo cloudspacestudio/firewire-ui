@@ -61,6 +61,9 @@ export interface QuoteSheetData {
                 <div class="quote-sheet__title-kicker">Proposal Output</div>
                 <div class="quote-sheet__title">Quotation</div>
             </div>
+            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
         </div>
         <mat-dialog-content class="quote-sheet">
             <div class="quote-sheet__toolbar">
@@ -210,10 +213,11 @@ export interface QuoteSheetData {
         </mat-dialog-actions>
     `,
     styles: [`
-        .quote-sheet__titlebar{display:flex;align-items:center;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
+        .quote-sheet__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
         .quote-sheet__title-kicker,.quote-sheet__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
         .quote-sheet__title{margin-top:6px;color:#f4fbff;font-size:1.08rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
         .quote-sheet{width:100%;display:grid;gap:16px;padding:10px 0 0;box-sizing:border-box;overflow-x:hidden;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),rgba(8,12,21,.96)}
+        .quote-sheet__toolbar{padding:8px 0 0 12px}
         .quote-sheet__paper{border:1px solid rgba(72,221,255,.16);border-radius:0;background:#fff;overflow:auto;box-shadow:0 18px 40px rgba(0,0,0,.36),0 0 0 1px rgba(72,221,255,.08)}
         .quote-sheet__paper-inner{padding:18px 22px 24px;background:#fff;font-family:Arial,sans-serif;color:#101820}
         .quote-sheet__paper-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}

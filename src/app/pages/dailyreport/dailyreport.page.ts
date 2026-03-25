@@ -63,6 +63,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     pageState: PageState = PageState.rendering
     pageMessage = ''
     backLink = '/projects'
+    detailsLink = '/projects'
 
     form: FormGroup
     project?: AccountProjectSchema
@@ -94,7 +95,8 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     ngOnChanges(): void {
         this.pageState = PageState.rendering
         this.pageMessage = ''
-        this.backLink = this.route.snapshot.queryParamMap.get('returnTo') || '/projects'
+        this.backLink = '/projects'
+        this.detailsLink = this.route.snapshot.queryParamMap.get('returnTo') || (this.projectId ? `/projects/fieldwire/${this.projectId}/project-details` : '/projects')
         
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
@@ -173,6 +175,14 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
 
     changeDate(e: any) {
         this.reset()
+    }
+
+    getDailyReportRoute(): string[] {
+        return this.projectId ? ['/projects', this.projectId, 'dailyreport'] : ['/projects']
+    }
+
+    getImportsRoute(): string[] {
+        return this.projectId ? ['/projects', this.projectId, 'imports'] : ['/projects']
     }
 
     getFormName() {

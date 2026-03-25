@@ -2,10 +2,11 @@ import { Injectable } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs'
 import { map } from 'rxjs/operators'
-import { HomeBackgroundMode, HomeBackgroundVideo, HomeBackgroundVideoManifestItem, UserPreferences, UserPreferencesRecord } from '../../schemas/user-preferences.schema'
+import { HomeBackgroundMode, HomeBackgroundVideo, HomeBackgroundVideoManifestItem, ProjectMapDimension, ProjectMapStyle, UserPreferences, UserPreferencesRecord } from '../../schemas/user-preferences.schema'
 
 @Injectable({ providedIn: 'root' })
 export class UserPreferencesService {
+    private readonly projectMapPreferencesVersion = 1
     private readonly preferencesSubject = new BehaviorSubject<UserPreferences>(this.defaultPreferences())
     private loaded = false
     private loadingPromise: Promise<UserPreferences> | null = null
@@ -135,6 +136,18 @@ export class UserPreferencesService {
                 gradientTo: this.normalizeColor(input?.homePage?.gradientTo, '#060a12'),
                 gradientAngle: this.normalizeAngle(input?.homePage?.gradientAngle)
             },
+            projectMap: {
+                ...(Number(input?.projectMap?.version) === this.projectMapPreferencesVersion
+                    ? {
+                        version: this.projectMapPreferencesVersion,
+                        style: this.normalizeProjectMapStyle(input?.projectMap?.style),
+                        dimension: this.normalizeProjectMapDimension(input?.projectMap?.dimension),
+                        showRoadDetails: input?.projectMap?.showRoadDetails !== false,
+                        showBuildingFootprints: input?.projectMap?.showBuildingFootprints !== false,
+                        autoFitPins: input?.projectMap?.autoFitPins !== false
+                    }
+                    : this.defaultPreferences().projectMap)
+            },
             profile: {
                 avatarDataUrl: typeof input?.profile?.avatarDataUrl === 'string' && input.profile.avatarDataUrl.trim()
                     ? input.profile.avatarDataUrl.trim()
@@ -186,6 +199,22 @@ export class UserPreferencesService {
         return Math.min(360, Math.max(0, Math.round(value)))
     }
 
+    private normalizeProjectMapStyle(input: string | undefined): ProjectMapStyle {
+        switch (input) {
+            case 'road':
+            case 'satellite':
+            case 'road_shaded_relief':
+            case 'night':
+                return input
+            default:
+                return 'night'
+        }
+    }
+
+    private normalizeProjectMapDimension(input: string | undefined): ProjectMapDimension {
+        return input === '3d' ? '3d' : '2d'
+    }
+
     private defaultPreferences(): UserPreferences {
         return {
             homePage: {
@@ -197,6 +226,14 @@ export class UserPreferencesService {
                 gradientFrom: '#09111d',
                 gradientTo: '#060a12',
                 gradientAngle: 135
+            },
+            projectMap: {
+                version: this.projectMapPreferencesVersion,
+                style: 'night',
+                dimension: '2d',
+                showRoadDetails: true,
+                showBuildingFootprints: true,
+                autoFitPins: true
             },
             profile: {
                 avatarDataUrl: null

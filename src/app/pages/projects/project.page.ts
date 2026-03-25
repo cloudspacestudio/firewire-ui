@@ -1,10 +1,10 @@
-import { Component, Input, OnChanges, SimpleChanges, inject } from "@angular/core"
+import { Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from "@angular/core"
 import { NgFor, NgIf } from '@angular/common'
 import { Router, RouterLink } from "@angular/router"
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
-import { catchError, map, Observable, of, switchMap } from "rxjs"
+import { Subscription, catchError, map, Observable, of, switchMap } from "rxjs"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -21,11 +21,14 @@ import { MatSelectModule } from "@angular/material/select"
 import { Utils } from "../../common/utils"
 import { AccountProjectAttributes, AccountProjectSchema } from "../../schemas/account.project.schema"
 import { AccountProjectStatSchema } from "../../schemas/account.projectstat.schema"
-import { FirewireProjectSchema, FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
+import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
 import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
-import { ProjectSource } from "../../schemas/project-list-item.schema"
+import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
+import { AzureMapsService } from "../../common/services/azure-maps.service"
+import { UserPreferencesService } from "../../common/services/user-preferences.service"
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
+import { ContractSetupDialog } from "./contract-setup.dialog"
 import { EstimateFaceSheetDialog } from "./estimate-face-sheet.dialog"
 import { JobCostSheetDialog } from "./job-cost-sheet.dialog"
 import { QuoteSheetDialog } from "./quote-sheet.dialog"
@@ -36,6 +39,7 @@ import {
 } from "./project-template.dialog"
 import { ProjectSettingsApi } from "./project-settings.api"
 import { ReducedResponse, Reducer } from "../../common/reducer"
+import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 
 interface ProjectBomRow {
     partNbr: string
@@ -182,6 +186,16 @@ interface RecentProjectLink {
     lastViewedAt: string
 }
 
+interface SystemWeatherForecastDay {
+    date: string | null
+    dayLabel: string
+    phrase: string
+    iconCode: number | null
+    minTemp: number | null
+    maxTemp: number | null
+    precipitationProbability: number | null
+}
+
 interface FirewireProjectWorksheetState {
     baseManHourEstimate: number
     workingHeightBands: WorkingHeightBand[]
@@ -239,6 +253,8 @@ interface ProjectTemplateRecord {
     updatedAt: string
 }
 
+declare const atlas: any
+
 @Component({
     standalone: true,
     selector: 'project-page',
@@ -251,30 +267,66 @@ interface ProjectTemplateRecord {
     templateUrl: './project.page.html',
     styleUrls: ['./project.page.scss']
 })
-export class ProjectPage implements OnChanges {
+export class ProjectPage implements OnChanges, OnDestroy {
     private dialog = inject(MatDialog)
     private router = inject(Router)
+    private readonly azureMapsService = inject(AzureMapsService)
+    private readonly userPreferences = inject(UserPreferencesService)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
     private readonly recentProjectsLimit = 6
     private readonly favoriteProjectsStorageKey = 'firewire.favoriteProjects'
     private readonly summaryViewModeStorageKey = 'firewire.summaryViewMode'
     private readonly lockedProjectStatuses = ['Design', 'Install', 'Service', 'Closed']
+    private readonly projectIdentityVisibleStatuses = ['Booking', 'Design', 'Install', 'Service', 'Closed']
+    readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
+    private readonly systemMapDefaultPreferences: ProjectMapPreferences = {
+        version: 1,
+        style: 'night',
+        dimension: '2d',
+        showRoadDetails: true,
+        showBuildingFootprints: true,
+        autoFitPins: true
+    }
 
     @Input() projectId?: string
     @Input() projectSource: ProjectSource = 'fieldwire'
     @Input() workspaceTab?: string
+
+    @ViewChild('systemMapHost')
+    set systemMapHostRef(value: ElementRef<HTMLDivElement> | undefined) {
+        if (!value && this.systemMap) {
+            this.resetSystemMap()
+        }
+        this.systemMapHost = value
+        if (value && this.activeFirewireWorkspaceTab === 'PROJECT DETAILS') {
+            this.queueSystemMapRender()
+        }
+    }
+    systemMapHost?: ElementRef<HTMLDivElement>
 
     pageWorking = true
     project?: AccountProjectSchema
     firewireProject?: FirewireProjectSchema
     fieldwireProjectId: string | null = null
     fieldwireProjects: AccountProjectSchema[] = []
+    linkedFieldwireProjectIds = new Set<string>()
     firewireForm: FirewireProjectUpsert = this.createEmptyFirewireForm()
     firewireBidDueDate: Date | null = null
     initialFirewireFormState = ''
     initialWorksheetState = ''
     firewireSaveWorking = false
     firewireSaveMessage = ''
+    systemWeatherForecast: SystemWeatherForecastDay[] = []
+    systemWeatherLoading = false
+    systemWeatherStatus = ''
+    systemMapError = ''
+    private systemMapReady = false
+    private systemMap?: any
+    private systemMapMarker?: any
+    private systemMapPopup?: any
+    private systemMapPreferences: ProjectMapPreferences = { ...this.systemMapDefaultPreferences }
+    private systemPreferencesSubscription?: Subscription
+    private systemMapRenderHandle?: ReturnType<typeof setTimeout>
     projectSettings: ProjectSettingsCatalogSchema = {
         jobType: [],
         scopeType: [],
@@ -745,7 +797,13 @@ export class ProjectPage implements OnChanges {
     projectUploadErrorToast = ''
     private projectUploadErrorToastTimer?: ReturnType<typeof setTimeout>
 
-    constructor(private http: HttpClient, private projectSettingsApi: ProjectSettingsApi) {}
+    constructor(private http: HttpClient, private projectSettingsApi: ProjectSettingsApi) {
+        this.systemPreferencesSubscription = this.userPreferences.preferences$.subscribe((preferences) => {
+            this.systemMapPreferences = { ...(preferences.projectMap || this.systemMapDefaultPreferences) }
+            this.applySystemMapPreferences()
+        })
+        void this.userPreferences.load()
+    }
 
     ngOnChanges(changes: SimpleChanges): void {
         if (!changes['projectId'] && !changes['projectSource'] && changes['workspaceTab']) {
@@ -774,12 +832,122 @@ export class ProjectPage implements OnChanges {
         this.loadFieldwireProject()
     }
 
+    ngOnDestroy(): void {
+        if (this.systemMapRenderHandle) {
+            clearTimeout(this.systemMapRenderHandle)
+        }
+        this.systemPreferencesSubscription?.unsubscribe()
+        this.resetSystemMap()
+    }
+
     isFirewireProject(): boolean {
         return !!this.firewireProject
     }
 
     shouldLoadFirewireProject(): boolean {
         return this.projectSource === 'firewire'
+    }
+
+    hasSystemLocationInsights(): boolean {
+        return this.getSystemProjectCoordinates() !== null
+    }
+
+    getSystemWeatherForecast(): SystemWeatherForecastDay[] {
+        return this.systemWeatherForecast
+    }
+
+    formatSystemTemp(value: number | null): string {
+        return typeof value === 'number' && Number.isFinite(value) ? `${Math.round(value)}°` : '--'
+    }
+
+    formatSystemWeatherMonth(date: string | null): string {
+        if (!date) {
+            return '--'
+        }
+
+        const parsedDate = new Date(date)
+        if (Number.isNaN(parsedDate.getTime())) {
+            return '--'
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+            month: 'short'
+        }).format(parsedDate).toUpperCase()
+    }
+
+    formatSystemWeatherDayNumber(date: string | null): string {
+        if (!date) {
+            return '--'
+        }
+
+        const parsedDate = new Date(date)
+        if (Number.isNaN(parsedDate.getTime())) {
+            return '--'
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+            day: 'numeric'
+        }).format(parsedDate)
+    }
+
+    isSystemWeatherToday(date: string | null): boolean {
+        if (!date) {
+            return false
+        }
+
+        const parsedDate = new Date(date)
+        if (Number.isNaN(parsedDate.getTime())) {
+            return false
+        }
+
+        const now = new Date()
+        return parsedDate.getFullYear() === now.getFullYear()
+            && parsedDate.getMonth() === now.getMonth()
+            && parsedDate.getDate() === now.getDate()
+    }
+
+    getSystemWeatherIcon(day: SystemWeatherForecastDay): string {
+        const phrase = (day.phrase || '').trim().toLowerCase()
+        if (phrase.includes('mostly sunny') || phrase.includes('partly sunny') || phrase.includes('hazy sunshine')) {
+            return 'wb_sunny'
+        }
+        if (phrase.includes('hot')) {
+            return 'thermostat'
+        }
+        if (phrase.includes('cold') || phrase.includes('frigid')) {
+            return 'device_thermostat'
+        }
+        if (phrase.includes('thunder') || phrase.includes('storm')) {
+            return 'thunderstorm'
+        }
+        if (phrase.includes('snow') || phrase.includes('ice') || phrase.includes('sleet') || phrase.includes('flurr')) {
+            return 'ac_unit'
+        }
+        if (phrase.includes('freezing')) {
+            return 'severe_cold'
+        }
+        if (phrase.includes('rain') || phrase.includes('shower') || phrase.includes('drizzle')) {
+            return 'rainy'
+        }
+        if (phrase.includes('fog') || phrase.includes('mist') || phrase.includes('haze') || phrase.includes('smoke')) {
+            return 'foggy'
+        }
+        if (phrase.includes('wind')) {
+            return 'air'
+        }
+        if (phrase.includes('dreary') || phrase.includes('overcast')) {
+            return 'filter_drama'
+        }
+        if (phrase.includes('cloud')) {
+            return 'cloud'
+        }
+        if (phrase.includes('partly') || phrase.includes('mostly') || phrase.includes('intermittent')) {
+            return 'partly_cloudy_day'
+        }
+        if (phrase.includes('clear') || phrase.includes('sun') || phrase.includes('moonlight')) {
+            return 'wb_sunny'
+        }
+        return 'wb_sunny'
     }
 
     hasFieldwireProject(): boolean {
@@ -802,8 +970,25 @@ export class ProjectPage implements OnChanges {
         return this.getProjectStatusLabel() === 'Estimation'
     }
 
+    isBookingProject(): boolean {
+        return this.getProjectStatusLabel() === 'Booking'
+    }
+
+    shouldShowExecutionNav(): boolean {
+        const status = this.getProjectStatusLabel()
+        return status === 'Install' || status === 'Service'
+    }
+
     isProjectStatusLocked(): boolean {
         return this.lockedProjectStatuses.includes(this.getProjectStatusLabel())
+    }
+
+    shouldShowProjectIdentityFields(): boolean {
+        return this.projectIdentityVisibleStatuses.includes(this.getProjectStatusLabel())
+    }
+
+    isProjectTypeLocked(): boolean {
+        return this.isFirewireProjectLocked() || (this.firewireProject?.projectStatus || 'Estimation') !== 'Estimation'
     }
 
     isProjectManuallyLocked(): boolean {
@@ -873,6 +1058,33 @@ export class ProjectPage implements OnChanges {
         }
         const selected = this.fieldwireProjects.find((project) => String(project.id) === this.firewireForm.fieldwireId)
         return selected?.name || this.firewireForm.fieldwireId
+    }
+
+    getAvailableFieldwireProjects(): AccountProjectSchema[] {
+        return this.fieldwireProjects.filter((project) => !this.isFieldwireProjectOptionUnavailable(String(project.id)))
+    }
+
+    isFieldwireProjectOptionUnavailable(fieldwireProjectId: string | null | undefined): boolean {
+        const normalizedId = fieldwireProjectId ? String(fieldwireProjectId) : ''
+        if (!normalizedId) {
+            return false
+        }
+
+        const currentLinkedId = this.firewireProject?.fieldwireId ? String(this.firewireProject.fieldwireId) : ''
+        if (normalizedId === currentLinkedId) {
+            return false
+        }
+
+        return this.linkedFieldwireProjectIds.has(normalizedId)
+    }
+
+    getFieldwireProjectOptionLabel(option: AccountProjectSchema): string {
+        return `${option.name} (${option.code})`
+    }
+
+    getLinkedFieldwireProjectUrl(): string | null {
+        const fieldwireProjectId = this.getFieldwireProjectId()
+        return fieldwireProjectId ? `https://app.fieldwire.com/projects/${fieldwireProjectId}` : null
     }
 
     get isFirewireFormDirty(): boolean {
@@ -1037,6 +1249,9 @@ export class ProjectPage implements OnChanges {
     setFirewireWorkspaceTab(tabName: string) {
         if (this.getFirewireWorkspaceTabs().indexOf(tabName) < 0) {
             return
+        }
+        if (tabName === 'PROJECT DETAILS') {
+            this.queueSystemMapRender()
         }
         this.navigateToWorkspaceTab(tabName)
     }
@@ -1937,6 +2152,24 @@ export class ProjectPage implements OnChanges {
         this.saveFirewireProjectRequest().subscribe()
     }
 
+    generateProposal() {
+        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked() || !this.isBiddingProject()) {
+            return
+        }
+
+        const previousStatus = this.firewireForm.projectStatus
+        this.firewireForm.projectStatus = 'Proposal'
+        this.firewireSaveMessage = 'Generating proposal...'
+
+        this.saveFirewireProjectRequest().subscribe((saved) => {
+            if (!saved) {
+                this.firewireForm.projectStatus = previousStatus
+                return
+            }
+            this.firewireSaveMessage = 'Project moved to Proposal.'
+        })
+    }
+
     private saveFirewireProjectRequest(options?: { silent?: boolean }): Observable<boolean> {
         if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
             return of(false)
@@ -2029,6 +2262,7 @@ export class ProjectPage implements OnChanges {
                 name: result.name,
                 visibility: result.visibility,
                 firewireForm: {
+                    projectType: this.firewireForm.projectType,
                     jobType: this.firewireForm.jobType,
                     scopeType: this.firewireForm.scopeType,
                     projectScope: this.firewireForm.projectScope,
@@ -2084,9 +2318,13 @@ export class ProjectPage implements OnChanges {
 
             this.selectedTemplate = template.name
             this.selectedTemplateId = template.templateId
+            const templateForm = this.getSanitizedTemplateFirewireForm(template.firewireForm)
+            if (this.isProjectTypeLocked()) {
+                templateForm.projectType = this.firewireForm.projectType || 'Fire Alarm'
+            }
             this.firewireForm = {
                 ...this.firewireForm,
-                ...this.getSanitizedTemplateFirewireForm(template.firewireForm)
+                ...templateForm
             }
             this.applyWorksheetState(template.worksheetData)
             this.firewireSaveMessage = `Template "${template.name}" loaded.`
@@ -2251,6 +2489,41 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         })
     }
 
+    openContractSetupSheet() {
+        this.dialog.open(ContractSetupDialog, {
+            width: '1080px',
+            maxWidth: '1080px',
+            minWidth: '0',
+            panelClass: 'job-cost-sheet-dialog-pane',
+            data: {
+                firetrolJobNumber: this.firewireForm.projectNbr || '',
+                projectName: this.firewireForm.name || this.firewireProject?.name || '',
+                projectAddress: this.firewireForm.address || '',
+                projectType: this.firewireForm.projectType || this.firewireProject?.projectType || 'Fire Alarm',
+                jobType: this.firewireForm.jobType || '',
+                scopeType: this.firewireForm.scopeType || '',
+                scopeOfWork: this.firewireForm.projectScope || '',
+                salesperson: this.firewireForm.salesman || '',
+                date: this.formatDateForDisplay(new Date()),
+                startDate: '',
+                completionDate: '',
+                contractPoNumber: '',
+                contractAmount: this.getSummaryQuotedWithTax(),
+                estDeviceCount: this.getSummaryDeviceCount(),
+                estSqFootage: Number(this.firewireForm.totalSqFt || 0),
+                taxable: this.getSummaryMaterialTaxAmount() > 0
+            }
+        })
+    }
+
+    openBookingFaceSheet() {
+        this.firewireSaveMessage = 'Booking Face Sheet report coming next.'
+    }
+
+    openScheduleOfValuesSheet() {
+        this.firewireSaveMessage = 'Schedule of Values report coming next.'
+    }
+
     private parseProjectAddress(value: string | null | undefined): { street: string, city: string, state: string, zip: string } {
         const input = String(value || '').trim()
         if (!input) {
@@ -2396,6 +2669,11 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.firewireSaveMessage = ''
         this.projectDocumentUploadBusy = false
         this.clearProjectUploadErrorToast()
+        this.systemWeatherForecast = []
+        this.systemWeatherLoading = false
+        this.systemWeatherStatus = ''
+        this.systemMapError = ''
+        this.resetSystemMap()
         this.tabs = [...this.fieldwireTabs]
         this.tab = 'STATS'
         this.activeFirewireWorkspaceTab = 'PROJECT DETAILS'
@@ -2419,6 +2697,23 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             },
             error: (err) => {
                 console.error(err)
+            }
+        })
+
+        this.http.get('/api/firewire/projects').subscribe({
+            next: (response: any) => {
+                const rows = Array.isArray(response?.rows) ? response.rows as ProjectListItemSchema[] : []
+                this.linkedFieldwireProjectIds = new Set(
+                    rows
+                        .filter((row) => !!row.firewireProjectId)
+                        .map((row) => row.fieldwireProjectId || row.fieldwireId)
+                        .filter((value): value is string => !!value)
+                        .map((value) => String(value))
+                )
+            },
+            error: (err) => {
+                console.error(err)
+                this.linkedFieldwireProjectIds = new Set<string>()
             }
         })
     }
@@ -2492,6 +2787,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             address: project.address,
             bidDueDate: this.toDateInputValue(project.bidDueDate),
             projectStatus: project.projectStatus,
+            projectType: project.projectType,
             salesman: project.salesman,
             jobType: project.jobType,
             scopeType: project.scopeType,
@@ -2503,6 +2799,267 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.applyWorkRetrofitDefaults(project.scopeType)
         this.summaryViewMode = this.readStoredSummaryViewMode()
         this.storeRecentProject(project)
+        this.loadSystemLocationInsights()
+    }
+
+    private loadSystemLocationInsights() {
+        const coordinates = this.getSystemProjectCoordinates()
+        if (!coordinates) {
+            this.systemWeatherForecast = []
+            this.systemWeatherStatus = ''
+            this.systemWeatherLoading = false
+            this.systemMapError = ''
+            this.resetSystemMap()
+            return
+        }
+
+        this.systemWeatherLoading = true
+        this.systemWeatherStatus = ''
+        this.http.get<{ data?: { forecast?: SystemWeatherForecastDay[], status?: string } }>(
+            `/api/firewire/projects/weather-forecast?latitude=${encodeURIComponent(String(coordinates[1]))}&longitude=${encodeURIComponent(String(coordinates[0]))}`
+        ).subscribe({
+            next: (response) => {
+                this.systemWeatherForecast = Array.isArray(response?.data?.forecast) ? response!.data!.forecast : []
+                this.systemWeatherStatus = typeof response?.data?.status === 'string' ? response.data.status : 'ok'
+                this.systemWeatherLoading = false
+            },
+            error: (err: any) => {
+                console.error('Unable to load system weather forecast.', err)
+                this.systemWeatherForecast = []
+                this.systemWeatherStatus = 'error'
+                this.systemWeatherLoading = false
+            }
+        })
+
+        this.queueSystemMapRender()
+    }
+
+    private getSystemProjectCoordinates(): [number, number] | null {
+        const rawLatitude = this.firewireProject?.latitude as number | string | null | undefined
+        const rawLongitude = this.firewireProject?.longitude as number | string | null | undefined
+        if (rawLatitude === null || typeof rawLatitude === 'undefined' || rawLatitude === '') {
+            return null
+        }
+        if (rawLongitude === null || typeof rawLongitude === 'undefined' || rawLongitude === '') {
+            return null
+        }
+
+        const latitude = typeof rawLatitude === 'number' ? rawLatitude : Number(rawLatitude)
+        const longitude = typeof rawLongitude === 'number' ? rawLongitude : Number(rawLongitude)
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            return null
+        }
+
+        return [longitude, latitude]
+    }
+
+    private queueSystemMapRender() {
+        if (this.systemMapRenderHandle) {
+            clearTimeout(this.systemMapRenderHandle)
+        }
+        this.systemMapRenderHandle = setTimeout(() => {
+            this.systemMapRenderHandle = undefined
+            void this.ensureSystemMapReady()
+        }, 180)
+    }
+
+    private async ensureSystemMapReady() {
+        if (this.activeFirewireWorkspaceTab !== 'PROJECT DETAILS' || !this.systemMapHost?.nativeElement) {
+            return
+        }
+
+        const coordinates = this.getSystemProjectCoordinates()
+        if (!coordinates) {
+            return
+        }
+
+        const subscriptionKey = await this.azureMapsService.getSubscriptionKey()
+        if (!subscriptionKey) {
+            this.systemMapError = 'Azure Maps is not configured on the server for authenticated map access.'
+            return
+        }
+
+        try {
+            await this.azureMapsService.loadSdk()
+            this.systemMapError = ''
+
+            if (!this.systemMap) {
+                this.systemMap = new atlas.Map(this.systemMapHost.nativeElement, {
+                    authOptions: {
+                        authType: 'subscriptionKey',
+                        subscriptionKey
+                    },
+                    center: coordinates,
+                    zoom: 11,
+                    style: this.systemMapPreferences.style,
+                    language: 'en-US'
+                })
+
+                this.systemMap.events.add('ready', () => {
+                    this.systemMapReady = true
+                    this.systemMap.controls.add([
+                        new atlas.control.ZoomControl(),
+                        new atlas.control.CompassControl()
+                    ], {
+                        position: 'top-right'
+                    })
+                    this.systemMapPopup = new atlas.Popup({
+                        closeButton: false,
+                        pixelOffset: [0, -24]
+                    })
+                    this.systemMap.events.add('click', () => this.systemMapPopup?.close?.())
+                    this.applySystemMapPreferences()
+                    this.scheduleInitialSystemMapRender()
+                })
+                return
+            }
+
+            if (this.systemMapReady) {
+                this.applySystemMapPreferences()
+                this.renderSystemMap()
+            }
+        } catch (err) {
+            console.error(err)
+            this.systemMapError = 'Unable to load Azure Maps.'
+        }
+    }
+
+    private scheduleInitialSystemMapRender() {
+        setTimeout(() => {
+            this.systemMap?.resize?.()
+            this.renderSystemMap()
+        }, 260)
+    }
+
+    private renderSystemMap() {
+        if (!this.systemMap || !this.systemMapReady) {
+            return
+        }
+
+        const coordinates = this.getSystemProjectCoordinates()
+        if (!coordinates) {
+            this.resetSystemMap()
+            return
+        }
+
+        this.systemMap.resize?.()
+        if (this.systemMapMarker) {
+            this.systemMap.markers.remove(this.systemMapMarker)
+            this.systemMapMarker = undefined
+        }
+
+        const markerElement = document.createElement('button')
+        markerElement.type = 'button'
+        markerElement.className = `project-map-marker project-map-marker--${this.getProjectStatusTone(this.firewireProject?.projectStatus || null)}`
+        markerElement.setAttribute('aria-label', this.firewireProject?.name || 'Project')
+        markerElement.innerHTML = '<span class="project-map-marker__core"></span><span class="project-map-marker__pulse"></span>'
+        markerElement.addEventListener('click', (event) => {
+            event.stopPropagation()
+            this.openSystemMapPopup()
+        })
+
+        this.systemMapMarker = new atlas.HtmlMarker({
+            htmlContent: markerElement,
+            position: coordinates,
+            anchor: 'bottom'
+        })
+        this.systemMap.markers.add(this.systemMapMarker)
+        this.systemMap.setCamera({
+            ...this.getSystemMapCameraMode(),
+            center: coordinates,
+            zoom: this.systemMapPreferences.dimension === '3d' ? 12 : 11,
+            type: 'ease',
+            duration: 600
+        })
+        this.openSystemMapPopup()
+    }
+
+    private openSystemMapPopup() {
+        const coordinates = this.getSystemProjectCoordinates()
+        if (!this.systemMapPopup || !coordinates || !this.firewireProject) {
+            return
+        }
+
+        this.systemMapPopup.setOptions({
+            position: coordinates,
+            content: `
+                <div class="project-map-popup">
+                    <div class="project-map-popup__eyebrow">${this.escapeHtml(this.firewireProject.projectStatus || 'Status Pending')}</div>
+                    <div class="project-map-popup__title">${this.escapeHtml(this.firewireProject.name || 'Project')}</div>
+                    <div class="project-map-popup__meta">${this.escapeHtml(this.firewireProject.projectType || 'Firewire')}</div>
+                    <div class="project-map-popup__meta">${this.escapeHtml(this.firewireProject.address || '')}</div>
+                    ${this.firewireProject.projectNbr ? `<div class="project-map-popup__meta"># ${this.escapeHtml(this.firewireProject.projectNbr)}</div>` : ''}
+                </div>
+            `
+        })
+        this.systemMapPopup.open(this.systemMap)
+    }
+
+    private applySystemMapPreferences() {
+        if (!this.systemMap || !this.systemMapReady) {
+            return
+        }
+
+        this.systemMap.setStyle({
+            style: this.systemMapPreferences.style,
+            styleOverrides: {
+                roadDetails: {
+                    visible: this.systemMapPreferences.showRoadDetails
+                },
+                buildingFootprint: {
+                    visible: this.systemMapPreferences.showBuildingFootprints
+                }
+            }
+        })
+    }
+
+    private getSystemMapCameraMode(): { pitch: number, bearing: number } {
+        return this.systemMapPreferences.dimension === '3d'
+            ? { pitch: 58, bearing: -18 }
+            : { pitch: 0, bearing: 0 }
+    }
+
+    private getProjectStatusTone(status: string | null): string {
+        switch ((status || '').trim()) {
+            case 'Estimation':
+                return 'cyan'
+            case 'Proposal':
+                return 'amber'
+            case 'Booking':
+                return 'lime'
+            case 'Design':
+                return 'violet'
+            case 'Install':
+                return 'orange'
+            case 'Service':
+                return 'teal'
+            case 'Closed':
+                return 'slate'
+            default:
+                return 'cyan'
+        }
+    }
+
+    private escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+    }
+
+    private resetSystemMap() {
+        if (this.systemMapPopup?.close) {
+            this.systemMapPopup.close()
+        }
+        if (this.systemMap?.dispose) {
+            this.systemMap.dispose()
+        }
+        this.systemMapMarker = undefined
+        this.systemMapPopup = undefined
+        this.systemMap = undefined
+        this.systemMapReady = false
     }
 
     private loadLinkedFieldwireProject(fieldwireProjectId: string) {
@@ -2633,6 +3190,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             address: '',
             bidDueDate: '',
             projectStatus: 'Estimation',
+            projectType: 'Fire Alarm',
             salesman: '',
             jobType: '',
             scopeType: '',
@@ -2832,6 +3390,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
 
         return {
+            projectType: form.projectType || 'Fire Alarm',
             jobType: form.jobType || '',
             scopeType: form.scopeType || '',
             projectScope: form.projectScope || '',
@@ -2852,6 +3411,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             address: form.address || '',
             bidDueDate: form.bidDueDate || '',
             projectStatus: form.projectStatus || 'Estimation',
+            projectType: form.projectType || 'Fire Alarm',
             salesman: form.salesman || '',
             jobType: form.jobType || '',
             scopeType: form.scopeType || '',
