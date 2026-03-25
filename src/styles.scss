@@ -455,6 +455,46 @@ button.success {
     max-width: 100% !important;
 }
 
+:root .cdk-overlay-pane.fw-medium-dialog-pane {
+    --mdc-dialog-container-min-width: 0px;
+    --mdc-dialog-container-max-width: min(520px, calc(100vw - 32px));
+    max-width: min(520px, calc(100vw - 32px)) !important;
+    min-width: 0 !important;
+    width: min(520px, calc(100vw - 32px)) !important;
+}
+
+:root .cdk-overlay-pane.fw-medium-dialog-pane .mdc-dialog__container {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+:root .cdk-overlay-pane.fw-medium-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-medium-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+:root .cdk-overlay-pane.fw-fullscreen-dialog-pane {
+    --mdc-dialog-container-min-width: 0px;
+    --mdc-dialog-container-max-width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px) !important;
+    min-width: 0 !important;
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 24px) !important;
+}
+
+:root .cdk-overlay-pane.fw-fullscreen-dialog-pane .mdc-dialog__container,
+:root .cdk-overlay-pane.fw-fullscreen-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-fullscreen-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - 24px) !important;
+    max-height: calc(100vh - 24px) !important;
+}
+
 :root .cdk-overlay-pane.job-cost-sheet-dialog-pane .mat-mdc-dialog-surface {
     min-width: 0 !important;
     width: 100% !important;

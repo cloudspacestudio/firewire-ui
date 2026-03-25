@@ -1,0 +1,138 @@
+<page-toolbar title="DESIGN">
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'design-train-ai'"></nav-toolbar>
+</page-toolbar>
+
+<div class="train-ai-page">
+    <div class="workspace-grid" *ngIf="!pageWorking; else loadingTpl">
+        <section class="explorer-pane">
+            <div class="pane-header">
+                <div class="pane-eyebrow">File Explorer</div>
+                <div class="pane-actions">
+                    <button mat-stroked-button type="button" (click)="createFolder()">
+                        <mat-icon fontIcon="create_new_folder"></mat-icon>
+                        <span>New Folder</span>
+                    </button>
+                    <button mat-flat-button type="button" (click)="triggerUpload(fileInput)">
+                        <mat-icon fontIcon="upload_file"></mat-icon>
+                        <span>Upload</span>
+                    </button>
+                    <button mat-stroked-button type="button" [disabled]="!getSelectedFile()" (click)="downloadFile(getSelectedFile()!)">
+                        <mat-icon fontIcon="download"></mat-icon>
+                        <span>Download</span>
+                    </button>
+                    <input #fileInput type="file" multiple hidden (change)="onFileInputChanged($event)" />
+                </div>
+                <div class="status-text" *ngIf="statusText">{{statusText}}</div>
+            </div>
+
+            <div class="path-crumbs">
+                <button
+                    *ngFor="let crumb of getCurrentPath(); let isLast = last"
+                    mat-button
+                    type="button"
+                    [disabled]="isLast"
+                    (click)="openPathFolder(crumb)">
+                    {{crumb.name}}
+                </button>
+            </div>
+
+            <div class="explorer-list">
+                <button
+                    type="button"
+                    class="entry-row folder-row"
+                    *ngFor="let folder of getChildFolders()"
+                    (click)="openFolder(folder)">
+                    <mat-icon fontIcon="folder"></mat-icon>
+                    <span class="entry-name">{{folder.name}}</span>
+                    <mat-icon class="entry-tail" fontIcon="chevron_right"></mat-icon>
+                </button>
+
+                <div
+                    class="entry-row file-row"
+                    *ngFor="let file of getChildFiles()"
+                    [class.is-selected]="isSelectedFile(file)"
+                    role="button"
+                    tabindex="0"
+                    (click)="selectFile(file)"
+                    (keyup.enter)="selectFile(file)">
+                    <mat-icon fontIcon="description"></mat-icon>
+                    <span class="entry-name">{{file.name}}</span>
+                    <span class="entry-tail">v{{getLatestVersion(file)?.versionNumber || 1}}</span>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        class="entry-action-btn"
+                        [disabled]="!canTagDevices(file)"
+                        (click)="openTagDevices(file, $event)"
+                        aria-label="Tag devices on file">
+                        Tag Devices
+                    </button>
+                    <button
+                        mat-icon-button
+                        type="button"
+                        class="entry-delete-btn"
+                        (click)="confirmDeleteFile(file, $event)"
+                        aria-label="Delete file">
+                        <mat-icon fontIcon="delete"></mat-icon>
+                    </button>
+                </div>
+
+                <div *ngIf="getChildFolders().length <= 0 && getChildFiles().length <= 0" class="empty-list">
+                    This folder is empty. Create a folder or upload files to get started.
+                </div>
+            </div>
+        </section>
+
+        <section class="interaction-pane">
+            <div class="interaction-shell">
+                <div class="pane-eyebrow">Tagging Workspace</div>
+                <h2>Select A File And Start Tagging</h2>
+                <p>
+                    Use <strong>Tag Devices</strong> on any image file to open full-screen tagging mode.
+                    Tags are saved per file and restored automatically the next time you open it.
+                </p>
+
+                <div *ngIf="getSelectedFile() as selected; else noSelectionTpl">
+                    <div class="pane-eyebrow">Asset Metadata</div>
+                    <h2>{{selected.name}}</h2>
+                    <div class="meta-grid">
+                        <div class="meta-item">
+                            <span>Type</span>
+                            <strong>{{getLatestVersion(selected)?.mimeType || 'unknown'}}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Size</span>
+                            <strong>{{getReadableSize(getLatestVersion(selected)?.sizeBytes || 0)}}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Extension</span>
+                            <strong>{{selected.extension || 'none'}}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Updated</span>
+                            <strong>{{selected.updatedAt | date:'short'}}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Saved Device Tags</span>
+                            <strong>{{getDeviceTagCount(selected.id)}}</strong>
+                        </div>
+                    </div>
+                    <div class="selected-actions">
+                        <button mat-flat-button type="button" [disabled]="!canTagDevices(selected)" (click)="openTagDevices(selected)">Tag Devices</button>
+                    </div>
+                </div>
+
+                <ng-template #noSelectionTpl>
+                    <div class="interaction-shell--placeholder">
+                        <div class="pane-eyebrow">Next Step</div>
+                        <p>Select a file from the explorer, then click <strong>Tag Devices</strong>.</p>
+                    </div>
+                </ng-template>
+            </div>
+        </section>
+    </div>
+
+    <ng-template #loadingTpl>
+        <div class="loading-state">Loading Train AI workspace...</div>
+    </ng-template>
+</div>

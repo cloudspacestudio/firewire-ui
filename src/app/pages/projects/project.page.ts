@@ -1,6 +1,6 @@
 import { Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from "@angular/core"
 import { NgFor, NgIf } from '@angular/common'
-import { Router, RouterLink } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
@@ -272,6 +272,7 @@ declare const atlas: any
 export class ProjectPage implements OnChanges, OnDestroy {
     private dialog = inject(MatDialog)
     private router = inject(Router)
+    private route = inject(ActivatedRoute)
     private readonly azureMapsService = inject(AzureMapsService)
     private readonly userPreferences = inject(UserPreferencesService)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
@@ -1044,6 +1045,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return tabs
     }
 
+    getBackRoute(): string {
+        return this.route.snapshot.queryParamMap.get('returnTo') || '/projects'
+    }
+
     getFirewireDetailRoute(): string[] {
         if (this.firewireProject?.uuid) {
             return ['/projects', 'firewire', this.firewireProject.uuid, this.getActiveWorkspaceTabSlug()]
@@ -1362,6 +1367,34 @@ export class ProjectPage implements OnChanges, OnDestroy {
             return false
         }
         return key.trim().toUpperCase() === 'THUMB_URL'
+    }
+
+    getThumbOpenUrl(row: any, fallbackUrl: string): string {
+        if (this.tab === 'SHEETS' && row && typeof row === 'object') {
+            const fileUrl = this.getSheetFileUrl(row)
+            if (this.isUrl(fileUrl)) {
+                return fileUrl
+            }
+        }
+        return fallbackUrl
+    }
+
+    private getSheetFileUrl(row: any): string {
+        if (this.isUrl(row?.file_url)) {
+            return row.file_url
+        }
+
+        const rowId = row?.id
+        if (!rowId || !Array.isArray(this.sheets?.full)) {
+            return ''
+        }
+
+        const fullSheet = this.sheets.full.find((item) => item?.id === rowId)
+        if (this.isUrl(fullSheet?.file_url)) {
+            return fullSheet.file_url
+        }
+
+        return ''
     }
 
     getCardTitle(row: any, index: number): string {

@@ -1,6 +1,6 @@
 <page-toolbar title="Project Details">
     <div class="button-bar">
-        <button mat-fab class="back" [routerLink]="'/projects'">
+        <button mat-fab class="back" [routerLink]="getBackRoute()">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
@@ -2082,7 +2082,7 @@
                                                         mat-icon-button
                                                         type="button"
                                                         class="thumb-open-btn"
-                                                        (click)="openInNewTab(entry.value, $event)"
+                                                        (click)="openInNewTab(getThumbOpenUrl(row, entry.value), $event)"
                                                         aria-label="Open image in new tab">
                                                         <mat-icon fontIcon="open_in_new"></mat-icon>
                                                     </button>

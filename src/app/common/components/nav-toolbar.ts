@@ -116,6 +116,11 @@ export class NavToolbar {
         {id: 'fieldwire-projects', caption: 'FIELDWIRE ONLY', route: `/projects/fieldwire-list`},
         {id: 'administration', caption: 'ADMIN', route: `/admin`}
     ]
+
+    static DesignNavItems = [
+        {id: 'design-projects', caption: 'PROJECTS', route: `/design`},
+        {id: 'design-train-ai', caption: 'TRAIN AI', route: `/design/train-ai`}
+    ]
 }
 
 export interface NavItem {

@@ -19,6 +19,7 @@ export const routes: Routes = [
     {path: 'devices/:deviceId', loadComponent: () => import('./pages/devices/device.page').then(m => m.DevicePage)},
     {path: 'sales', loadComponent: () => import('./pages/sales/sales.page').then(m => m.SalesPage)},
     {path: 'design', loadComponent: () => import('./pages/design/design.page').then(m => m.DesignPage)},
+    {path: 'design/train-ai', loadComponent: () => import('./pages/design/design-train-ai.page').then(m => m.DesignTrainAiPage)},
     {path: 'install', loadComponent: () => import('./pages/install/install.page').then(m => m.InstallPage)},
     {path: 'materials', loadComponent: () => import('./pages/materials/materials.page').then(m => m.MaterialsPage)},
     {path: 'categories', loadComponent: () => import('./pages/categories/categories.page').then(m => m.CategoriesPage)},
