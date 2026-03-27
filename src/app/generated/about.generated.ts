@@ -5,7 +5,6 @@ export interface AboutLibraryAttribution {
 }
 
 export interface AboutMetadata {
-    generatedAt: string
     client: {
         name: string
         version: string
@@ -15,20 +14,13 @@ export interface AboutMetadata {
         name: string
         version: string
         connection: {
-            browserOriginMode: string
             apiProxyPath: string
-            proxyTarget: string
-            defaultServerPort: string
-            authAuthority: string
-            apiScopes: string[]
-            protectedResourceStartsWith: string[]
         }
         libraries: AboutLibraryAttribution[]
     }
 }
 
 export const ABOUT_METADATA: AboutMetadata = {
-    "generatedAt": "2026-03-25T21:21:28.782Z",
     "client": {
         "name": "mean-ui",
         "version": "0.0.0",
@@ -114,17 +106,7 @@ export const ABOUT_METADATA: AboutMetadata = {
         "name": "Unavailable",
         "version": "Unavailable",
         "connection": {
-            "browserOriginMode": "window.location.origin",
-            "apiProxyPath": "/api",
-            "proxyTarget": "http://localhost:3000",
-            "defaultServerPort": "3000",
-            "authAuthority": "https://login.microsoftonline.com/3d16214c-01a7-4050-836c-312b53e9be54",
-            "apiScopes": [
-                "api://be29f453-6a2a-497b-a842-77ca88af2123/user_impersonation"
-            ],
-            "protectedResourceStartsWith": [
-                "/api"
-            ]
+            "apiProxyPath": "/api"
         },
         "libraries": []
     }

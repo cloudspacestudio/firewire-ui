@@ -1,0 +1,410 @@
+<page-toolbar title="SALES QUICK START">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/sales'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="tabstrip">
+            <h3 class="project-tabstrip-title">SALES PROJECT</h3>
+            <span class="tabstrip-spacer"></span>
+            <div *ngIf="project" class="sales-project-toolbar-actions">
+                <button
+                    *ngIf="activeTab === 'DOC LIBRARY'"
+                    mat-stroked-button
+                    type="button"
+                    (click)="onUploadDocsClick()"
+                    [disabled]="docLibraryUploadBusy">
+                    <mat-icon fontIcon="upload_file"></mat-icon>
+                    UPLOAD DOCS
+                </button>
+                <button
+                    *ngIf="activeTab === 'PROJECT DETAILS'"
+                    mat-flat-button
+                    type="button"
+                    class="firewire-save-button firewire-save-button--header"
+                    [class.is-dirty]="isProjectDirty"
+                    (click)="saveProjectDetails()"
+                    [disabled]="saveWorking || !isProjectDirty">
+                    SAVE DETAILS
+                </button>
+                <button
+                    *ngIf="activeTab === 'CUSTOMER INFO'"
+                    mat-flat-button
+                    type="button"
+                    class="firewire-save-button firewire-save-button--header"
+                    [class.is-dirty]="isCustomerInfoDirty"
+                    (click)="saveProjectDetails()"
+                    [disabled]="saveWorking || !isCustomerInfoDirty">
+                    SAVE CUSTOMER INFO
+                </button>
+                <button
+                    *ngIf="activeTab === 'BOM'"
+                    mat-flat-button
+                    type="button"
+                    class="firewire-save-button firewire-save-button--header"
+                    [class.is-dirty]="isBomDirty"
+                    (click)="saveBom()"
+                    [disabled]="saveWorking || !isBomDirty">
+                    SAVE BOM
+                </button>
+                <a
+                    mat-stroked-button
+                    [routerLink]="['/projects', 'firewire', project.uuid, 'project-details']"
+                    [queryParams]="{ returnTo: '/sales' }">
+                    FINE TUNE
+                </a>
+            </div>
+        </div>
+
+        <div class="content-root with-tabstrip">
+            <mat-card class="sales-project-card">
+                <mat-card-content>
+                    <div *ngIf="pageWorking" class="sales-project-placeholder">
+                        <div class="sales-project-placeholder__eyebrow">Loading</div>
+                        <h4>Preparing sales quick start...</h4>
+                    </div>
+
+                    <div *ngIf="!pageWorking && pageMessage" class="sales-project-placeholder">
+                        <div class="sales-project-placeholder__eyebrow">Unavailable</div>
+                        <h4>{{pageMessage}}</h4>
+                    </div>
+
+                    <div *ngIf="!pageWorking && !pageMessage && project" class="sales-project-workspace">
+                        <div class="sales-project-workspace__nav" role="tablist" aria-label="Sales quick start sections">
+                            <button
+                                *ngFor="let tab of workspaceTabs"
+                                mat-stroked-button
+                                type="button"
+                                class="sales-project-workspace__nav-button"
+                                [class.is-active]="activeTab === tab"
+                                [attr.aria-selected]="activeTab === tab"
+                                (click)="setActiveTab(tab)">
+                                {{tab}}
+                            </button>
+                        </div>
+
+                        <div class="sales-project-workspace__panel">
+                            <div *ngIf="activeTab === 'PROJECT DETAILS'" class="sales-project-form-panel">
+                                <div class="sales-project-form-grid">
+                                    <mat-form-field>
+                                        <mat-label>Name</mat-label>
+                                        <input matInput [(ngModel)]="projectForm.name" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Bid Due Date</mat-label>
+                                        <input matInput type="date" [(ngModel)]="projectForm.bidDueDate" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Project Type</mat-label>
+                                        <mat-select [(ngModel)]="projectForm.projectType">
+                                            <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Total Sq Ft</mat-label>
+                                        <input matInput type="number" min="0" [(ngModel)]="projectForm.totalSqFt" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Salesman</mat-label>
+                                        <input matInput [(ngModel)]="projectForm.salesman" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Job Type</mat-label>
+                                        <mat-select [(ngModel)]="projectForm.jobType">
+                                            <mat-option [value]="''">None</mat-option>
+                                            <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Scope Type</mat-label>
+                                        <mat-select [(ngModel)]="projectForm.scopeType">
+                                            <mat-option [value]="''">None</mat-option>
+                                            <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Difficulty</mat-label>
+                                        <mat-select [(ngModel)]="projectForm.difficulty">
+                                            <mat-option [value]="''">None</mat-option>
+                                            <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field class="sales-project-form-grid__span-2">
+                                        <mat-label>Address</mat-label>
+                                        <input matInput [(ngModel)]="projectForm.address" />
+                                    </mat-form-field>
+                                    <mat-form-field class="sales-project-form-grid__span-2">
+                                        <mat-label>Project Scope</mat-label>
+                                        <mat-select [(ngModel)]="projectForm.projectScope">
+                                            <mat-option [value]="''">None</mat-option>
+                                            <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                                <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
+                            </div>
+
+                            <div *ngIf="activeTab === 'CUSTOMER INFO'" class="sales-project-form-panel">
+                                <div class="sales-project-form-grid">
+                                    <mat-form-field>
+                                        <mat-label>Billing Name</mat-label>
+                                        <input matInput [(ngModel)]="customerInfo.billingName" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Email</mat-label>
+                                        <input matInput [(ngModel)]="customerInfo.billingEmail" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Phone</mat-label>
+                                        <input matInput [(ngModel)]="customerInfo.billingPhone" />
+                                    </mat-form-field>
+                                    <mat-form-field>
+                                        <mat-label>Contract / PO Number</mat-label>
+                                        <input matInput [(ngModel)]="customerInfo.contractOrPoNumber" />
+                                    </mat-form-field>
+                                    <mat-form-field class="sales-project-form-grid__span-2">
+                                        <mat-label>Billing Address</mat-label>
+                                        <textarea matInput rows="3" [(ngModel)]="customerInfo.billingAddress"></textarea>
+                                    </mat-form-field>
+                                </div>
+                                <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
+                            </div>
+
+                            <div *ngIf="activeTab === 'BOM'" class="firewire-bom-panel sales-project-bom-panel">
+                                <div class="firewire-bom-toolbar">
+                                    <div class="firewire-bom-toolbar__meta">
+                                        <div class="sales-project-placeholder__eyebrow">Project BOM</div>
+                                        <h4>Material Worksheet</h4>
+                                        <label class="firewire-bom-filter">
+                                            <span>Filter</span>
+                                            <input [(ngModel)]="bomFilter" aria-label="Filter BOM rows" placeholder="device, component, cost" />
+                                        </label>
+                                    </div>
+                                    <div class="firewire-bom-toolbar__actions">
+                                        <mat-form-field class="sales-project-bom-device-set-field">
+                                            <mat-label>Device Set</mat-label>
+                                            <mat-select [(ngModel)]="selectedDeviceSetId">
+                                                <mat-option [value]="''">Choose Device Set</mat-option>
+                                                <mat-option *ngFor="let deviceSet of deviceSets" [value]="deviceSet.deviceSetId">
+                                                    {{deviceSet.name}} ({{deviceSet.deviceCount}})
+                                                </mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                        <button mat-stroked-button type="button" (click)="addSelectedDeviceSetToBom()" [disabled]="saveWorking || !selectedDeviceSetId">
+                                            ADD TO BOM
+                                        </button>
+                                        <div class="firewire-bom-grand-total">
+                                            {{getBomGrandTotal() | currency}}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="saveMessage" class="sales-project-form-message sales-project-bom-message">{{saveMessage}}</div>
+
+                                <div *ngIf="bomSections.length <= 0" class="sales-project-doc-library__empty">
+                                    Add a Device Set to start building the project BOM.
+                                </div>
+
+                                <div *ngFor="let section of bomSections; let sectionIndex = index" class="firewire-bom-section">
+                                    <div class="firewire-bom-section__header">
+                                        <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" aria-label="BOM section title" />
+                                        <div class="firewire-bom-section__actions">
+                                            <span>{{getBomSectionGrandTotal(section) | currency}}</span>
+                                            <button mat-stroked-button type="button" (click)="addBomRow(section)">ADD ROW</button>
+                                            <button mat-stroked-button type="button" color="warn" (click)="removeBomSection(sectionIndex)">REMOVE SECTION</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="firewire-bom-grid">
+                                        <table>
+                                            <colgroup>
+                                                <col class="bom-col-part-nbr" />
+                                                <col class="bom-col-description" />
+                                                <col class="bom-col-qty" />
+                                                <col class="bom-col-cost" />
+                                                <col class="bom-col-ext-cost" />
+                                                <col class="bom-col-labor" />
+                                                <col class="bom-col-ext-labor" />
+                                                <col class="bom-col-type" />
+                                            </colgroup>
+                                            <thead>
+                                                <tr>
+                                                    <th>
+                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('partNbr')" (click)="setBomSort('partNbr')">
+                                                            Part Nbr
+                                                            <span>{{isBomSortActive('partNbr') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th>
+                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('description')" (click)="setBomSort('description')">
+                                                            Description
+                                                            <span>{{isBomSortActive('description') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th class="right-align">
+                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('qty')" (click)="setBomSort('qty')">
+                                                            Qty
+                                                            <span>{{isBomSortActive('qty') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th class="right-align">
+                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('cost')" (click)="setBomSort('cost')">
+                                                            Cost
+                                                            <span>{{isBomSortActive('cost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th class="right-align">
+                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extCost')" (click)="setBomSort('extCost')">
+                                                            Ext Cost
+                                                            <span>{{isBomSortActive('extCost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th class="right-align">
+                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('labor')" (click)="setBomSort('labor')">
+                                                            Labor
+                                                            <span>{{isBomSortActive('labor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th class="right-align">
+                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extLabor')" (click)="setBomSort('extLabor')">
+                                                            Ext Labor
+                                                            <span>{{isBomSortActive('extLabor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                    <th>
+                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('type')" (click)="setBomSort('type')">
+                                                            Type
+                                                            <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
+                                                        </button>
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let row of getFilteredBomRows(section); let idx = index">
+                                                    <td>
+                                                        <div class="sales-bom-part-lookup">
+                                                            <input
+                                                                [(ngModel)]="row.lookupQuery"
+                                                                (focus)="onBomPartLookupFocus(section, row)"
+                                                                (blur)="onBomPartLookupBlur(section, row)"
+                                                                (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
+                                                                [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                                            <div *ngIf="isBomLookupActive(section, row) && getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__menu">
+                                                                <button
+                                                                    *ngFor="let option of getBomPartLookupResults(section, row)"
+                                                                    type="button"
+                                                                    class="sales-bom-part-lookup__option"
+                                                                    (mousedown)="selectBomPart(section, row, option)">
+                                                                    <span class="sales-bom-part-lookup__part">{{option.PartNumber}}</span>
+                                                                    <span class="sales-bom-part-lookup__description">{{option.LongDescription}}</span>
+                                                                    <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency}}</span>
+                                                                    <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />
+                                                    </td>
+                                                    <td class="right-align">
+                                                        <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                                                    </td>
+                                                    <td class="right-align">
+                                                        <div class="bom-currency-input">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
+                                                        </div>
+                                                    </td>
+                                                    <td class="right-align bom-total-cell">
+                                                        {{getBomRowExtCost(row) | currency}}
+                                                    </td>
+                                                    <td class="right-align">
+                                                        <div class="bom-currency-input">
+                                                            <span>$</span>
+                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.labor" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
+                                                        </div>
+                                                    </td>
+                                                    <td class="right-align bom-total-cell">
+                                                        {{getBomRowExtLabor(row) | currency}}
+                                                    </td>
+                                                    <td>
+                                                        <input [(ngModel)]="row.type" [attr.aria-label]="'BOM type ' + (idx + 1)" />
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div *ngIf="activeTab === 'DOC LIBRARY'" class="sales-project-doc-library">
+                                <input
+                                    #docLibraryUploadInput
+                                    type="file"
+                                    class="sales-project-doc-library__file-input"
+                                    multiple
+                                    (change)="onDocLibraryFileSelected($event)" />
+
+                                <div class="sales-project-doc-library__summary">
+                                    <div class="sales-project-doc-library__stat">
+                                        <span class="sales-project-doc-library__stat-label">Active Folder</span>
+                                        <strong>{{getDocLibraryFolderLabel(selectedDocLibraryFolder)}}</strong>
+                                    </div>
+                                    <div class="sales-project-doc-library__stat">
+                                        <span class="sales-project-doc-library__stat-label">Files</span>
+                                        <strong>{{getDocLibraryVisibleFiles().length}}</strong>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="docLibraryStatusMessage" class="sales-project-doc-library__status">
+                                    {{docLibraryStatusMessage}}
+                                </div>
+
+                                <div class="sales-project-doc-library__folder-strip">
+                                    <button
+                                        *ngFor="let folder of getDocLibraryFoldersWithAll()"
+                                        type="button"
+                                        class="sales-project-doc-library__folder-chip"
+                                        [class.is-active]="selectedDocLibraryFolder === folder.id"
+                                        (click)="selectedDocLibraryFolder = folder.id">
+                                        <span>{{folder.label}}</span>
+                                        <span class="sales-project-doc-library__folder-count">{{folder.itemCount}}</span>
+                                    </button>
+                                </div>
+
+                                <div class="sales-project-doc-library__panel">
+                                    <div class="sales-project-doc-library__header">
+                                        <div>
+                                            <div class="sales-project-placeholder__eyebrow">Project Files</div>
+                                            <h4>/Projects/{{project.uuid}}/{{getDocLibraryFolderLabel(selectedDocLibraryFolder)}}</h4>
+                                        </div>
+                                    </div>
+                                    <div *ngIf="getDocLibraryVisibleFiles().length <= 0" class="sales-project-doc-library__empty">
+                                        No documents in this section yet.
+                                    </div>
+                                    <div *ngIf="getDocLibraryVisibleFiles().length > 0" class="sales-project-doc-library__list">
+                                        <button
+                                            *ngFor="let file of getDocLibraryVisibleFiles()"
+                                            type="button"
+                                            class="sales-project-doc-library__row"
+                                            (click)="downloadDocLibraryFile(file.id)">
+                                            <div>
+                                                <div class="sales-project-doc-library__name">{{file.name}}</div>
+                                                <div class="sales-project-doc-library__meta">{{getDocLibraryFolderLabel(file.folderId)}} · {{file.versions.length}} version{{file.versions.length === 1 ? '' : 's'}}</div>
+                                            </div>
+                                            <mat-icon fontIcon="download"></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+    </div>
+</div>

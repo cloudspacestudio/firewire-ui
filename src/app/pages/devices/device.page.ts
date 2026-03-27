@@ -1,6 +1,6 @@
-import { Component, OnChanges, Input } from "@angular/core"
-import { NgIf, NgFor } from '@angular/common'
-import { RouterLink } from "@angular/router"
+import { Component, OnChanges, Input, ViewChild } from "@angular/core"
+import { Observable } from "rxjs"
+import { Router, RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
@@ -29,16 +29,28 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
 })
 export class DevicePage implements OnChanges {
     @Input() deviceId?: string
+    @ViewChild(DeviceDetailComponent) detailComponent?: DeviceDetailComponent
 
     device?: VwDevice
 
-    constructor() {}
+    constructor(private router: Router) {}
 
     ngOnChanges(): void {
     }
 
     loadDevice(input: any) {
         this.device = input
+    }
+
+    onDeviceDeleted() {
+        void this.router.navigate(['/devices'])
+    }
+
+    canDeactivate(): boolean | Observable<boolean> {
+        if (this.detailComponent && typeof this.detailComponent.canDeactivate === 'function') {
+            return this.detailComponent.canDeactivate()
+        }
+        return true
     }
 
 }

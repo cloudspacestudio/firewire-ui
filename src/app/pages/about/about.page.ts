@@ -13,6 +13,11 @@ interface AboutDetail {
 }
 
 type RuntimeServerConnection = AboutMetadata['server']['connection'] & {
+    proxyTarget?: string
+    defaultServerPort?: string
+    authAuthority?: string
+    apiScopes?: string[]
+    protectedResourceStartsWith?: string[]
     runtimeBaseUrl?: string
     runtimeApiRoot?: string
     tenantId?: string
@@ -59,17 +64,30 @@ export class AboutPage implements OnInit {
 
     get derivedServerDetails(): AboutDetail[] {
         const origin = typeof window !== 'undefined' ? window.location.origin : ''
-        return [
+        const details: AboutDetail[] = [
             { label: 'Client Origin', value: origin || 'Unavailable' },
             { label: 'Effective API Base', value: this.serverMetadata.connection?.runtimeApiRoot || (origin ? `${origin}${this.serverMetadata.connection.apiProxyPath}` : this.serverMetadata.connection.apiProxyPath) },
             { label: 'Runtime Base URL', value: this.serverMetadata.connection?.runtimeBaseUrl || 'Unavailable' },
-            { label: 'Proxy Target', value: this.serverMetadata.connection.proxyTarget || 'Unavailable' },
-            { label: 'Default Server Port', value: this.serverMetadata.connection.defaultServerPort || 'Unavailable' },
-            { label: 'Protected Resource Prefixes', value: this.serverMetadata.connection.protectedResourceStartsWith?.join(', ') || 'Unavailable' },
-            { label: 'Auth Authority', value: this.serverMetadata.connection.authAuthority || 'Unavailable' },
-            { label: 'API Scopes', value: this.serverMetadata.connection.apiScopes?.join(', ') || 'Unavailable' },
             { label: 'Metadata Source', value: this.serverStatusMessage || 'Live API' }
         ]
+
+        if (this.serverMetadata.connection.proxyTarget) {
+            details.push({ label: 'Proxy Target', value: this.serverMetadata.connection.proxyTarget })
+        }
+        if (this.serverMetadata.connection.defaultServerPort) {
+            details.push({ label: 'Default Server Port', value: this.serverMetadata.connection.defaultServerPort })
+        }
+        if (this.serverMetadata.connection.protectedResourceStartsWith?.length) {
+            details.push({ label: 'Protected Resource Prefixes', value: this.serverMetadata.connection.protectedResourceStartsWith.join(', ') })
+        }
+        if (this.serverMetadata.connection.authAuthority) {
+            details.push({ label: 'Auth Authority', value: this.serverMetadata.connection.authAuthority })
+        }
+        if (this.serverMetadata.connection.apiScopes?.length) {
+            details.push({ label: 'API Scopes', value: this.serverMetadata.connection.apiScopes.join(', ') })
+        }
+
+        return details
     }
 
     async copyLocalEnvironment(): Promise<void> {

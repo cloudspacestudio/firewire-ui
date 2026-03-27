@@ -6,6 +6,8 @@ import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, Ma
 import { MatIconModule } from '@angular/material/icon'
 
 export interface ContractSetupSheetData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     firetrolJobNumber: string
     projectName: string
     projectAddress: string
@@ -278,9 +280,14 @@ interface ChecklistRow {
         </mat-dialog-content>
 
         <mat-dialog-actions align="end" class="contract-setup__footer">
-            <button mat-flat-button type="button" (click)="downloadPdf()">
+            <div class="contract-setup__footer-status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
                 Create Sheet
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -330,7 +337,7 @@ interface ChecklistRow {
         .contract-setup__option-row{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center;font-size:12px}
         .contract-setup__task-check{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center;min-height:24px;font-size:12px}
         .contract-setup__task-check input[type='checkbox']{width:16px;height:16px;margin:0;accent-color:#d9d36e}
-        .contract-setup__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:#0a1019}
+        .contract-setup__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:#0a1019}.contract-setup__footer-status{margin-right:auto;color:rgba(167,228,255,.82);font-size:.82rem;letter-spacing:.04em}
         .contract-setup__footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
         @media (max-width:900px){.contract-setup__brand-row,.contract-setup__top-grid,.contract-setup__checks-grid,.contract-setup__office-grid,.contract-setup__option-grid,.contract-setup__option-grid--wide,.contract-setup__field-grid,.contract-setup__mini-stats{grid-template-columns:1fr}.contract-setup__amount-row{grid-template-columns:1fr}.contract-setup__brand-block{display:grid}.contract-setup__mini-field{grid-template-columns:1fr}.contract-setup__titlebar{padding:16px 16px 10px}.contract-setup__paper-inner{padding:16px}.contract-setup__footer{padding:8px 16px 16px}}
     `]
@@ -339,6 +346,8 @@ export class ContractSetupDialog implements AfterViewInit {
     data: ContractSetupSheetData = inject(MAT_DIALOG_DATA)
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
     @ViewChild('scopeInput') private scopeInput?: ElementRef<HTMLTextAreaElement>
+    saveWorking = false
+    statusText = ''
 
     editable = {
         firetrolJobNumber: '',
@@ -491,7 +500,24 @@ export class ContractSetupDialog implements AfterViewInit {
         textarea.style.height = `${textarea.scrollHeight}px`
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Contract Set Up.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

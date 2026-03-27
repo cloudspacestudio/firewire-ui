@@ -1,0 +1,75 @@
+.page-topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    letter-spacing: 0.04em;
+}
+
+.page-subtitle {
+    color: var(--fw-muted);
+}
+
+.category-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.category-card-body {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    max-width: 560px;
+}
+
+.category-detail-field {
+    width: 100%;
+}
+
+.category-usage-card {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(255, 164, 61, 0.14), transparent 40%),
+        linear-gradient(180deg, rgba(17, 37, 58, 0.82), rgba(10, 19, 33, 0.96));
+}
+
+.category-usage-card__count {
+    font-size: 3rem;
+    line-height: 1;
+    color: #9ed8ff;
+    text-shadow: 0 0 24px rgba(72, 221, 255, 0.18);
+}
+
+.category-usage-card__label {
+    color: var(--fw-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+}
+
+.category-usage-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.category-usage-card__hint {
+    color: #ffd19a;
+}
+
+@media (max-width: 960px) {
+    .page-topline {
+        flex-direction: column;
+    }
+}

@@ -38,62 +38,56 @@
             </div>
 
             <div class="simple-card-container home-tile-grid">
-                <div [routerLink]="'/sales'" class="nav-tile nav-tile--sales">
+                <div class="nav-tile nav-tile--sales" role="link" tabindex="0" (click)="navigateTo('/sales')" (keydown.enter)="navigateTo('/sales')" (keydown.space)="navigateTo('/sales'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Sales</mat-card-title>
-                            <mat-card-subtitle>Placeholder for upcoming sales tools and workflows</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/design'" class="nav-tile nav-tile--design">
+                <div class="nav-tile nav-tile--design" role="link" tabindex="0" (click)="navigateTo('/design')" (keydown.enter)="navigateTo('/design')" (keydown.space)="navigateTo('/design'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Design</mat-card-title>
-                            <mat-card-subtitle>Coordinate design deliverables and drawing workflows</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/install'" class="nav-tile nav-tile--install">
+                <div class="nav-tile nav-tile--install" role="link" tabindex="0" (click)="navigateTo('/install')" (keydown.enter)="navigateTo('/install')" (keydown.space)="navigateTo('/install'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Install</mat-card-title>
-                            <mat-card-subtitle>Track field execution and installation operations</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/projects'" class="nav-tile nav-tile--projects">
+                <div class="nav-tile nav-tile--projects" role="link" tabindex="0" (click)="navigateTo('/projects')" (keydown.enter)="navigateTo('/projects')" (keydown.space)="navigateTo('/projects'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Projects</mat-card-title>
-                            <mat-card-subtitle>View and manage projects in Firewire</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/devices'" class="nav-tile nav-tile--devices">
+                <div class="nav-tile nav-tile--devices" role="link" tabindex="0" (click)="navigateTo('/devices')" (keydown.enter)="navigateTo('/devices')" (keydown.space)="navigateTo('/devices'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Devices</mat-card-title>
-                            <mat-card-subtitle>View and manage devices and materials</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>
 
-                <div [routerLink]="'/settings'" class="nav-tile nav-tile--settings">
+                <div class="nav-tile nav-tile--settings" role="link" tabindex="0" (click)="navigateTo('/settings')" (keydown.enter)="navigateTo('/settings')" (keydown.space)="navigateTo('/settings'); $event.preventDefault()">
                     <mat-card appearance="outlined">
                         <div class="nav-tile__media" aria-hidden="true"></div>
                         <mat-card-header>
                             <mat-card-title>Settings</mat-card-title>
-                            <mat-card-subtitle>Administer preferences and platform settings</mat-card-subtitle>
                         </mat-card-header>
                     </mat-card>
                 </div>

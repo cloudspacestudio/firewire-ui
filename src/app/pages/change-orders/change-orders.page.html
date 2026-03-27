@@ -1,0 +1,73 @@
+<page-toolbar title="Change Orders">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="detailsLink">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="tabstrip">
+            <h3 class="project-tabstrip-title">CHANGE ORDERS</h3>
+        </div>
+
+        <div class="content-root with-tabstrip">
+            <mat-card class="change-orders-card">
+                <mat-card-content>
+                    <div *ngIf="pageWorking" class="change-orders-placeholder">
+                        <div class="change-orders-placeholder__eyebrow">Loading</div>
+                        <h4>Preparing change orders workspace...</h4>
+                    </div>
+
+                    <div *ngIf="!pageWorking && pageMessage" class="change-orders-placeholder">
+                        <div class="change-orders-placeholder__eyebrow">Unavailable</div>
+                        <h4>{{pageMessage}}</h4>
+                    </div>
+
+                    <div *ngIf="!pageWorking && !pageMessage" class="change-orders-shell">
+                        <div class="change-orders-header">
+                            <div>
+                                <div class="change-orders-header__eyebrow">Project</div>
+                                <h4>{{project?.name || 'Selected Project'}}</h4>
+                                <div class="change-orders-header__meta">{{project?.code || project?.id}}</div>
+                            </div>
+                            <div class="change-orders-header__actions">
+                                <div class="change-orders-header__badge">{{changeOrders.length}} Change Order{{changeOrders.length === 1 ? '' : 's'}}</div>
+                                <button mat-flat-button type="button" class="change-orders-create-button" (click)="createChangeOrder()">CREATE CHANGE ORDER</button>
+                            </div>
+                        </div>
+
+                        <div class="change-orders-table-shell">
+                            <table class="change-orders-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let item of changeOrders">
+                                        <td>{{item.name}}</td>
+                                        <td>{{item.amount | currency}}</td>
+                                        <td>{{item.status}}</td>
+                                        <td>{{item.createdAt | date:'short'}}</td>
+                                        <td class="change-orders-actions-cell">
+                                            <button mat-stroked-button type="button" (click)="downloadChangeOrder(item)">Download</button>
+                                        </td>
+                                    </tr>
+                                    <tr *ngIf="changeOrders.length === 0">
+                                        <td colspan="5" class="change-orders-empty">No change orders for this project yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+    </div>
+</div>

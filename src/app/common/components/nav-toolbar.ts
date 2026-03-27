@@ -105,7 +105,8 @@ export class NavToolbar {
     static DeviceNavItems = [
         {id: 'devices', caption: 'DEVICES', route: `/devices`},
         //{id: 'materials', caption: 'MATERIALS', route: `/materials`},
-        {id: 'parts', caption: 'PARTS', route: `/parts`},
+        {id: 'parts', caption: 'PARTS', route: `/parts/edwards`},
+        {id: 'device-sets', caption: 'DEVICE SETS', route: `/device-sets`},
         {id: 'categories', caption: 'CATEGORIES', route: `/categories`},
         {id: 'vendors', caption: 'VENDORS', route: `/vendors`}
     ]
@@ -113,13 +114,19 @@ export class NavToolbar {
     static ProjectNavItems = [
         {id: 'projects', caption: 'PROJECTS', route: `/projects`},
         {id: 'awaiting-project-nbr', caption: 'AWAITING PROJECT NBR', route: `/projects/awaiting-project-nbr`},
-        {id: 'fieldwire-projects', caption: 'FIELDWIRE ONLY', route: `/projects/fieldwire-list`},
-        {id: 'administration', caption: 'ADMIN', route: `/admin`}
+        {id: 'fieldwire-projects', caption: 'FIELDWIRE ONLY', route: `/projects/fieldwire-list`}
     ]
 
     static DesignNavItems = [
         {id: 'design-projects', caption: 'PROJECTS', route: `/design`},
         {id: 'design-train-ai', caption: 'TRAIN AI', route: `/design/train-ai`}
+    ]
+
+    static SettingsNavItems = [
+        {id: 'settings', caption: 'SETTINGS', route: `/settings`},
+        {id: 'tenant', caption: 'TENANT', route: `/settings`},
+        {id: 'users', caption: 'USERS', route: `/settings`},
+        {id: 'project-admin', caption: 'PROJECT ADMIN', route: `/settings/project-admin`}
     ]
 }
 

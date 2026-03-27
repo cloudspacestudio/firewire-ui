@@ -1,4 +1,4 @@
-<page-toolbar [title]="device?device.name:''">
+<page-toolbar title="DEVICEDETAIL">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/devices'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
@@ -8,7 +8,7 @@
 <div class="page-root">
     <div class="page-content">
 
-        <device-detail [deviceId]="deviceId" (deviceLoaded)="loadDevice($event)"></device-detail>
+        <device-detail [deviceId]="deviceId" (deviceLoaded)="loadDevice($event)" (deviceDeleted)="onDeviceDeleted()"></device-detail>
 
     </div>
 </div>

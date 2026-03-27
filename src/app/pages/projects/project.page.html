@@ -9,8 +9,8 @@
         <button mat-flat-button type="button" class="active">DETAILS</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
-        <button mat-raised-button type="button" class="inactive" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">UPLOAD DOCS</button>
-        <input #projectDocumentUploadInput type="file" hidden (change)="onProjectDocumentFileSelected($event)" />
+        <button *ngIf="project && shouldShowChangeOrdersNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/change-orders'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">CHANGE ORDERS</button>
+        <input #projectDocumentUploadInput type="file" multiple hidden (change)="onProjectDocumentFileSelected($event)" />
     </div>
 
 </page-toolbar>
@@ -63,6 +63,12 @@
                 </button>
             </div>
             <div *ngIf="firewireProject" class="tabstrip-actions tabstrip-actions--menu">
+                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">
+                    <mat-icon fontIcon="upload_file"></mat-icon>
+                    {{projectDocumentUploadBusy ? 'UPLOADING...' : 'UPLOAD DOCS'}}
+                </button>
+            </div>
+            <div *ngIf="firewireProject" class="tabstrip-actions tabstrip-actions--menu">
                 <button mat-icon-button class="project-overflow-button" [mat-menu-trigger-for]="projectActionsMenu" aria-label="Project actions">
                     <mat-icon fontIcon="more_vert"></mat-icon>
                 </button>
@@ -111,7 +117,7 @@
                                     Firewire estimate fields are read-only while Project Status is {{getProjectStatusLabel()}}.
                                 </div>
 
-                                <div *ngIf="activeFirewireWorkspaceTab === 'PROJECT DETAILS'; else firewireWorkspaceContent" class="firewire-project-details-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                <div *ngIf="activeFirewireWorkspaceTab === 'PROJECT DETAILS'; else firewireWorkspaceCustomerInfoOrContent" class="firewire-project-details-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                     <div class="firewire-project-form-grid">
                                         <mat-form-field>
                                             <mat-label>Name</mat-label>
@@ -273,6 +279,54 @@
                                         </mat-card>
                                     </div>
                                 </div>
+
+                                <ng-template #firewireWorkspaceCustomerInfoOrContent>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'CUSTOMER INFO'; else firewireWorkspaceContent" class="firewire-project-details-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div class="firewire-project-form-grid">
+                                            <mat-form-field>
+                                                <mat-label>Billing Name</mat-label>
+                                                <input matInput [(ngModel)]="customerInfo.billingName" [readonly]="isFirewireProjectLocked()" />
+                                            </mat-form-field>
+                                            <mat-form-field>
+                                                <mat-label>Email</mat-label>
+                                                <input matInput [(ngModel)]="customerInfo.billingEmail" [readonly]="isFirewireProjectLocked()" />
+                                            </mat-form-field>
+                                            <mat-form-field>
+                                                <mat-label>Phone</mat-label>
+                                                <input matInput [(ngModel)]="customerInfo.billingPhone" [readonly]="isFirewireProjectLocked()" />
+                                            </mat-form-field>
+                                            <mat-form-field>
+                                                <mat-label>Contract / PO Number</mat-label>
+                                                <input matInput [(ngModel)]="customerInfo.contractOrPoNumber" [readonly]="isFirewireProjectLocked()" />
+                                            </mat-form-field>
+                                            <mat-form-field class="firewire-project-span-2">
+                                                <mat-label>Billing Address</mat-label>
+                                                <textarea matInput rows="3" [(ngModel)]="customerInfo.billingAddress" [readonly]="isFirewireProjectLocked()"></textarea>
+                                            </mat-form-field>
+                                        </div>
+
+                                        <div *ngIf="!isFirewireProjectLocked() && isProjectDirty" class="firewire-project-actions">
+                                            <button
+                                                mat-stroked-button
+                                                type="button"
+                                                class="firewire-reset-button"
+                                                (click)="resetFirewireForm()"
+                                                [disabled]="firewireSaveWorking || !isProjectDirty">
+                                                RESET
+                                            </button>
+                                            <button
+                                                mat-flat-button
+                                                type="button"
+                                                class="firewire-save-button"
+                                                [class.is-dirty]="isProjectDirty"
+                                                (click)="saveFirewireProject()"
+                                                [disabled]="firewireSaveWorking || !isProjectDirty">
+                                                SAVE CUSTOMER INFO
+                                            </button>
+                                            <span *ngIf="firewireSaveMessage" class="project-upload-status">{{firewireSaveMessage}}</span>
+                                        </div>
+                                    </div>
+                                </ng-template>
 
                                 <ng-template #firewireWorkspaceContent>
                                     <div *ngIf="activeFirewireWorkspaceTab === 'INSTALL LABOR'; else firewireWorkspaceLaborRatesOrTakeoff" class="working-heights-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
@@ -662,17 +716,9 @@
                                                 <div class="firewire-workspace-placeholder__eyebrow">Document Library</div>
                                                 <h4>Project Files <span class="doc-library-project-nbr">{{getDocLibraryProjectKey()}}</span></h4>
                                             </div>
-                                            <a
-                                                mat-flat-button
-                                                class="doc-library-open-btn"
-                                                href="https://firetrolnet.sharepoint.com/sites/Firewire/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FFirewire%2FShared%20Documents&newTargetListUrl=%2Fsites%2FFirewire%2FShared%20Documents&viewpath=%2Fsites%2FFirewire%2FShared%20Documents%2FForms%2FAllItems%2Easpx"
-                                                target="_blank"
-                                                rel="noopener">
-                                                OPEN SHAREPOINT
-                                            </a>
                                         </div>
 
-                                            <div class="doc-library-summary">
+                                        <div class="doc-library-summary">
                                             <div class="doc-library-stat">
                                                 <span class="doc-library-stat__label">Active Folder</span>
                                                 <strong>{{getSelectedDocLibraryFolderLabel()}}</strong>
@@ -686,8 +732,8 @@
                                                 <strong>{{formatDocLibraryBytes(getDocLibraryTotalBytes())}}</strong>
                                             </div>
                                             <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Needs Review</span>
-                                                <strong>{{getDocLibraryStatusCount('Needs Review')}}</strong>
+                                                <span class="doc-library-stat__label">Versions</span>
+                                                <strong>{{getDocLibraryVersionCount()}}</strong>
                                             </div>
                                         </div>
 
@@ -710,13 +756,10 @@
                                             <div class="doc-library-browser">
                                                 <div class="doc-library-browser__header">
                                                     <div>
-                                                        <div class="firewire-workspace-placeholder__eyebrow">SharePoint View</div>
+                                                        <div class="firewire-workspace-placeholder__eyebrow">Project Explorer</div>
                                                         <h5>/Projects/{{getDocLibraryProjectKey()}}/{{getSelectedDocLibraryFolderLabel()}}</h5>
                                                     </div>
-                                                    <div class="doc-library-browser__status">
-                                                        <span class="doc-library-pill">Synced {{getDocLibraryStatusCount('Synced')}}</span>
-                                                        <span class="doc-library-pill is-alert">Needs Review {{getDocLibraryStatusCount('Needs Review')}}</span>
-                                                    </div>
+                                                    <div *ngIf="docLibraryStatusMessage" class="doc-library-browser__status">{{docLibraryStatusMessage}}</div>
                                                 </div>
 
                                                 <div class="doc-library-table-shell">
@@ -724,12 +767,12 @@
                                                         <thead>
                                                             <tr>
                                                                 <th>Name</th>
-                                                                <th>Category</th>
-                                                                <th>Type</th>
+                                                                <th *ngIf="selectedDocLibraryFolder === 'all'">Category</th>
                                                                 <th>Size</th>
                                                                 <th>Modified</th>
                                                                 <th>Owner</th>
-                                                                <th>Status</th>
+                                                                <th>Versions</th>
+                                                                <th></th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -738,24 +781,43 @@
                                                                     <div class="doc-library-file">
                                                                         <span class="doc-library-file__ext">{{file.extension}}</span>
                                                                         <div>
-                                                                            <div class="doc-library-file__name">{{file.name}}</div>
+                                                                            <button type="button" class="doc-library-file__name" (click)="downloadDocLibraryFile(file.id)">{{file.name}}</button>
                                                                             <div class="doc-library-file__path">/{{file.folderId}}/{{file.name}}</div>
                                                                         </div>
                                                                     </div>
                                                                 </td>
-                                                                <td>{{file.category}}</td>
-                                                                <td>{{file.extension}}</td>
+                                                                <td *ngIf="selectedDocLibraryFolder === 'all'">{{file.category}}</td>
                                                                 <td>{{formatDocLibraryBytes(file.sizeBytes)}}</td>
                                                                 <td>{{toLocalDateTimeString(file.modifiedAt)}}</td>
+                                                                <td>{{file.modifiedBy}}</td>
+                                                                <td>{{file.versionCount}}</td>
                                                                 <td>
-                                                                    <div>{{file.modifiedBy}}</div>
-                                                                    <div class="doc-library-muted" *ngIf="file.checkedOutTo">Checked out to {{file.checkedOutTo}}</div>
+                                                                    <div class="doc-library-row-actions">
+                                                                        <button mat-icon-button type="button" aria-label="Download document" (click)="downloadDocLibraryFile(file.id)">
+                                                                            <mat-icon fontIcon="download"></mat-icon>
+                                                                        </button>
+                                                                        <button mat-icon-button type="button" aria-label="More document actions" [mat-menu-trigger-for]="docLibraryRowMenu">
+                                                                            <mat-icon fontIcon="more_vert"></mat-icon>
+                                                                        </button>
+                                                                        <mat-menu #docLibraryRowMenu="matMenu" xPosition="before">
+                                                                            <button mat-menu-item type="button" (click)="openDocLibraryVersions(file.id)">
+                                                                                <mat-icon fontIcon="history"></mat-icon>
+                                                                                <span>Versions</span>
+                                                                            </button>
+                                                                            <button mat-menu-item type="button" (click)="moveDocLibraryFile(file.id)">
+                                                                                <mat-icon fontIcon="drive_file_move"></mat-icon>
+                                                                                <span>Move</span>
+                                                                            </button>
+                                                                            <button mat-menu-item type="button" (click)="deleteDocLibraryFile(file.id)">
+                                                                                <mat-icon fontIcon="delete"></mat-icon>
+                                                                                <span>Delete</span>
+                                                                            </button>
+                                                                        </mat-menu>
+                                                                    </div>
                                                                 </td>
-                                                                <td>
-                                                                    <span class="doc-library-status" [class.is-alert]="file.status === 'Needs Review'" [class.is-draft]="file.status === 'Draft'">
-                                                                        {{file.status}}
-                                                                    </span>
-                                                                </td>
+                                                            </tr>
+                                                            <tr *ngIf="getDocLibraryVisibleFiles().length === 0">
+                                                                <td [attr.colspan]="selectedDocLibraryFolder === 'all' ? 7 : 6" class="doc-library-empty">No documents in this section yet.</td>
                                                             </tr>
                                                         </tbody>
                                                     </table>
@@ -922,7 +984,26 @@
                                                     <tbody>
                                                         <tr *ngFor="let row of getFilteredBomRows(section); let idx = index">
                                                             <td>
-                                                                <input [(ngModel)]="row.partNbr" [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                                                <div class="sales-bom-part-lookup">
+                                                                    <input
+                                                                        [(ngModel)]="row.lookupQuery"
+                                                                        (focus)="onBomPartLookupFocus(section, row)"
+                                                                        (blur)="onBomPartLookupBlur(section, row)"
+                                                                        (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
+                                                                        [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                                                    <div *ngIf="isBomLookupActive(section, row) && getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__menu">
+                                                                        <button
+                                                                            *ngFor="let option of getBomPartLookupResults(section, row)"
+                                                                            type="button"
+                                                                            class="sales-bom-part-lookup__option"
+                                                                            (mousedown)="selectBomPart(section, row, option)">
+                                                                            <span class="sales-bom-part-lookup__part">{{option.PartNumber}}</span>
+                                                                            <span class="sales-bom-part-lookup__description">{{option.LongDescription}}</span>
+                                                                            <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency}}</span>
+                                                                            <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </td>
                                                             <td>
                                                                 <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />

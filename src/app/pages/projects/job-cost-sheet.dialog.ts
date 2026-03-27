@@ -6,6 +6,8 @@ import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, Ma
 import { MatIconModule } from '@angular/material/icon'
 
 export interface JobCostSheetData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     firetrolJobNumber: string
     projectName: string
     projectAddress: string
@@ -148,9 +150,14 @@ interface OptionRow {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="sheet-footer">
-            <button mat-flat-button type="button" (click)="downloadPdf()">
+            <div class="sheet-footer__status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
                 Create Sheet
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -169,7 +176,7 @@ interface OptionRow {
         .check-head,.check-row{display:grid;grid-template-columns:1fr 42px 42px;gap:8px;align-items:center}.check-head strong{text-align:center;font-size:12px}.check-row{min-height:24px}.check-row span{font-size:12px}
         .check-row input[type='checkbox'],.option-row input[type='checkbox']{width:16px;height:16px;margin:0 auto;accent-color:#d9d36e}
         .option-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px;margin-bottom:14px}.option-row{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center;font-size:12px}
-        .sheet-footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:#0a1019} .sheet-footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
+        .sheet-footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:#0a1019}.sheet-footer__status{margin-right:auto;color:rgba(167,228,255,.82);font-size:.82rem;letter-spacing:.04em}.sheet-footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
         @media (max-width:720px){.sheet-titlebar{padding:16px 16px 10px}.sheet-paper__inner{padding:16px}.sheet-grid,.option-grid,.approval-grid,.field-grid{grid-template-columns:1fr}.sheet-footer{padding:8px 16px 16px}}
     `]
 })
@@ -177,6 +184,8 @@ export class JobCostSheetDialog implements AfterViewInit {
     data: JobCostSheetData = inject(MAT_DIALOG_DATA)
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
     @ViewChild('scopeOfWorkInput') private scopeOfWorkInput?: ElementRef<HTMLTextAreaElement>
+    saveWorking = false
+    statusText = ''
 
     editable = {
         customer: '',
@@ -300,7 +309,24 @@ export class JobCostSheetDialog implements AfterViewInit {
         textarea.style.height = `${textarea.scrollHeight}px`
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Job Cost Project Set Up Sheet.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

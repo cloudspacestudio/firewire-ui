@@ -1,0 +1,374 @@
+:host {
+    display: block;
+}
+
+.device-detail-shell {
+    display: grid;
+    gap: 16px;
+}
+
+.component-group-container {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) 600px 600px;
+    column-gap: 10px;
+    row-gap: 10px;
+    align-items: stretch;
+    width: 100%;
+}
+
+.component-group {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    align-self: stretch;
+    justify-self: stretch;
+    box-sizing: border-box;
+}
+
+.component-group h4 {
+    margin: 0;
+}
+
+.component-group table,
+.component-group mat-list,
+.component-group .device-detail-form-grid,
+.component-group .device-detail-edit-list {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.component-group table {
+    margin: 0;
+}
+
+.component-group:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.component-group:nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.component-group:nth-child(3) {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.component-group:nth-child(4) {
+    grid-column: 1 / 4;
+    grid-row: 2;
+}
+
+.component-group-container--vendor-edit {
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1fr) minmax(360px, 1fr);
+}
+
+.device-detail-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.device-detail-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 6px;
+    padding-right: 10px;
+    margin-right: 6px;
+}
+
+.device-detail-edit-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 8px;
+}
+
+.device-detail-edit-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border-radius: 12px !important;
+    padding-inline: 14px !important;
+    letter-spacing: 0.06em;
+}
+
+.device-detail-edit-tab--active {
+    border-color: rgba(255, 164, 61, 0.58) !important;
+    background: linear-gradient(180deg, rgba(255, 164, 61, 0.16), rgba(255, 164, 61, 0.05));
+    box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.18), 0 0 20px rgba(255, 140, 40, 0.1);
+}
+
+.device-detail-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.device-detail-subtitle,
+.device-detail-status,
+.device-detail-empty {
+    color: var(--fw-muted);
+}
+
+.device-detail-primary-action,
+.device-detail-secondary-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border-radius: 12px !important;
+    padding-inline: 14px !important;
+    letter-spacing: 0.06em;
+}
+
+.device-detail-primary-action mat-icon,
+.device-detail-secondary-action mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+}
+
+.device-detail-primary-action {
+    box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.18), 0 0 20px rgba(255, 140, 40, 0.12);
+}
+
+.device-detail-table {
+    width: 100%;
+}
+
+.device-detail-table td:first-child {
+    width: 140px;
+    color: var(--fw-muted);
+}
+
+.device-detail-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.device-detail-edit-list {
+    display: grid;
+    gap: 12px;
+}
+
+.device-detail-edit-row {
+    display: grid;
+    gap: 12px;
+}
+
+.device-detail-edit-row > * {
+    min-width: 0;
+}
+
+.device-detail-edit-row mat-form-field,
+.device-detail-form-grid mat-form-field {
+    width: 100%;
+    min-width: 0;
+}
+
+.device-detail-edit-row--custom {
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    align-items: center;
+}
+
+.device-detail-edit-row--subtask {
+    grid-template-columns: minmax(0, 1.35fr) minmax(120px, 0.85fr) auto;
+    align-items: center;
+}
+
+.device-detail-edit-row--part {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.device-detail-edit-row--part-add {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.device-detail-edit-row--part-add button,
+.device-detail-edit-row--subtask button,
+.device-detail-edit-row--part button,
+.device-detail-edit-row--custom button {
+    justify-self: end;
+}
+
+.device-detail-linked-part {
+    display: grid;
+    gap: 4px;
+    min-height: 72px;
+    padding: 12px 16px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+        rgba(7, 15, 27, 0.82);
+}
+
+.device-detail-linked-part__eyebrow {
+    color: var(--fw-muted);
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.device-detail-linked-part__part {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.device-detail-linked-part__description {
+    color: var(--fw-text);
+}
+
+.device-detail-linked-part__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--fw-accent-2);
+    font-size: 0.82rem;
+}
+
+.device-detail-part-picker {
+    display: grid;
+    gap: 12px;
+    padding: 8px 12px 14px;
+}
+
+.component-group:nth-child(4) .device-detail-edit-list,
+.component-group:nth-child(4) > .device-detail-empty,
+.component-group:nth-child(4) > mat-list {
+    padding: 8px 12px 14px;
+    box-sizing: border-box;
+}
+
+.device-detail-part-picker__toolbar {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.4fr) auto minmax(220px, 0.9fr);
+    gap: 12px;
+    align-items: center;
+}
+
+.device-detail-part-picker__filter,
+.device-detail-part-picker__category {
+    width: 100%;
+}
+
+.device-detail-part-picker__clear {
+    margin-top: 6px;
+}
+
+.device-detail-part-picker__hint {
+    color: var(--fw-muted);
+    font-size: 0.82rem;
+}
+
+.device-detail-part-picker__results {
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 640px;
+    overflow-y: auto;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+        rgba(7, 15, 27, 0.72);
+}
+
+.device-detail-part-picker__header,
+.device-detail-part-picker__row {
+    display: grid;
+    grid-template-columns: minmax(130px, 0.9fr) minmax(0, 2fr) minmax(110px, 0.7fr) minmax(140px, 0.9fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+}
+
+.device-detail-part-picker__header {
+    border-bottom: 1px solid rgba(72, 221, 255, 0.14);
+    color: var(--fw-accent-2);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(72, 221, 255, 0.04);
+}
+
+.device-detail-part-picker__row {
+    border-bottom: 1px solid rgba(72, 221, 255, 0.1);
+}
+
+.device-detail-part-picker__row:last-child {
+    border-bottom: 0;
+}
+
+.device-detail-part-picker__part {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.device-detail-part-picker__description {
+    color: var(--fw-text);
+}
+
+.device-detail-part-picker__price {
+    color: var(--fw-text);
+    text-align: right;
+}
+
+.device-detail-part-picker__category-pill {
+    color: var(--fw-accent-2);
+}
+
+.device-detail-issue {
+    margin-left: 10px;
+    color: #ffb17a;
+    font-size: 0.82rem;
+}
+
+.device-detail-part-image {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+@media (max-width: 900px) {
+    .device-detail-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .component-group-container {
+        grid-template-columns: 1fr;
+    }
+
+    .component-group:nth-child(1),
+    .component-group:nth-child(2),
+    .component-group:nth-child(3),
+    .component-group:nth-child(4) {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .device-detail-edit-row--custom {
+        grid-template-columns: 1fr;
+    }
+
+    .device-detail-edit-row--subtask,
+    .device-detail-edit-row--part,
+    .device-detail-edit-row--part-add,
+    .device-detail-part-picker__toolbar,
+    .device-detail-part-picker__header,
+    .device-detail-part-picker__row {
+        grid-template-columns: 1fr;
+    }
+}

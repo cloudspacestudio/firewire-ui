@@ -4,13 +4,13 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
-import { Subscription, catchError, map, Observable, of, switchMap } from "rxjs"
+import { Subscription, catchError, firstValueFrom, map, Observable, of, switchMap } from "rxjs"
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatCardModule } from "@angular/material/card"
 import { MatChipsModule } from "@angular/material/chips"
-import { MatDialog } from "@angular/material/dialog"
+import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
@@ -26,6 +26,12 @@ import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.sch
 import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { AzureMapsService } from "../../common/services/azure-maps.service"
+import {
+    ProjectDocLibraryFileRecord,
+    ProjectDocLibraryFileVersionRecord,
+    ProjectDocLibraryFolderDefinition,
+    ProjectDocLibraryStorageService
+} from "../../common/services/project-doc-library-storage.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
 import { BookingFaceSheetDialog } from "./booking-face-sheet.dialog"
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
@@ -42,6 +48,8 @@ import {
 import { ProjectSettingsApi } from "./project-settings.api"
 import { ReducedResponse, Reducer } from "../../common/reducer"
 import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
+import { Category } from "../../schemas/category.schema"
+import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 
 interface ProjectBomRow {
     partNbr: string
@@ -50,11 +58,15 @@ interface ProjectBomRow {
     cost: number
     labor: number
     type: string
+    lookupQuery?: string
 }
 
 interface ProjectBomSection {
     title: string
     rows: ProjectBomRow[]
+    sectionKey?: string
+    vendorIds?: string[]
+    vendorNames?: string[]
 }
 
 type ProjectBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'type'
@@ -117,6 +129,14 @@ interface FiretrolProvideRow {
     labor: number
 }
 
+interface ProjectCustomerInfo {
+    billingName: string
+    billingAddress: string
+    billingEmail: string
+    billingPhone: string
+    contractOrPoNumber: string
+}
+
 interface WireTakeoffSpecs {
     floors: number
     distanceBetweenFloors: number
@@ -144,8 +164,30 @@ interface DocLibraryFile {
     sizeBytes: number
     modifiedAt: string
     modifiedBy: string
-    checkedOutTo?: string
-    status: 'Synced' | 'Needs Review' | 'Draft'
+    sourceFileName: string
+    versionCount: number
+}
+
+interface ProjectDocLibraryOverwriteDialogData {
+    fileName: string
+    nextVersionNumber: number
+}
+
+interface ProjectDocLibraryVersionsDialogData {
+    fileName: string
+    versions: ProjectDocLibraryFileVersionRecord[]
+    onDownload: (versionId: string) => void
+}
+
+interface ProjectDocLibraryCategoryDialogData {
+    title: string
+    confirmLabel: string
+    selectedFolderId: string
+    folders: Array<{ id: string, label: string }>
+}
+
+interface ProjectDocLibraryDeleteDialogData {
+    fileName: string
 }
 
 type ProjectExpenseSectionMode = 'cost-qty' | 'rate-type-qty' | 'markup'
@@ -199,6 +241,7 @@ interface SystemWeatherForecastDay {
 }
 
 interface FirewireProjectWorksheetState {
+    customerInfo: ProjectCustomerInfo
     baseManHourEstimate: number
     workingHeightBands: WorkingHeightBand[]
     workingHeightFactorMultiplier: number
@@ -274,6 +317,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     private router = inject(Router)
     private route = inject(ActivatedRoute)
     private readonly azureMapsService = inject(AzureMapsService)
+    private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
     private readonly userPreferences = inject(UserPreferencesService)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
     private readonly recentProjectsLimit = 6
@@ -366,6 +410,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     layouts = ['Tabular', 'Raw']
     readonly baseFirewireWorkspaceTabs = [
         'PROJECT DETAILS',
+        'CUSTOMER INFO',
         'INSTALL LABOR',
         'LABOR RATES',
         'TAKE OFF',
@@ -380,6 +425,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
         'SYSTEM'
     ]
     activeFirewireWorkspaceTab = 'PROJECT DETAILS'
+    customerInfo: ProjectCustomerInfo = {
+        billingName: '',
+        billingAddress: '',
+        billingEmail: '',
+        billingPhone: '',
+        contractOrPoNumber: ''
+    }
     baseManHourEstimate = 0
     workingHeightBands: WorkingHeightBand[] = [
         { label: '0 - 10', percent: 100, factor: 0 },
@@ -417,31 +469,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         supervisionFactorPercent: 5,
         mobilizationFactorPercent: 5
     }
-    readonly docLibraryFolders: DocLibraryFolder[] = [
-        { id: 'all', label: 'All Documents', itemCount: 14, badge: 'LIVE' },
-        { id: 'estimates', label: 'Estimating', itemCount: 5 },
-        { id: 'submittals', label: 'Submittals', itemCount: 3 },
-        { id: 'drawings', label: 'Drawings', itemCount: 2 },
-        { id: 'contracts', label: 'Contracts', itemCount: 2 },
-        { id: 'photos', label: 'Site Photos', itemCount: 2 }
-    ]
+    private readonly docLibraryFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getFolderDefinitions()
     selectedDocLibraryFolder = 'all'
-    readonly docLibraryFiles: DocLibraryFile[] = [
-        { id: 'doc-001', folderId: 'estimates', name: 'Fire Alarm Narrative v3', extension: 'DOCX', category: 'Scope Narrative', sizeBytes: 184320, modifiedAt: '2026-03-10T15:42:00Z', modifiedBy: 'Steven Sederburg', status: 'Needs Review' },
-        { id: 'doc-002', folderId: 'estimates', name: 'Equipment Count Worksheet', extension: 'XLSX', category: 'Estimate Workbook', sizeBytes: 426188, modifiedAt: '2026-03-12T13:18:00Z', modifiedBy: 'Steven Sederburg', status: 'Synced' },
-        { id: 'doc-003', folderId: 'estimates', name: 'Bid Scope Clarifications', extension: 'PDF', category: 'Clarifications', sizeBytes: 98214, modifiedAt: '2026-03-08T18:04:00Z', modifiedBy: 'Alicia West', status: 'Draft' },
-        { id: 'doc-004', folderId: 'estimates', name: 'Sequence of Operations', extension: 'DOCX', category: 'Operations', sizeBytes: 241222, modifiedAt: '2026-03-07T11:26:00Z', modifiedBy: 'Alicia West', status: 'Synced' },
-        { id: 'doc-005', folderId: 'estimates', name: 'RFI Tracker', extension: 'XLSX', category: 'Coordination', sizeBytes: 128744, modifiedAt: '2026-03-05T21:12:00Z', modifiedBy: 'Jeremy Cole', status: 'Needs Review' },
-        { id: 'doc-006', folderId: 'submittals', name: 'Device Cut Sheet Package', extension: 'PDF', category: 'Submittal Package', sizeBytes: 1384210, modifiedAt: '2026-03-11T16:55:00Z', modifiedBy: 'Jeremy Cole', status: 'Synced' },
-        { id: 'doc-007', folderId: 'submittals', name: 'Battery Calculation', extension: 'XLSX', category: 'Engineering', sizeBytes: 84121, modifiedAt: '2026-03-09T14:10:00Z', modifiedBy: 'Mina Patel', status: 'Draft' },
-        { id: 'doc-008', folderId: 'submittals', name: 'Voltage Drop Review', extension: 'PDF', category: 'Engineering', sizeBytes: 224911, modifiedAt: '2026-03-06T09:38:00Z', modifiedBy: 'Mina Patel', status: 'Synced' },
-        { id: 'doc-009', folderId: 'drawings', name: 'Floor Plan Markups', extension: 'PDF', category: 'Drawings', sizeBytes: 2629014, modifiedAt: '2026-03-12T08:02:00Z', modifiedBy: 'Alicia West', checkedOutTo: 'Field Team', status: 'Needs Review' },
-        { id: 'doc-010', folderId: 'drawings', name: 'Riser Diagram Draft', extension: 'DWG', category: 'Drawings', sizeBytes: 5341200, modifiedAt: '2026-03-04T19:48:00Z', modifiedBy: 'Mina Patel', status: 'Draft' },
-        { id: 'doc-011', folderId: 'contracts', name: 'Proposal Letter', extension: 'PDF', category: 'Commercial', sizeBytes: 145229, modifiedAt: '2026-03-03T17:44:00Z', modifiedBy: 'Steven Sederburg', status: 'Synced' },
-        { id: 'doc-012', folderId: 'contracts', name: 'Owner Contract Review', extension: 'DOCX', category: 'Commercial', sizeBytes: 110411, modifiedAt: '2026-03-02T20:19:00Z', modifiedBy: 'Steven Sederburg', status: 'Needs Review' },
-        { id: 'doc-013', folderId: 'photos', name: 'Site Walk Photos', extension: 'ZIP', category: 'Field Capture', sizeBytes: 8421994, modifiedAt: '2026-03-01T23:13:00Z', modifiedBy: 'Field Ops', status: 'Synced' },
-        { id: 'doc-014', folderId: 'photos', name: 'Equipment Room Reference', extension: 'JPG', category: 'Reference Photo', sizeBytes: 742188, modifiedAt: '2026-02-28T22:07:00Z', modifiedBy: 'Field Ops', status: 'Synced' }
-    ]
+    docLibraryFiles: ProjectDocLibraryFileRecord[] = []
+    docLibraryStatusMessage = ''
     readonly takeoffColumns = [
         'FACP',
         'Annunciator',
@@ -598,6 +629,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
     bomFilter = ''
     bomSortKey: ProjectBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
+    categories: Category[] = []
+    vendorPartRows: VwEddyPricelist[] = []
+    vendorPartLookupLoaded = false
+    vendorPartLookupWorking = false
+    activeBomLookupSectionKey = ''
+    activeBomLookupRow: ProjectBomRow | null = null
     expenseSections: ProjectExpenseSection[] = [
         {
             title: 'Permit & Fees',
@@ -982,6 +1019,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return status === 'Install' || status === 'Service'
     }
 
+    shouldShowChangeOrdersNav(): boolean {
+        const status = this.getProjectStatusLabel()
+        return status === 'Install' || status === 'Service' || status === 'Closed'
+    }
+
     isProjectStatusLocked(): boolean {
         return this.lockedProjectStatuses.includes(this.getProjectStatusLabel())
     }
@@ -1112,19 +1154,70 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return this.isFirewireFormDirty || this.isWorksheetDirty
     }
 
+    get docLibraryFolders(): DocLibraryFolder[] {
+        const allCount = this.docLibraryFiles.length
+        return [
+            { id: 'all', label: 'All Documents', itemCount: allCount, badge: allCount > 0 ? 'LIVE' : undefined },
+            ...this.docLibraryFolderDefinitions.map((folder) => ({
+                id: folder.id,
+                label: folder.label,
+                itemCount: this.docLibraryFiles.filter((file) => file.folderId === folder.id).length
+            }))
+        ]
+    }
+
     getDocLibraryProjectKey(): string {
         return this.firewireProject?.projectNbr?.trim() || this.firewireForm.projectNbr?.trim() || 'UNASSIGNED'
     }
 
+    getDocLibraryStorageKey(): string {
+        return this.getDocLibraryStorageKeys()[0] || 'UNASSIGNED'
+    }
+
+    getDocLibraryStorageKeys(): string[] {
+        const candidates = [
+            this.projectId,
+            this.project?.id,
+            this.firewireProject?.uuid,
+            this.getDocLibraryProjectKey()
+        ]
+
+        const seen = new Set<string>()
+        return candidates
+            .map((value) => String(value || '').trim())
+            .filter((value) => {
+                if (!value || seen.has(value)) {
+                    return false
+                }
+                seen.add(value)
+                return true
+            })
+    }
+
     getDocLibraryVisibleFiles(): DocLibraryFile[] {
-        if (this.selectedDocLibraryFolder === 'all') {
-            return this.docLibraryFiles
-        }
-        return this.docLibraryFiles.filter((file) => file.folderId === this.selectedDocLibraryFolder)
+        return this.getDocLibraryVisibleRecords().map((file) => {
+            const latestVersion = this.getLatestDocLibraryVersion(file)
+            return {
+                id: file.id,
+                folderId: file.folderId,
+                name: file.name,
+                extension: file.extension.toUpperCase(),
+                category: this.getDocLibraryFolderLabel(file.folderId),
+                sizeBytes: latestVersion?.sizeBytes || 0,
+                modifiedAt: latestVersion?.uploadedAt || file.updatedAt,
+                modifiedBy: latestVersion?.uploadedBy || 'Current User',
+                sourceFileName: latestVersion?.sourceFileName || file.name,
+                versionCount: file.versions?.length || 0
+            }
+        })
     }
 
     getSelectedDocLibraryFolderLabel(): string {
         return this.docLibraryFolders.find((folder) => folder.id === this.selectedDocLibraryFolder)?.label || 'All Documents'
+    }
+
+    getDocLibraryVersionCount(): number {
+        return this.getDocLibraryVisibleRecords().reduce((sum, file) => sum + (file.versions?.length || 0), 0)
     }
 
     getWorkingHeightPercentTotal(): number {
@@ -1200,16 +1293,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return `${(Number(input || 0) * 100).toFixed(0)}%`
     }
 
-    getDocLibraryStatusCount(status: DocLibraryFile['status']): number {
-        return this.getDocLibraryVisibleFiles().filter((file) => file.status === status).length
-    }
-
     getDocLibraryTotalBytes(): number {
         return this.getDocLibraryVisibleFiles().reduce((sum, file) => sum + file.sizeBytes, 0)
     }
 
     selectDocLibraryFolder(folderId: string) {
         this.selectedDocLibraryFolder = folderId
+        this.docLibraryStatusMessage = ''
     }
 
     setTab(event:any) {
@@ -1453,6 +1543,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
         }, 0)
     }
 
+    getBomDeviceCount(): number {
+        return this.bomSections.reduce((sum, section) => {
+            return sum + section.rows.reduce((rowSum, row) => rowSum + Number(row.qty || 0), 0)
+        }, 0)
+    }
+
     getBomLaborVariance(): number {
         return Number(this.baseManHourEstimate || 0) - this.getBomBaseManHourEstimate()
     }
@@ -1591,6 +1687,78 @@ export class ProjectPage implements OnChanges, OnDestroy {
     addBomRow(section: ProjectBomSection) {
         section.rows = [...section.rows, this.createEmptyBomRow()]
         this.bomSections = [...this.bomSections]
+    }
+
+    async onBomPartLookupFocus(section: ProjectBomSection, row: ProjectBomRow): Promise<void> {
+        this.activeBomLookupSectionKey = String(section.sectionKey || '')
+        this.activeBomLookupRow = row
+        await this.ensureBomLookupDataLoaded()
+    }
+
+    onBomPartLookupBlur(section: ProjectBomSection, row: ProjectBomRow): void {
+        row.lookupQuery = String(row.lookupQuery || row.partNbr || '').trim()
+        globalThis.setTimeout(() => {
+            if (this.getBomPartLookupResults(section, row).length === 1) {
+                return
+            }
+            if (this.activeBomLookupSectionKey === String(section.sectionKey || '')) {
+                this.activeBomLookupSectionKey = ''
+                this.activeBomLookupRow = null
+            }
+        }, 120)
+    }
+
+    onBomPartLookupChanged(section: ProjectBomSection, row: ProjectBomRow, value: string): void {
+        row.lookupQuery = value
+        this.activeBomLookupSectionKey = String(section.sectionKey || '')
+        this.activeBomLookupRow = row
+    }
+
+    isBomLookupActive(section: ProjectBomSection, row: ProjectBomRow): boolean {
+        return this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row
+    }
+
+    getBomPartLookupResults(section: ProjectBomSection, row: ProjectBomRow): VwEddyPricelist[] {
+        const activeSectionKey = String(section.sectionKey || '')
+        const query = String(row.lookupQuery || '').trim().toLowerCase()
+        if (this.activeBomLookupSectionKey !== activeSectionKey || query.length < 2) {
+            return []
+        }
+
+        const allowedVendorIds = new Set((section.vendorIds || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+        const allowedVendorNames = new Set((section.vendorNames || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+
+        return this.vendorPartRows
+            .filter((part) => {
+                if (allowedVendorIds.size <= 0 && allowedVendorNames.size <= 0) {
+                    return true
+                }
+                const partVendorId = String(part.vendorId || '').trim().toLowerCase()
+                const partVendorName = String(part.vendorName || '').trim().toLowerCase()
+                return allowedVendorIds.has(partVendorId) || allowedVendorNames.has(partVendorName)
+            })
+            .filter((part) => {
+                const haystack = [
+                    part.PartNumber,
+                    part.LongDescription,
+                    part.Category,
+                    part.ParentCategory
+                ].join(' ').toLowerCase()
+                return haystack.includes(query)
+            })
+            .slice(0, 12)
+    }
+
+    selectBomPart(section: ProjectBomSection, row: ProjectBomRow, part: VwEddyPricelist): void {
+        const category = this.getBomCategoryByName(String(part.Category || '').trim())
+        row.partNbr = String(part.PartNumber || '').trim()
+        row.lookupQuery = row.partNbr
+        row.description = String(part.LongDescription || '').trim()
+        row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
+        row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
+        row.labor = Number(category?.defaultLabor || 0)
+        this.activeBomLookupSectionKey = ''
+        this.activeBomLookupRow = null
     }
 
     getExpenseRateLabel(section: ProjectExpenseSection): string {
@@ -2031,7 +2199,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     getSummaryDeviceCount(): number {
-        return this.getTakeoffGrandTotal()
+        return this.getBomDeviceCount()
     }
 
     getSummaryEngineeringHours(): number {
@@ -2367,12 +2535,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     openJobCostSheet() {
+        const defaultFileName = this.buildSummarySheetFileName('Job Cost Project Set Up Sheet')
         this.dialog.open(JobCostSheetDialog, {
             width: '980px',
             maxWidth: '980px',
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 firetrolJobNumber: this.firewireForm.projectNbr || '',
                 projectName: this.firewireForm.name || this.firewireProject?.name || '',
                 projectAddress: this.firewireForm.address || '',
@@ -2390,12 +2561,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     openEstimateFaceSheet() {
+        const defaultFileName = this.buildSummarySheetFileName('Estimate Face Sheet')
         this.dialog.open(EstimateFaceSheetDialog, {
             width: '980px',
             maxWidth: '980px',
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 date: this.formatDateForDisplay(new Date()),
                 firetrolJobNumber: this.firewireForm.projectNbr || '',
                 projectName: this.firewireForm.name || this.firewireProject?.name || '',
@@ -2434,6 +2608,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         const projectAddress = this.firewireForm.address || ''
         const parsedAddress = this.parseProjectAddress(projectAddress)
         const cityStateZip = [parsedAddress.city, parsedAddress.state, parsedAddress.zip].filter((value) => value).join(', ').replace(', ,', ',')
+        const defaultFileName = this.buildSummarySheetFileName('Quote Sheet')
         const quoteScopeLines = [
             this.firewireForm.projectScope ? `${this.firewireForm.projectScope} scope prepared for ${this.firewireForm.name || 'this project'}.` : '',
             this.firewireForm.scopeType ? `${this.firewireForm.scopeType} execution is included per current estimate assumptions.` : '',
@@ -2447,6 +2622,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 projectName: this.firewireForm.name || this.firewireProject?.name || '',
                 projectAddress: parsedAddress.street || projectAddress,
                 projectCityStateZip: cityStateZip,
@@ -2525,12 +2702,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     openContractSetupSheet() {
+        const defaultFileName = this.buildSummarySheetFileName('Contract Set Up')
         this.dialog.open(ContractSetupDialog, {
             width: '1080px',
             maxWidth: '1080px',
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 firetrolJobNumber: this.firewireForm.projectNbr || '',
                 projectName: this.firewireForm.name || this.firewireProject?.name || '',
                 projectAddress: this.firewireForm.address || '',
@@ -2553,12 +2733,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     openBookingFaceSheet() {
         const parsedAddress = this.parseProjectAddress(this.firewireForm.address || '')
+        const defaultFileName = this.buildSummarySheetFileName('Booking Face Sheet')
         this.dialog.open(BookingFaceSheetDialog, {
             width: '1120px',
             maxWidth: '1120px',
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 date: this.formatDateForDisplay(new Date()),
                 firetrolJobNumber: this.firewireForm.projectNbr || '',
                 projectName: this.firewireForm.name || this.firewireProject?.name || '',
@@ -2602,12 +2785,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     openScheduleOfValuesSheet() {
+        const defaultFileName = this.buildSummarySheetFileName('Schedule Of Values')
         this.dialog.open(ScheduleOfValuesDialog, {
             width: '1160px',
             maxWidth: '1160px',
             minWidth: '0',
             panelClass: 'job-cost-sheet-dialog-pane',
             data: {
+                defaultFileName,
+                createSheet: (fileName: string, html: string) => this.saveGeneratedEstimatingSheet(fileName, html),
                 applicationNumber: '',
                 applicationDate: this.formatDateForDisplay(new Date()),
                 periodTo: '',
@@ -2660,11 +2846,89 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     private createEmptyBomRow(): ProjectBomRow {
         return {
             partNbr: '',
+            lookupQuery: '',
             description: '',
             qty: 0,
             cost: 0,
             labor: 0,
             type: ''
+        }
+    }
+
+    private getBomCategoryByName(categoryName: string): Category | undefined {
+        const normalized = String(categoryName || '').trim().toLowerCase()
+        return this.categories.find((category) => String(category.name || '').trim().toLowerCase() === normalized)
+    }
+
+    private normalizeBomSections(input: any): ProjectBomSection[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+
+        return input.map((section) => ({
+            title: String(section?.title || 'NEW SECTION').trim() || 'NEW SECTION',
+            sectionKey: String(section?.sectionKey || this.createClientId()),
+            vendorIds: Array.isArray(section?.vendorIds) ? section.vendorIds.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
+            vendorNames: Array.isArray(section?.vendorNames) ? section.vendorNames.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
+            rows: Array.isArray(section?.rows) && section.rows.length > 0
+                ? section.rows.map((row: any) => ({
+                    partNbr: String(row?.partNbr || '').trim(),
+                    lookupQuery: String(row?.partNbr || '').trim(),
+                    description: String(row?.description || '').trim(),
+                    qty: Number(row?.qty || 0),
+                    cost: Number(row?.cost || 0),
+                    labor: Number(row?.labor || 0),
+                    type: String(row?.type || '').trim()
+                }))
+                : [this.createEmptyBomRow()]
+        }))
+    }
+
+    private buildBomSectionSnapshot(): ProjectBomSection[] {
+        return (this.bomSections || []).map((section) => ({
+            title: String(section.title || '').trim(),
+            sectionKey: String(section.sectionKey || this.createClientId()),
+            vendorIds: Array.isArray(section.vendorIds) ? [...section.vendorIds] : [],
+            vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
+            rows: (section.rows || []).map((row) => ({
+                partNbr: String(row.partNbr || '').trim(),
+                description: String(row.description || '').trim(),
+                qty: Number(row.qty || 0),
+                cost: Number(row.cost || 0),
+                labor: Number(row.labor || 0),
+                type: String(row.type || '').trim()
+            }))
+        }))
+    }
+
+    private async ensureBomLookupDataLoaded(): Promise<void> {
+        if (this.vendorPartLookupWorking) {
+            return
+        }
+
+        const requests: Promise<unknown>[] = []
+
+        if (!this.vendorPartLookupLoaded) {
+            this.vendorPartLookupWorking = true
+            requests.push(firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist'))
+                .then((response) => {
+                    this.vendorPartRows = Array.isArray(response?.rows) ? response.rows : []
+                    this.vendorPartLookupLoaded = true
+                })
+                .finally(() => {
+                    this.vendorPartLookupWorking = false
+                }))
+        }
+
+        if (this.categories.length <= 0) {
+            requests.push(firstValueFrom(this.http.get<{ rows?: Category[] }>('/api/firewire/categories'))
+                .then((response) => {
+                    this.categories = Array.isArray(response?.rows) ? response.rows : []
+                }))
+        }
+
+        if (requests.length > 0) {
+            await Promise.all(requests)
         }
     }
 
@@ -2702,7 +2966,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     onUploadProjectDocumentsClick(fileInput: HTMLInputElement) {
         this.clearProjectUploadErrorToast()
-        fileInput.click()
+        void this.chooseDocLibraryFolderForUpload(fileInput)
     }
 
     canDeactivate(): boolean | Observable<boolean> {
@@ -2733,37 +2997,395 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         )
     }
 
-    onProjectDocumentFileSelected(event: Event) {
+    async onProjectDocumentFileSelected(event: Event) {
         const input = event.target as HTMLInputElement | null
-        const fieldwireProjectId = this.getFieldwireProjectId()
-        if (!input || !input.files || input.files.length <= 0 || !fieldwireProjectId) {
+        if (!input || !input.files || input.files.length <= 0) {
             return
         }
 
-        const file = input.files[0]
-        const formData = new FormData()
-        formData.append('file', file, file.name)
-        formData.append('fileName', file.name)
-        formData.append('metadata', JSON.stringify({
-            projectId: fieldwireProjectId,
-            projectName: this.project?.name || ''
-        }))
-
         this.projectDocumentUploadBusy = true
+        this.clearProjectUploadErrorToast()
 
-        this.http.post(`/api/fieldwire/projects/${fieldwireProjectId}/projectdocuments/upload`, formData).subscribe({
-            next: () => {
-                this.projectDocumentUploadBusy = false
-                this.clearProjectUploadErrorToast()
-                input.value = ''
-            },
-            error: (err: any) => {
-                this.projectDocumentUploadBusy = false
-                this.showProjectUploadErrorToast(err?.error?.message || err?.message || 'Document upload failed.')
-                input.value = ''
-                console.error('Project document upload failed.', err)
+        try {
+            const files = Array.from(input.files)
+            let uploadedCount = 0
+            let versionedCount = 0
+
+            for (const file of files) {
+                const result = await this.uploadDocLibraryFile(file)
+                if (result === 'uploaded') {
+                    uploadedCount += 1
+                } else if (result === 'versioned') {
+                    versionedCount += 1
+                }
             }
+
+            await this.persistDocLibraryWorkspace()
+
+            if (uploadedCount > 0 || versionedCount > 0) {
+                const summaryParts = []
+                if (uploadedCount > 0) {
+                    summaryParts.push(`${uploadedCount} new`)
+                }
+                if (versionedCount > 0) {
+                    summaryParts.push(`${versionedCount} updated`)
+                }
+                this.docLibraryStatusMessage = `Document library updated: ${summaryParts.join(', ')} file${uploadedCount + versionedCount === 1 ? '' : 's'}.`
+            }
+        } catch (err: any) {
+            this.showProjectUploadErrorToast(err?.message || 'Document upload failed.')
+            console.error('Project document upload failed.', err)
+        } finally {
+            this.projectDocumentUploadBusy = false
+            input.value = ''
+        }
+    }
+
+    async downloadDocLibraryFile(fileId: string, versionId?: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        const version = versionId
+            ? file.versions.find((item) => item.id === versionId)
+            : this.getLatestDocLibraryVersion(file)
+        if (!version) {
+            return
+        }
+
+        const blob = this.dataUrlToBlob(version.dataUrl)
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = version.sourceFileName || file.name
+        link.click()
+        URL.revokeObjectURL(url)
+    }
+
+    async openDocLibraryVersions(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        await firstValueFrom(this.dialog.open(ProjectDocLibraryVersionsDialog, {
+            width: '720px',
+            maxWidth: '94vw',
+            panelClass: 'fw-medium-dialog-pane',
+            data: {
+                fileName: file.name,
+                versions: [...file.versions].sort((a, b) => b.versionNumber - a.versionNumber),
+                onDownload: (versionId: string) => {
+                    void this.downloadDocLibraryFile(file.id, versionId)
+                }
+            } as ProjectDocLibraryVersionsDialogData
+        }).afterClosed())
+    }
+
+    async moveDocLibraryFile(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        const targetFolderId = await this.openDocLibraryCategoryDialog('Move To Category', 'Move File', file.folderId)
+        if (!targetFolderId || targetFolderId === file.folderId) {
+            return
+        }
+
+        file.folderId = targetFolderId
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Moved ${file.name} to ${this.getDocLibraryFolderLabel(targetFolderId)}.`
+    }
+
+    async deleteDocLibraryFile(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        const confirmed = await firstValueFrom(this.dialog.open(ProjectDocLibraryDeleteDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                fileName: file.name
+            } as ProjectDocLibraryDeleteDialogData
+        }).afterClosed())
+
+        if (!confirmed) {
+            return
+        }
+
+        this.docLibraryFiles = this.docLibraryFiles.filter((item) => item.id !== fileId)
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Deleted ${file.name}.`
+    }
+
+    async saveGeneratedEstimatingSheet(fileName: string, html: string): Promise<void> {
+        const normalizedFileName = this.ensureHtmlFileName(fileName)
+        const now = new Date().toISOString()
+        const dataUrl = this.textToDataUrl(html, 'text/html')
+        const duplicate = this.docLibraryFiles.find((item) =>
+            item.folderId === 'estimating'
+            && item.name.toLowerCase() === normalizedFileName.toLowerCase())
+
+        if (duplicate) {
+            duplicate.versions.push({
+                id: this.createClientId(),
+                versionNumber: duplicate.versions.length + 1,
+                uploadedAt: now,
+                uploadedBy: 'Current User',
+                sourceFileName: normalizedFileName,
+                sizeBytes: new Blob([html], { type: 'text/html' }).size,
+                mimeType: 'text/html',
+                lastModified: Date.now(),
+                dataUrl
+            })
+            duplicate.updatedAt = now
+        } else {
+            this.docLibraryFiles.push({
+                id: this.createClientId(),
+                folderId: 'estimating',
+                name: normalizedFileName,
+                extension: 'html',
+                createdAt: now,
+                updatedAt: now,
+                versions: [
+                    {
+                        id: this.createClientId(),
+                        versionNumber: 1,
+                        uploadedAt: now,
+                        uploadedBy: 'Current User',
+                        sourceFileName: normalizedFileName,
+                        sizeBytes: new Blob([html], { type: 'text/html' }).size,
+                        mimeType: 'text/html',
+                        lastModified: Date.now(),
+                        dataUrl
+                    }
+                ]
+            })
+        }
+
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Saved ${normalizedFileName} to Estimating.`
+    }
+
+    private getDocLibraryVisibleRecords(): ProjectDocLibraryFileRecord[] {
+        if (this.selectedDocLibraryFolder === 'all') {
+            return this.docLibraryFiles
+        }
+        return this.docLibraryFiles.filter((file) => file.folderId === this.selectedDocLibraryFolder)
+    }
+
+    private getDocLibraryFolderLabel(folderId: string): string {
+        return this.docLibraryFolderDefinitions.find((folder) => folder.id === folderId)?.label || 'Unfiled'
+    }
+
+    private async chooseDocLibraryFolderForUpload(fileInput: HTMLInputElement): Promise<void> {
+        if (this.selectedDocLibraryFolder !== 'all') {
+            fileInput.click()
+            return
+        }
+
+        const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'estimating')
+        if (!selectedFolderId) {
+            return
+        }
+
+        this.selectedDocLibraryFolder = selectedFolderId
+        fileInput.click()
+    }
+
+    private async openDocLibraryCategoryDialog(title: string, confirmLabel: string, selectedFolderId: string): Promise<string | undefined> {
+        return firstValueFrom(this.dialog.open(ProjectDocLibraryCategoryDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                title,
+                confirmLabel,
+                selectedFolderId,
+                folders: this.docLibraryFolderDefinitions.map((folder) => ({ id: folder.id, label: folder.label }))
+            } as ProjectDocLibraryCategoryDialogData
+        }).afterClosed())
+    }
+
+    private getLatestDocLibraryVersion(file: ProjectDocLibraryFileRecord): ProjectDocLibraryFileVersionRecord | undefined {
+        if (!file.versions || file.versions.length <= 0) {
+            return undefined
+        }
+        return file.versions[file.versions.length - 1]
+    }
+
+    private async uploadDocLibraryFile(file: File): Promise<'uploaded' | 'versioned' | 'skipped'> {
+        if (this.selectedDocLibraryFolder === 'all') {
+            throw new Error('Select a document library section before uploading.')
+        }
+
+        const duplicate = this.docLibraryFiles.find((item) =>
+            item.folderId === this.selectedDocLibraryFolder
+            && item.name.toLowerCase() === file.name.toLowerCase())
+        const dataUrl = await this.readFileAsDataUrl(file)
+        const now = new Date().toISOString()
+
+        if (duplicate) {
+            const dialogRef = this.dialog.open(ProjectDocLibraryOverwriteDialog, {
+                panelClass: 'fw-medium-dialog-pane',
+                data: {
+                    fileName: duplicate.name,
+                    nextVersionNumber: duplicate.versions.length + 1
+                } as ProjectDocLibraryOverwriteDialogData
+            })
+            const shouldOverwrite = await firstValueFrom(dialogRef.afterClosed())
+            if (!shouldOverwrite) {
+                return 'skipped'
+            }
+
+            duplicate.versions.push({
+                id: this.createClientId(),
+                versionNumber: duplicate.versions.length + 1,
+                uploadedAt: now,
+                uploadedBy: 'Current User',
+                sourceFileName: file.name,
+                sizeBytes: file.size,
+                mimeType: file.type || 'application/octet-stream',
+                lastModified: file.lastModified,
+                dataUrl
+            })
+            duplicate.updatedAt = now
+            return 'versioned'
+        }
+
+        this.docLibraryFiles.push({
+            id: this.createClientId(),
+            folderId: this.selectedDocLibraryFolder,
+            name: file.name,
+            extension: this.getDocLibraryExtension(file.name),
+            createdAt: now,
+            updatedAt: now,
+            versions: [
+                {
+                    id: this.createClientId(),
+                    versionNumber: 1,
+                    uploadedAt: now,
+                    uploadedBy: 'Current User',
+                    sourceFileName: file.name,
+                    sizeBytes: file.size,
+                    mimeType: file.type || 'application/octet-stream',
+                    lastModified: file.lastModified,
+                    dataUrl
+                }
+            ]
         })
+        return 'uploaded'
+    }
+
+    private async persistDocLibraryWorkspace(): Promise<void> {
+        await this.projectDocLibraryStorage.saveWorkspace(this.getDocLibraryStorageKey(), {
+            files: this.docLibraryFiles
+        })
+    }
+
+    private async loadDocLibraryWorkspace(): Promise<void> {
+        const storageKey = this.getDocLibraryStorageKey()
+        this.docLibraryFiles = []
+        this.docLibraryStatusMessage = ''
+
+        const workspaces = await Promise.all(this.getDocLibraryStorageKeys().map((key) => this.projectDocLibraryStorage.loadWorkspace(key)))
+        if (storageKey !== this.getDocLibraryStorageKey()) {
+            return
+        }
+        this.docLibraryFiles = this.mergeDocLibraryFiles(workspaces.flatMap((workspace) => workspace.files || []))
+    }
+
+    private mergeDocLibraryFiles(files: ProjectDocLibraryFileRecord[]): ProjectDocLibraryFileRecord[] {
+        const byKey = new Map<string, ProjectDocLibraryFileRecord>()
+
+        for (const file of files) {
+            const fileKey = `${String(file.folderId || '').toLowerCase()}::${String(file.name || '').toLowerCase()}`
+            const existing = byKey.get(fileKey)
+            if (!existing) {
+                byKey.set(fileKey, {
+                    ...file,
+                    versions: [...(file.versions || [])]
+                })
+                continue
+            }
+
+            const mergedVersions = [...(existing.versions || []), ...(file.versions || [])]
+            const seenVersionIds = new Set<string>()
+            existing.versions = mergedVersions.filter((version) => {
+                const versionKey = String(version?.id || `${version?.uploadedAt || ''}:${version?.sourceFileName || ''}:${version?.versionNumber || ''}`)
+                if (seenVersionIds.has(versionKey)) {
+                    return false
+                }
+                seenVersionIds.add(versionKey)
+                return true
+            }).sort((left, right) => Number(left?.versionNumber || 0) - Number(right?.versionNumber || 0))
+
+            existing.createdAt = String(existing.createdAt || '') <= String(file.createdAt || '') ? existing.createdAt : file.createdAt
+            existing.updatedAt = String(existing.updatedAt || '') >= String(file.updatedAt || '') ? existing.updatedAt : file.updatedAt
+        }
+
+        return [...byKey.values()].sort((left, right) => String(right.updatedAt || right.createdAt || '').localeCompare(String(left.updatedAt || left.createdAt || '')))
+    }
+
+    private getDocLibraryExtension(fileName: string): string {
+        const dotIndex = fileName.lastIndexOf('.')
+        if (dotIndex <= 0 || dotIndex === fileName.length - 1) {
+            return ''
+        }
+        return fileName.slice(dotIndex + 1).toLowerCase()
+    }
+
+    private ensureHtmlFileName(fileName: string): string {
+        const trimmed = (fileName || '').trim() || 'generated-sheet.html'
+        return trimmed.toLowerCase().endsWith('.html') ? trimmed : `${trimmed}.html`
+    }
+
+    private buildSummarySheetFileName(sheetLabel: string): string {
+        const projectKey = (this.firewireForm.projectNbr || this.firewireProject?.projectNbr || this.firewireForm.name || this.firewireProject?.name || 'Project').trim()
+        const normalizedLabel = sheetLabel.trim() || 'Sheet'
+        return `${projectKey} - ${normalizedLabel}.html`
+    }
+
+    private textToDataUrl(content: string, mimeType: string): string {
+        const utf8 = encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, (_, hex: string) =>
+            String.fromCharCode(parseInt(hex, 16)))
+        return `data:${mimeType};base64,${btoa(utf8)}`
+    }
+
+    private readFileAsDataUrl(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result || ''))
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(file)
+        })
+    }
+
+    private dataUrlToBlob(dataUrl: string): Blob {
+        const commaIndex = dataUrl.indexOf(',')
+        const header = commaIndex >= 0 ? dataUrl.slice(0, commaIndex) : ''
+        const base64 = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl
+        const mimeTypeMatch = header.match(/data:(.*?);base64/)
+        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'application/octet-stream'
+        const binary = atob(base64)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i)
+        }
+        return new Blob([bytes], { type: mimeType })
+    }
+
+    private createClientId(): string {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID()
+        }
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`
     }
 
     private resetPageState() {
@@ -2782,6 +3404,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.firewireSaveWorking = false
         this.firewireSaveMessage = ''
         this.projectDocumentUploadBusy = false
+        this.docLibraryFiles = []
+        this.docLibraryStatusMessage = ''
+        this.selectedDocLibraryFolder = 'all'
         this.clearProjectUploadErrorToast()
         this.systemWeatherForecast = []
         this.systemWeatherLoading = false
@@ -2914,6 +3539,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.summaryViewMode = this.readStoredSummaryViewMode()
         this.storeRecentProject(project)
         this.loadSystemLocationInsights()
+        void this.loadDocLibraryWorkspace()
     }
 
     private loadSystemLocationInsights() {
@@ -3182,6 +3808,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 if (s && s.data) {
                     this.project = Object.assign({}, s.data)
                     await this._loadStats()
+                    await this.loadDocLibraryWorkspace()
                 }
                 this.ensureValidWorkspaceTabRoute()
                 this.pageWorking = false
@@ -3328,6 +3955,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private buildWorksheetStateSnapshot(): FirewireProjectWorksheetState {
         return this.cloneJson({
+            customerInfo: this.customerInfo,
             baseManHourEstimate: Number(this.baseManHourEstimate || 0),
             workingHeightBands: this.workingHeightBands,
             workingHeightFactorMultiplier: Number(this.workingHeightFactorMultiplier || 0),
@@ -3349,7 +3977,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             wireSelections: this.wireSelections,
             wireRunNodes: this.wireRunNodes,
             firetrolProvideRows: this.firetrolProvideRows,
-            bomSections: this.bomSections,
+            bomSections: this.buildBomSectionSnapshot(),
             expenseSections: this.expenseSections,
             ssPmRate: Number(this.ssPmRate || 0),
             ssPmFixedAmount: Number(this.ssPmFixedAmount || 0),
@@ -3376,6 +4004,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         const hasWorksheet = !!input
         const worksheet = input ? this.cloneJson(input) as Partial<FirewireProjectWorksheetState> : this.cloneJson(this.worksheetDefaults)
 
+        this.customerInfo = this.cloneJson(worksheet.customerInfo || this.worksheetDefaults.customerInfo)
         this.baseManHourEstimate = Number(worksheet.baseManHourEstimate ?? this.worksheetDefaults.baseManHourEstimate)
         this.workingHeightBands = this.cloneJson(worksheet.workingHeightBands || this.worksheetDefaults.workingHeightBands)
         this.workingHeightFactorMultiplier = Number(worksheet.workingHeightFactorMultiplier ?? this.worksheetDefaults.workingHeightFactorMultiplier)
@@ -3397,7 +4026,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.wireSelections = this.cloneJson(worksheet.wireSelections || this.worksheetDefaults.wireSelections)
         this.wireRunNodes = this.cloneJson(worksheet.wireRunNodes || this.worksheetDefaults.wireRunNodes)
         this.firetrolProvideRows = this.cloneJson(worksheet.firetrolProvideRows || this.worksheetDefaults.firetrolProvideRows)
-        this.bomSections = this.cloneJson(worksheet.bomSections || this.worksheetDefaults.bomSections)
+        this.bomSections = this.normalizeBomSections(worksheet.bomSections || this.worksheetDefaults.bomSections)
         this.expenseSections = this.normalizeExpenseSections(this.cloneJson(worksheet.expenseSections || this.worksheetDefaults.expenseSections))
         this.ssPmRate = Number(worksheet.ssPmRate ?? this.worksheetDefaults.ssPmRate)
         this.ssPmFixedAmount = Number(worksheet.ssPmFixedAmount ?? this.worksheetDefaults.ssPmFixedAmount)
@@ -3873,5 +4502,144 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 console.dir(err)
             }
         })
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'project-doc-library-overwrite-dialog',
+    imports: [
+        MatButtonModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose
+    ],
+    template: `
+        <h2 mat-dialog-title>File Already Exists</h2>
+        <mat-dialog-content>
+            <p><strong>{{data.fileName}}</strong> already exists in this project folder.</p>
+            <p>If you continue, the upload will be saved as version {{data.nextVersionNumber}}.</p>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button type="button" (click)="overwrite()">Overwrite + New Version</button>
+        </mat-dialog-actions>
+    `
+})
+export class ProjectDocLibraryOverwriteDialog {
+    readonly data = inject<ProjectDocLibraryOverwriteDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<ProjectDocLibraryOverwriteDialog>)
+
+    overwrite(): void {
+        this.dialogRef.close(true)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'project-doc-library-versions-dialog',
+    imports: [
+        CommonModule,
+        NgFor,
+        MatButtonModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose,
+        MatIconModule
+    ],
+    template: `
+        <h2 mat-dialog-title>{{data.fileName}}</h2>
+        <mat-dialog-content class="project-doc-library-versions-dialog">
+            <div class="project-doc-library-versions-dialog__eyebrow">Stored Versions</div>
+            <div *ngFor="let version of data.versions" class="project-doc-library-versions-dialog__row">
+                <div>
+                    <div class="project-doc-library-versions-dialog__version">Version {{version.versionNumber}}</div>
+                    <div class="project-doc-library-versions-dialog__meta">
+                        {{version.sourceFileName}} · {{version.uploadedBy}} · {{version.uploadedAt | date:'short'}}
+                    </div>
+                </div>
+                <button mat-stroked-button type="button" (click)="download(version.id)">
+                    <mat-icon fontIcon="download"></mat-icon>
+                    Download
+                </button>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Close</button>
+        </mat-dialog-actions>
+    `
+})
+export class ProjectDocLibraryVersionsDialog {
+    readonly data = inject<ProjectDocLibraryVersionsDialogData>(MAT_DIALOG_DATA)
+
+    download(versionId: string): void {
+        this.data.onDownload(versionId)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'project-doc-library-category-dialog',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MatButtonModule,
+        MatFormFieldModule,
+        MatSelectModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose
+    ],
+    template: `
+        <h2 mat-dialog-title>{{data.title}}</h2>
+        <mat-dialog-content class="project-doc-library-category-dialog">
+            <div class="project-doc-library-category-dialog__hint">Choose the document category for this action.</div>
+            <mat-form-field>
+                <mat-label>Category</mat-label>
+                <mat-select [(ngModel)]="selectedFolderId">
+                    <mat-option *ngFor="let folder of data.folders" [value]="folder.id">{{folder.label}}</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
+        </mat-dialog-actions>
+    `
+})
+export class ProjectDocLibraryCategoryDialog {
+    readonly data = inject<ProjectDocLibraryCategoryDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<ProjectDocLibraryCategoryDialog>)
+    selectedFolderId = this.data.selectedFolderId
+
+    confirmSelection(): void {
+        this.dialogRef.close(this.selectedFolderId)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'project-doc-library-delete-dialog',
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    template: `
+        <h2 mat-dialog-title>Delete Document</h2>
+        <mat-dialog-content>
+            Delete <strong>{{data.fileName}}</strong> from the project library?
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button color="warn" type="button" (click)="confirm()">Delete</button>
+        </mat-dialog-actions>
+    `
+})
+export class ProjectDocLibraryDeleteDialog {
+    readonly data = inject<ProjectDocLibraryDeleteDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<ProjectDocLibraryDeleteDialog>)
+
+    confirm(): void {
+        this.dialogRef.close(true)
     }
 }

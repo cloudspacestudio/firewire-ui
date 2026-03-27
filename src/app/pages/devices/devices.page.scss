@@ -1,0 +1,43 @@
+.tabstrip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.devices-filter-field {
+    flex: 0 0 240px;
+    width: 240px;
+}
+
+.devices-tabstrip-actions {
+    margin-left: auto;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.devices-name-link {
+    color: #78c7ff;
+    text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+    .tabstrip {
+        flex-wrap: wrap;
+    }
+
+    .devices-filter-field {
+        flex: 1 1 240px;
+        width: 100%;
+    }
+
+    .devices-tabstrip-actions {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}

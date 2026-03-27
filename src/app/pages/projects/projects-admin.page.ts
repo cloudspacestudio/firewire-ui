@@ -43,7 +43,7 @@ interface ListMeta {
     styleUrls: ['./projects-admin.page.scss']
 })
 export class ProjectsAdminPage implements OnInit {
-    navItems = NavToolbar.ProjectNavItems
+    navItems = NavToolbar.SettingsNavItems
     pageWorking = true
     statusText = ''
     catalog: ProjectSettingsCatalogSchema = {

@@ -9,8 +9,159 @@
     flex-wrap: wrap;
 }
 
+.parts-vendor-select {
+    min-width: 240px;
+    max-width: 420px;
+    flex: 0 1 420px;
+}
+
+.parts-vendor-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    width: 100%;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    box-sizing: border-box;
+}
+
+.parts-vendor-option__logo-shell {
+    min-width: 148px;
+    width: 148px;
+    height: 56px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex: 0 0 148px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.98);
+    box-sizing: border-box;
+}
+
+.parts-vendor-option__logo {
+    max-width: 124px;
+    max-height: 40px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.parts-vendor-option__glyph {
+    color: #0b2030;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.parts-vendor-option__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.parts-vendor-option--create .parts-vendor-option__label {
+    color: #ffe2b2;
+}
+
+.parts-vendor-option__create-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    flex: 0 0 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffe2b2;
+    border: 1px solid rgba(255, 164, 61, 0.34);
+    background:
+        linear-gradient(180deg, rgba(255, 170, 72, 0.24), rgba(255, 132, 28, 0.1)),
+        rgba(10, 18, 32, 0.95);
+    box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.1);
+    position: relative;
+}
+
+.parts-vendor-option__create-badge mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    display: block;
+    margin: 0;
+}
+
+:host ::ng-deep .parts-vendor-select .mat-mdc-text-field-wrapper {
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at top left, rgba(72, 221, 255, 0.18), transparent 58%),
+        linear-gradient(180deg, rgba(10, 18, 32, 0.96), rgba(6, 12, 22, 0.96));
+    box-shadow: inset 0 0 0 1px rgba(72, 221, 255, 0.16), 0 0 24px rgba(72, 221, 255, 0.08);
+}
+
+:host ::ng-deep .parts-vendor-select .mdc-notched-outline__leading,
+:host ::ng-deep .parts-vendor-select .mdc-notched-outline__notch,
+:host ::ng-deep .parts-vendor-select .mdc-notched-outline__trailing {
+    border-color: rgba(72, 221, 255, 0.22) !important;
+}
+
+:host ::ng-deep .parts-vendor-select .mat-mdc-select-value,
+:host ::ng-deep .parts-vendor-select .mat-mdc-form-field-label,
+:host ::ng-deep .parts-vendor-select .mat-mdc-select-arrow {
+    color: var(--fw-text) !important;
+    letter-spacing: 0.08em;
+}
+
+:host ::ng-deep .parts-vendor-select .mat-mdc-select-trigger {
+    align-items: center;
+}
+
+:host ::ng-deep .parts-vendor-panel {
+    min-width: 420px !important;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 18px !important;
+    background:
+        radial-gradient(circle at top, rgba(72, 221, 255, 0.13), transparent 58%),
+        linear-gradient(180deg, rgba(8, 14, 24, 0.98), rgba(6, 10, 18, 0.98)) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), 0 0 28px rgba(72, 221, 255, 0.08);
+}
+
+:host ::ng-deep .parts-vendor-panel .mat-mdc-option {
+    color: var(--fw-text);
+    letter-spacing: 0.08em;
+    min-height: 80px;
+}
+
+:host ::ng-deep .parts-vendor-panel .mat-mdc-option .mdc-list-item__primary-text {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+:host ::ng-deep .parts-vendor-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+    background: linear-gradient(180deg, rgba(255, 170, 72, 0.2), rgba(255, 132, 28, 0.08));
+    color: #ffe2b2;
+}
+
+:host ::ng-deep .parts-vendor-panel mat-divider {
+    border-top-color: rgba(72, 221, 255, 0.14);
+    margin: 4px 0;
+}
+
 .parts-filter {
     min-width: 240px;
+}
+
+.parts-category-filter {
+    min-width: 220px;
+}
+
+.parts-filter-clear {
+    margin-top: 2px;
 }
 
 .parts-import-actions {
@@ -18,6 +169,7 @@
     align-items: center;
     gap: 8px;
     margin-left: auto;
+    margin-right: 12px;
 }
 
 .parts-import-actions button {
@@ -39,17 +191,48 @@
     min-height: 40px;
 }
 
+.parts-status {
+    margin: 4px 0 10px;
+    color: var(--fw-muted);
+    font-size: 0.82rem;
+}
+
+.parts-vendor-summary {
+    margin: 0 0 10px;
+}
+
+.parts-vendor-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.parts-vendor-subtitle {
+    color: var(--fw-muted);
+    font-size: 0.82rem;
+}
+
 @media (max-width: 900px) {
     .parts-tabstrip {
         align-items: stretch;
+    }
+
+    .parts-vendor-select {
+        min-width: 100%;
+        max-width: 100%;
+        flex: 1 1 100%;
     }
 
     .parts-filter {
         width: 100%;
     }
 
+    .parts-category-filter {
+        width: 100%;
+    }
+
     .parts-import-actions {
         margin-left: 0;
+        margin-right: 0;
         width: 100%;
         flex-wrap: wrap;
     }

@@ -1,0 +1,119 @@
+<page-toolbar title="DESIGN">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/home'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'design-projects'"></nav-toolbar>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="tabstrip">
+            <div class="design-actions">
+                <mat-form-field>
+                    <mat-label>Filter</mat-label>
+                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Hospital, Design, 12345" #input>
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div class="content-root with-tabstrip">
+            <section class="design-hero">
+                <div>
+                    <div class="design-eyebrow">Design Projects</div>
+                    <h1>Firewire projects ready for project details or design-specific workflow.</h1>
+                    <p>The design workspace now tracks Firewire projects only. Open Project Details for the estimate record, or jump into the project’s Design page for design-specific work.</p>
+                </div>
+                <div class="design-hero__meta">
+                    <span>Firewire Only</span>
+                    <strong>{{projects.length}}</strong>
+                </div>
+            </section>
+
+            <div *ngIf="pageWorking" class="state-panel">
+                Loading design projects...
+            </div>
+            <div *ngIf="!pageWorking && errText" class="state-panel state-panel--error">
+                {{errText}}
+            </div>
+
+            <table
+                *ngIf="!pageWorking && !errText"
+                mat-table
+                [dataSource]="datasource"
+                matSort>
+                <ng-container matColumnDef="name" sticky="true">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+                    <td mat-cell *matCellDef="let row">
+                        <a
+                            class="project-name-link"
+                            [routerLink]="getProjectDetailsLink(row)"
+                            [queryParams]="{ returnTo: '/design' }">
+                            {{row.name}}
+                        </a>
+                    </td>
+                </ng-container>
+
+                <ng-container matColumnDef="projectNbr">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Project # </th>
+                    <td mat-cell *matCellDef="let row"> {{row.projectNbr || ''}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="projectStatus">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Project Status </th>
+                    <td mat-cell *matCellDef="let row"> {{row.projectStatus || ''}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="address">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Address </th>
+                    <td mat-cell *matCellDef="let row">
+                        <span class="design-address-cell">{{row.address || ''}}</span>
+                    </td>
+                </ng-container>
+
+                <ng-container matColumnDef="bidDueDate">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Bid Due </th>
+                    <td mat-cell *matCellDef="let row"> {{toLocalDateString(row.bidDueDate)}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="design-actions-column"></th>
+                    <td mat-cell *matCellDef="let row" class="design-actions-cell">
+                        <div class="design-actions-cell__inner">
+                            <a
+                                *ngIf="getFieldwireProjectUrl(row) as fieldwireProjectUrl"
+                                class="fieldwire-link-button"
+                                [href]="fieldwireProjectUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open Fieldwire project in a new tab">
+                                <img src="/fieldwire-logo.webp" alt="" />
+                            </a>
+                            <a
+                                mat-flat-button
+                                class="design-link-button design-link-button--primary"
+                                [routerLink]="getDesignWorkspaceLink(row)">
+                                <mat-icon fontIcon="architecture"></mat-icon>
+                                Design
+                            </a>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+                <tr class="mat-row" *matNoDataRow>
+                    <td class="mat-cell" colspan="6">{{getNoDataRowText(input.value)}}</td>
+                </tr>
+            </table>
+
+            <mat-paginator
+                *ngIf="!pageWorking && !errText"
+                [pageSize]="10"
+                [pageSizeOptions]="[5, 10, 25, 100]"
+                aria-label="Select page of design projects"></mat-paginator>
+        </div>
+    </div>
+</div>

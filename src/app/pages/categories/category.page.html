@@ -1,0 +1,100 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/categories'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'categories'"></nav-toolbar>
+</page-toolbar>
+<div class="page-root">
+    <div class="page-content">
+        <div class="page-topline">
+            <div>
+                <div class="page-title">{{category?.name || 'Category Detail'}}</div>
+                <div class="page-subtitle">Manage category naming and handle details here.</div>
+            </div>
+            <div class="category-actions">
+                <button mat-stroked-button type="button" [disabled]="saveWorking || deleteWorking || categoryDevices.length > 0" (click)="deleteCategory()">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                </button>
+                <button mat-stroked-button type="button" [disabled]="saveWorking || deleteWorking" (click)="resetChanges()">
+                    <mat-icon>close</mat-icon>
+                    <span>Cancel</span>
+                </button>
+                <button mat-flat-button type="button" [disabled]="saveWorking || deleteWorking || !model.name.trim() || !model.shortName.trim() || !model.handle.trim()" (click)="saveChanges()">
+                    <mat-icon>save</mat-icon>
+                    <span>Save Changes</span>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="statusText" class="categories-status">{{statusText}}</div>
+        <div *ngIf="errText" class="categories-status">{{errText}}</div>
+
+        <section class="component-group" *ngIf="!pageWorking">
+            <div class="component-group__title">CATEGORY DETAIL</div>
+            <div class="category-card-body">
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Name</mat-label>
+                    <input matInput [(ngModel)]="model.name" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Short Name</mat-label>
+                    <input matInput [(ngModel)]="model.shortName" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Handle</mat-label>
+                    <input matInput maxlength="10" [(ngModel)]="model.handle" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Default Labor</mat-label>
+                    <input matInput type="number" [(ngModel)]="model.defaultLabor" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>SLC Address</mat-label>
+                    <mat-select [(ngModel)]="model.slcAddress">
+                        <mat-option *ngFor="let option of slcOptions" [value]="option.value">{{option.label}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Speaker Address</mat-label>
+                    <mat-select [(ngModel)]="model.speakerAddress">
+                        <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="category-detail-field">
+                    <mat-label>Strobe Address</mat-label>
+                    <mat-select [(ngModel)]="model.strobeAddress">
+                        <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-slide-toggle [(ngModel)]="model.includeOnFloorplan">Include On Floorplan</mat-slide-toggle>
+            </div>
+        </section>
+
+        <section class="component-group" *ngIf="!pageWorking">
+            <div class="component-group__title">DEVICE USAGE</div>
+            <div class="category-usage-card">
+                <div class="category-usage-card__count">{{categoryDevices.length}}</div>
+                <div class="category-usage-card__label">Devices In System Using This Category</div>
+                <div class="category-usage-card__actions">
+                    <button mat-stroked-button type="button" [disabled]="categoryDevices.length <= 0" (click)="openDevicesDialog()">
+                        <mat-icon>list</mat-icon>
+                        <span>List Devices</span>
+                    </button>
+                    <div class="category-usage-card__hint" *ngIf="categoryDevices.length > 0">
+                        Deletion is disabled while this category is assigned to devices.
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>

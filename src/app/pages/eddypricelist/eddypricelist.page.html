@@ -9,29 +9,97 @@
 <div class="page-root">
     <div class="page-content">
         <div class="tabstrip parts-tabstrip">
+            <mat-form-field class="parts-vendor-select" appearance="outline">
+                <mat-label>Vendor Channel</mat-label>
+                <mat-select
+                    [value]="selectedVendorId"
+                    panelClass="parts-vendor-panel"
+                    [panelWidth]="420"
+                    (selectionChange)="onVendorSelectionChange($event.value)">
+                    <mat-select-trigger>
+                        <span class="parts-vendor-option" *ngIf="activeVendor as vendor">
+                            <span class="parts-vendor-option__logo-shell">
+                                <img *ngIf="vendor.logoDataUrl" class="parts-vendor-option__logo" [src]="vendor.logoDataUrl" [alt]="vendor.name + ' logo'" />
+                                <span *ngIf="!vendor.logoDataUrl" class="parts-vendor-option__glyph">{{vendor.name.charAt(0)}}</span>
+                            </span>
+                            <span class="parts-vendor-option__label">{{vendor.name}}</span>
+                        </span>
+                    </mat-select-trigger>
+                    <mat-option *ngFor="let vendor of availablePartsVendors" [value]="vendor.vendorId">
+                        <span class="parts-vendor-option">
+                            <span class="parts-vendor-option__logo-shell">
+                                <img *ngIf="vendor.logoDataUrl" class="parts-vendor-option__logo" [src]="vendor.logoDataUrl" [alt]="vendor.name + ' logo'" />
+                                <span *ngIf="!vendor.logoDataUrl" class="parts-vendor-option__glyph">{{vendor.name.charAt(0)}}</span>
+                            </span>
+                            <span class="parts-vendor-option__label">{{vendor.name}}</span>
+                        </span>
+                    </mat-option>
+                    <mat-divider></mat-divider>
+                    <mat-option [value]="'__create_new_vendor__'">
+                        <span class="parts-vendor-option parts-vendor-option--create">
+                            <span class="parts-vendor-option__create-badge">
+                                <mat-icon>tune</mat-icon>
+                            </span>
+                            <span class="parts-vendor-option__label">Configure New Vendor</span>
+                        </span>
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+
             <mat-form-field class="parts-filter">
                 <mat-label>Filter</mat-label>
                 <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
 
+            <button
+                *ngIf="selectedCategories.length > 0"
+                mat-icon-button
+                type="button"
+                class="parts-filter-clear"
+                (click)="clearCategoryFilter()"
+                aria-label="Clear category filter">
+                <mat-icon fontIcon="filter_alt_off"></mat-icon>
+            </button>
+
+            <mat-form-field class="parts-category-filter">
+                <mat-label>Category</mat-label>
+                <mat-select [(ngModel)]="selectedCategories" multiple (selectionChange)="onCategoryFilterChange()">
+                    <mat-option *ngFor="let option of getCategoryFilterOptions()" [value]="option">
+                        {{option}}
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+
             <span class="spacer"></span>
 
             <div class="parts-import-actions">
-                <button *ngIf="!showImport" mat-flat-button title="Import Parts" (click)="showImport=true">
+                <button mat-stroked-button type="button" title="Review Import Process" (click)="openProcessDialog()">
+                    <mat-icon>description</mat-icon>
+                    <span>Process</span>
+                </button>
+                <button mat-flat-button type="button" title="Import Parts" (click)="openImportDialog()">
                     <mat-icon>file_upload</mat-icon>
                     <span>Import</span>
                 </button>
-                <button *ngIf="showImport" mat-flat-button title="Cancel Import" (click)="showImport=false">
-                    <mat-icon>cancel</mat-icon>
-                    <span>Cancel Import</span>
-                </button>
-                <div *ngIf="showImport" class="parts-file-input">
-                    <input type="file" (change)="onFileChange($event)" accept=".csv" />
-                </div>
             </div>
         </div>
+        <div class="parts-vendor-summary">
+            <div class="parts-vendor-title">{{activeVendorView.datasetLabel}}</div>
+            <div class="parts-vendor-subtitle">Vendor-specific parts workspace for {{activeVendorView.vendorName}}.</div>
+            <div class="parts-vendor-subtitle" *ngIf="activeImportConfig">Import target: {{activeImportConfig.targetTable}}.</div>
+            <div class="parts-vendor-subtitle" *ngIf="activeImportRun">
+                As Of: {{activeImportRun.importedAt | date:'medium'}} from {{activeImportRun.fileName}}.
+            </div>
+        </div>
+        <div *ngIf="statusText" class="parts-status">{{statusText}}</div>
         <div class="content-root with-tabstrip">
-            <table mat-table [dataSource]="datasource" matSort>
+            <table
+                mat-table
+                [dataSource]="datasource"
+                matSort
+                [matSortActive]="currentSortActive"
+                [matSortDirection]="currentSortDirection"
+                (matSortChange)="onSortChange($event)">
 
                 <!-- Long Description Column -->
                 <ng-container matColumnDef="LongDescription" sticky="true">
@@ -133,8 +201,8 @@
                             <mat-icon>more_vert</mat-icon>
                         </button>
                         <mat-menu #partActionMenu>
-                            <button mat-menu-item>Create Device using Part</button>
-                            <button mat-menu-item>Add Part to Existing Device</button>
+                            <button mat-menu-item type="button" (click)="openCreateDeviceDialog(row)" [disabled]="actionWorking">Create Device using Part</button>
+                            <button mat-menu-item type="button" (click)="openAddToExistingDeviceDialog(row)" [disabled]="actionWorking">Add Part to Existing Device</button>
                         </mat-menu>
                     </td>
                 </ng-container>

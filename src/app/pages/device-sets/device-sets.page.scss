@@ -1,0 +1,50 @@
+.tabstrip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.device-sets-filter-field {
+    flex: 0 0 240px;
+    width: 240px;
+}
+
+.device-sets-tabstrip-actions {
+    margin-left: auto;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.device-sets-name-link {
+    color: #78c7ff;
+    text-decoration: underline;
+}
+
+.device-sets-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+@media (max-width: 900px) {
+    .tabstrip {
+        flex-wrap: wrap;
+    }
+
+    .device-sets-filter-field {
+        flex: 1 1 240px;
+        width: 100%;
+    }
+
+    .device-sets-tabstrip-actions {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}

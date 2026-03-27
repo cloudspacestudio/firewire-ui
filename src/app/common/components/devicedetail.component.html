@@ -1,117 +1,313 @@
-<div *ngIf="!pageWorking">
-    <!-- <div class="tabstrip">
-        <h3 style="display: inline-block;margin:0;padding:0;margin-right: 18px;">{{device?device.name:''}}</h3>
-    </div> -->
-    <div class="content-root"> <!--</div> with-tabstrip">-->
-        <div class="component-group-container">
+<div *ngIf="!pageWorking; else loadingState">
+    <div class="device-detail-shell" *ngIf="device">
+        <div class="device-detail-toolbar">
+            <div>
+                <div class="device-detail-title">{{device.name}}</div>
+                <div class="device-detail-subtitle">{{device.vendorName}} · {{device.categoryName}}</div>
+            </div>
+            <div class="device-detail-toolbar__actions">
+                <span *ngIf="statusText" class="device-detail-status">{{statusText}}</span>
+                <div *ngIf="editMode" class="device-detail-edit-tabs">
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        class="device-detail-edit-tab"
+                        [class.device-detail-edit-tab--active]="activeEditView === 'details'"
+                        (click)="setEditView('details')">
+                        <mat-icon>tune</mat-icon>
+                        <span>Details</span>
+                    </button>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        class="device-detail-edit-tab"
+                        [class.device-detail-edit-tab--active]="activeEditView === 'vendor-parts'"
+                        (click)="setEditView('vendor-parts')">
+                        <mat-icon>inventory_2</mat-icon>
+                        <span>Vendor Parts</span>
+                    </button>
+                </div>
+                <button *ngIf="!editMode" mat-flat-button type="button" class="device-detail-primary-action" (click)="startEdit()">
+                    <mat-icon>edit_note</mat-icon>
+                    <span>Edit Details</span>
+                </button>
+                <button *ngIf="!editMode" mat-stroked-button type="button" class="device-detail-secondary-action" (click)="startVendorPartsEdit()">
+                    <mat-icon>inventory_2</mat-icon>
+                    <span>Edit Vendor Parts</span>
+                </button>
+                <button *ngIf="!editMode" mat-stroked-button type="button" class="device-detail-secondary-action" [disabled]="saveWorking" (click)="deleteDevice()">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete Device</span>
+                </button>
+                <button *ngIf="editMode" mat-flat-button type="button" class="device-detail-primary-action" [disabled]="saveWorking" (click)="save()">
+                    <mat-icon>save</mat-icon>
+                    <span>Save Changes</span>
+                </button>
+                <button *ngIf="editMode" mat-stroked-button type="button" class="device-detail-secondary-action" [disabled]="saveWorking" (click)="cancelEdit()">
+                    <mat-icon>close</mat-icon>
+                    <span>Cancel</span>
+                </button>
+            </div>
+        </div>
 
-            <!-- Device Details -->
-            <div class="component-group">
+        <div class="component-group-container" [class.component-group-container--vendor-edit]="isVendorPartsEditView()">
+            <section class="component-group">
                 <h4>DETAILS</h4>
-                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
-                <table *ngIf="device">
+                <table *ngIf="!isDetailsEditView()" class="device-detail-table">
+                    <tr><td>Name</td><td>{{device.name}}</td></tr>
                     <tr>
-                        <td>Name</td><td>{{device.name}}</td>
+                        <td>Part Number</td>
+                        <td>
+                            {{device.partNumber}}
+                            <span *ngIf="getDefaultPartIssue() as issue" class="device-detail-issue">
+                                Missing vendor link
+                                <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
+                                <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
+                            </span>
+                        </td>
                     </tr>
-                    <tr>
-                        <td>Part Number</td><td>{{device.partNumber}}</td>
-                    </tr>
-                    <tr>
-                        <td>Category</td><td>{{device.categoryName}}</td>
-                    </tr>
-                    <tr>
-                        <td>Vendor</td><td>{{device.vendorName}}</td>
-                    </tr>
-                    <tr>
-                        <td>Cost</td><td>{{device.cost|currency}}</td>
-                    </tr>
-                    <tr>
-                        <td>Default Labor</td><td>{{device.defaultLabor}}</td>
-                    </tr>
-                    <tr>
-                        <td>Short Name</td><td>{{device.categoryName}}</td>
-                    </tr>
-                    <tr>
-                        <td>Serial Number</td><td>{{settingText(device.serialNumber)}}</td>
-                    </tr>
-                    <tr>
-                        <td>SLC Address</td><td>{{settingText(device.slcAddress)}}</td>
-                    </tr>
-                    <tr>
-                        <td>Speaker Address</td><td>{{settingText(device.speakerAddress)}}</td>
-                    </tr>
-                    <tr>
-                        <td>Strobe Address</td><td>{{settingText(device.strobeAddress)}}</td>
-                    </tr>
+                    <tr><td>Category</td><td>{{device.categoryName}}</td></tr>
+                    <tr><td>Vendor</td><td>{{device.vendorName}}</td></tr>
+                    <tr><td>Cost</td><td>{{getDisplayedDeviceCost() | currency}}</td></tr>
+                    <tr *ngIf="getShowDefaultLabor()"><td>Default Labor</td><td>{{getReadOnlyDefaultLabor()}}</td></tr>
+                    <tr><td>Short Name</td><td>{{device.shortName}}</td></tr>
+                    <tr><td>Serial Number</td><td>{{displaySetting(device.serialNumber)}}</td></tr>
+                    <tr><td>SLC Address</td><td>{{displaySetting(device.slcAddress)}}</td></tr>
+                    <tr><td>Speaker Address</td><td>{{displaySetting(device.speakerAddress)}}</td></tr>
+                    <tr><td>Strobe Address</td><td>{{displaySetting(device.strobeAddress)}}</td></tr>
                 </table>
-            </div>
 
-            <!-- Device Attributes -->
-            <div class="component-group">
+                <div *ngIf="isDetailsEditView()" class="device-detail-form-grid">
+                    <mat-form-field>
+                        <mat-label>Name</mat-label>
+                        <input matInput [(ngModel)]="editDevice.name" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Short Name</mat-label>
+                        <input matInput [(ngModel)]="editDevice.shortName" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Part Number</mat-label>
+                        <input matInput [(ngModel)]="editDevice.partNumber" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Category</mat-label>
+                        <mat-select [(ngModel)]="editDevice.categoryId">
+                            <mat-option *ngFor="let category of categories" [value]="category.categoryId">{{category.name}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Cost</mat-label>
+                        <input matInput type="number" [(ngModel)]="editDevice.cost" />
+                    </mat-form-field>
+                    <mat-form-field *ngIf="getShowDefaultLabor()">
+                        <mat-label>Default Labor</mat-label>
+                        <input matInput type="number" [(ngModel)]="editDevice.defaultLabor" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Serial Number</mat-label>
+                        <input matInput [(ngModel)]="editDevice.serialNumber" />
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>SLC Address</mat-label>
+                        <mat-select [(ngModel)]="editDevice.slcAddress" (selectionChange)="onAddressSettingChanged()">
+                            <mat-option *ngFor="let option of slcOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Speaker Address</mat-label>
+                        <mat-select [(ngModel)]="editDevice.speakerAddress" (selectionChange)="onAddressSettingChanged()">
+                            <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Strobe Address</mat-label>
+                        <mat-select [(ngModel)]="editDevice.strobeAddress" (selectionChange)="onAddressSettingChanged()">
+                            <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </section>
+
+            <section class="component-group">
                 <h4>ATTRIBUTES</h4>
-                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
-                <mat-list *ngIf="deviceAttributes && deviceAttributes.length > 0">
-                    @for (attribute of sortAttributes(); track attribute) {
-                    <mat-list-item>
-                        <mat-icon matListItemIcon>text_fields</mat-icon>
-                        <span matListItemTitle>{{attribute.name}}</span>
-                        <span matListItemLine>{{attribute.statusId}}</span>
-                        <span matListItemLine>{{attribute.valueType}}: {{attribute.defaultValue||'None'}}</span>
-                    </mat-list-item>
-                    }
-                </mat-list>
-                <div *ngIf="deviceAttributes && deviceAttributes.length === 0"
-                    style="display:grid;grid-template: 1fr/1fr;justify-items: center;align-items:center;width:100%;height:80%;">
-                    <button mat-flat-button>CREATE ATTRIBUTES</button>
-                </div>
-            </div>
+                <ng-container *ngIf="!isDetailsEditView(); else attributeEdit">
+                    <mat-list *ngIf="deviceAttributes.length > 0; else emptyAttributes">
+                        <mat-list-item *ngFor="let attribute of sortAttributes()">
+                            <mat-icon matListItemIcon>text_fields</mat-icon>
+                            <span matListItemTitle>{{attribute.name}}</span>
+                            <span *ngIf="getAttributeDisplayValue(attribute)" matListItemLine>{{getAttributeDisplayValue(attribute)}}</span>
+                        </mat-list-item>
+                    </mat-list>
+                </ng-container>
+                <ng-template #attributeEdit>
+                    <div class="device-detail-edit-list">
+                        <div *ngFor="let attribute of getManagedAttributeRows()" class="device-detail-edit-row">
+                            <mat-form-field>
+                                <mat-label>{{attribute.name}}</mat-label>
+                                <input matInput [(ngModel)]="attribute.defaultValue" />
+                            </mat-form-field>
+                        </div>
+                        <div *ngFor="let attribute of getCustomAttributeRows(); let index = index" class="device-detail-edit-row device-detail-edit-row--custom">
+                            <mat-form-field>
+                                <mat-label>Caption</mat-label>
+                                <input matInput [(ngModel)]="attribute.name" />
+                            </mat-form-field>
+                            <mat-form-field>
+                                <mat-label>Value</mat-label>
+                                <input matInput [(ngModel)]="attribute.defaultValue" />
+                            </mat-form-field>
+                            <button mat-icon-button type="button" (click)="removeAttribute(getManagedAttributeRows().length + index)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+                        <button mat-stroked-button type="button" (click)="addCustomAttribute()">Add Custom Attribute</button>
+                    </div>
+                </ng-template>
+                <ng-template #emptyAttributes>
+                    <div class="device-detail-empty">No attributes configured.</div>
+                </ng-template>
+            </section>
 
-            <!-- Device Sub Tasks -->
-            <div class="component-group">
+            <section class="component-group">
                 <h4>SUB TASKS</h4>
-                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
-                <mat-list *ngIf="deviceSubTasks && deviceSubTasks.length > 0">
-                    @for (subtask of sortSubTasks(); track subtask) {
-                    <mat-list-item>
-                        <mat-icon matListItemIcon>task_alt</mat-icon>
-                        <span matListItemTitle>{{subtask.statusName}}</span>
-                        <span matListItemLine>Labor: {{subtask.laborHours}} {{subtask.laborHours===1?'hour':'hours'}}</span>
-                    </mat-list-item>
-                    }
-                </mat-list>
-                <div *ngIf="deviceSubTasks && deviceSubTasks.length === 0"
-                    style="display:grid;grid-template: 1fr/1fr;justify-items: center;align-items:center;width:100%;height:80%;">
-                    <button mat-flat-button>CREATE SUBTASKS</button>
-                </div>
-            </div>
+                <ng-container *ngIf="!isDetailsEditView(); else subTaskEdit">
+                    <mat-list *ngIf="deviceSubTasks.length > 0; else emptySubTasks">
+                        <mat-list-item *ngFor="let subtask of sortSubTasks()">
+                            <mat-icon matListItemIcon>task_alt</mat-icon>
+                            <span matListItemTitle>{{subtask.statusName}}</span>
+                            <span matListItemLine>Labor: {{subtask.laborHours}} {{subtask.laborHours === 1 ? 'hour' : 'hours'}}</span>
+                        </mat-list-item>
+                    </mat-list>
+                </ng-container>
+                <ng-template #subTaskEdit>
+                    <div class="device-detail-edit-list">
+                        <div *ngFor="let subTask of editSubTasks; let index = index" class="device-detail-edit-row device-detail-edit-row--subtask">
+                            <mat-form-field>
+                                <mat-label>Sub Task</mat-label>
+                                <mat-select [(ngModel)]="subTask.statusName">
+                                    <mat-option *ngFor="let option of subTaskOptions" [value]="option">{{option}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field>
+                                <mat-label>Labor Hours</mat-label>
+                                <input matInput type="number" min="0" [(ngModel)]="subTask.laborHours" />
+                            </mat-form-field>
+                            <button mat-icon-button type="button" (click)="removeSubTask(index)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+                        <button mat-stroked-button type="button" (click)="addSubTask()">Add Sub Task</button>
+                    </div>
+                </ng-template>
+                <ng-template #emptySubTasks>
+                    <div class="device-detail-empty">No sub tasks configured.</div>
+                </ng-template>
+            </section>
 
-            <!-- Device Materials -->
-            <div class="component-group" *ngIf="device">
-                <h4>PARTS</h4>
-                <button mat-mini-fab class="toolbar-btn"><mat-icon>edit</mat-icon></button>
-                <mat-list *ngIf="deviceMaterials && deviceMaterials.length > 0">
-                    @for (material of deviceMaterials; track material) {
-                    <mat-list-item>
-                        <mat-icon *ngIf="!partImagePath" matListItemIcon>inventory_2</mat-icon>
-                        <img matListItemIcon *ngIf="partImagePath" [src]="partImagePath" style="width: 60px;height: 60px;" />
+            <section class="component-group">
+                <h4>VENDOR PARTS</h4>
+                <mat-list *ngIf="!isVendorPartsEditView() && deviceMaterials.length > 0; else partsEdit">
+                    <mat-list-item *ngFor="let material of deviceMaterials">
+                        <mat-icon *ngIf="!partImagePath || partImageFailed" matListItemIcon>inventory_2</mat-icon>
+                        <img *ngIf="partImagePath && !partImageFailed" matListItemIcon [src]="partImagePath" class="device-detail-part-image" (error)="onPartImageError()" />
                         <span matListItemTitle>{{material.materialName}}</span>
                         <span matListItemLine>{{material.materialPartNumber}}</span>
-                        <span matListItemLine>{{material.materialCost|currency}}</span>
+                        <span matListItemLine>
+                            {{material.materialCost | currency}}
+                            <span *ngIf="getLinkedPartIssue(material.materialPartNumber) as issue" class="device-detail-issue">
+                                Missing vendor link
+                                <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
+                                <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
+                            </span>
+                        </span>
                     </mat-list-item>
-                    }
                 </mat-list>
-            </div>
+                <ng-template #partsEdit>
+                    <div *ngIf="isVendorPartsEditView(); else partsReadOnlyEmpty" class="device-detail-edit-list">
+                        <div *ngFor="let partNumber of editLinkedPartNumbers; let index = index" class="device-detail-edit-row device-detail-edit-row--part">
+                            <div class="device-detail-linked-part" *ngIf="getLinkedPartDisplayRow(partNumber) as linkedPart">
+                                <div class="device-detail-linked-part__eyebrow">Linked Part Number</div>
+                                <div class="device-detail-linked-part__part">{{linkedPart.partNumber}}</div>
+                                <div *ngIf="linkedPart.description" class="device-detail-linked-part__description">{{linkedPart.description}}</div>
+                                <div class="device-detail-linked-part__meta">
+                                    <span *ngIf="linkedPart.category">{{linkedPart.category}}</span>
+                                    <span *ngIf="linkedPart.cost !== null">{{linkedPart.cost | currency}}</span>
+                                </div>
+                            </div>
+                            <button mat-icon-button type="button" (click)="removeLinkedPart(index)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+
+                        <div class="device-detail-part-picker">
+                            <div class="device-detail-part-picker__toolbar">
+                                <mat-form-field class="device-detail-part-picker__filter">
+                                    <mat-label>Find Vendor Part</mat-label>
+                                    <input matInput [(ngModel)]="vendorPartFilter" (ngModelChange)="onVendorPartFilterChanged()" placeholder="Type part number, description, or category" />
+                                </mat-form-field>
+
+                                <button
+                                    *ngIf="selectedVendorPartCategories.length > 0"
+                                    mat-icon-button
+                                    type="button"
+                                    class="device-detail-part-picker__clear"
+                                    (click)="clearVendorPartCategoryFilter()"
+                                    aria-label="Clear category filter">
+                                    <mat-icon>filter_alt_off</mat-icon>
+                                </button>
+
+                                <mat-form-field class="device-detail-part-picker__category">
+                                    <mat-label>Category</mat-label>
+                                    <mat-select [(ngModel)]="selectedVendorPartCategories" multiple (selectionChange)="onVendorPartCategoryFilterChanged()">
+                                        <mat-option *ngFor="let option of getVendorPartCategoryOptions()" [value]="option">
+                                            {{option}}
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="device-detail-part-picker__hint">{{getVendorPartSearchHint()}}</div>
+
+                            <div *ngIf="vendorPartResults.length > 0" class="device-detail-part-picker__results">
+                                <div class="device-detail-part-picker__header">
+                                    <span>Part Number</span>
+                                    <span>Description</span>
+                                    <span>Price</span>
+                                    <span>Category</span>
+                                    <span></span>
+                                </div>
+                                <div *ngFor="let row of vendorPartResults" class="device-detail-part-picker__row">
+                                    <span class="device-detail-part-picker__part">{{row.PartNumber}}</span>
+                                    <span class="device-detail-part-picker__description">{{row.LongDescription}}</span>
+                                    <span class="device-detail-part-picker__price">{{(row.SalesPrice || row.MSRPPrice || 0) | currency}}</span>
+                                    <span class="device-detail-part-picker__category-pill">{{row.Category || row.ParentCategory}}</span>
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="isLinkedPartSelected(row.PartNumber)"
+                                        (click)="addLinkedPart(row.PartNumber)">
+                                        {{isLinkedPartSelected(row.PartNumber) ? 'Selected' : 'Select'}}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div *ngIf="editLinkedPartNumbers.length <= 0" class="device-detail-empty">
+                            No vendor parts linked yet.
+                        </div>
+                    </div>
+                </ng-template>
+                <ng-template #partsReadOnlyEmpty>
+                    <div class="device-detail-empty">No vendor parts linked yet.</div>
+                </ng-template>
+            </section>
         </div>
     </div>
 </div>
-<div *ngIf="pageWorking" class="loading-panel">
-    <div>Loading, Please wait...</div>
-</div>
-<!--
 
-<div>Aliases</div>
-<div>Templates</div>
-<div>Documents</div>
-<div>Pricelist</div>
-
--->
+<ng-template #loadingState>
+    <div class="loading-panel">
+        <div>Loading, Please wait...</div>
+    </div>
+</ng-template>

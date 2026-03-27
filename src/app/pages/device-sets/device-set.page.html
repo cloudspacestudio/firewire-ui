@@ -1,0 +1,92 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/device-sets'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'device-sets'"></nav-toolbar>
+</page-toolbar>
+<div class="page-root">
+    <div class="page-content">
+        <div class="page-topline">
+            <div>
+                <div class="page-title">{{detail?.name || 'Device Set'}}</div>
+                <div class="page-subtitle">Curated device grouping for project quick start workflows.</div>
+            </div>
+            <div class="device-set-actions">
+                <button mat-stroked-button type="button" [disabled]="saveWorking || pageWorking" (click)="openImportDialog()">
+                    <mat-icon>content_paste</mat-icon>
+                    <span>Paste From Excel</span>
+                </button>
+                <button mat-stroked-button type="button" [disabled]="saveWorking" (click)="resetChanges()">
+                    <mat-icon>close</mat-icon>
+                    <span>Cancel</span>
+                </button>
+                <button mat-flat-button type="button" [disabled]="saveWorking || !editName.trim()" (click)="saveChanges()">
+                    <mat-icon>save</mat-icon>
+                    <span>Save Changes</span>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="statusText" class="project-create-status">{{statusText}}</div>
+        <div *ngIf="errText" class="project-create-status">{{errText}}</div>
+
+        <div class="device-set-grid" *ngIf="!pageWorking && detail">
+            <section class="component-group">
+                <div class="component-group__title">SET DETAILS</div>
+                <div class="device-set-card-body">
+                    <mat-form-field appearance="outline" class="device-set-name-field">
+                        <mat-label>Device Set Name</mat-label>
+                        <input matInput maxlength="120" [(ngModel)]="editName" />
+                    </mat-form-field>
+                    <div class="device-set-summary-line">
+                        <span class="device-set-summary-label">Vendor Coverage</span>
+                        <span>{{getVendorSummary()}}</span>
+                    </div>
+                    <div class="device-set-summary-line">
+                        <span class="device-set-summary-label">Device Count</span>
+                        <span>{{linkedDevices.length}}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="component-group">
+                <div class="component-group__title">DEVICES IN SET</div>
+                <div class="device-set-card-body">
+                    <div *ngIf="linkedDevices.length <= 0" class="device-set-empty">No devices linked yet.</div>
+                    <div class="device-set-list" *ngIf="linkedDevices.length > 0">
+                        <div class="device-set-list-row" *ngFor="let row of linkedDevices">
+                            <div class="device-set-list-copy">
+                                <div class="device-set-list-title">{{row.name}}</div>
+                                <div class="device-set-list-meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
+                            </div>
+                            <button mat-stroked-button type="button" (click)="removeDevice(row.deviceId)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="component-group component-group--span-2">
+                <div class="component-group__title">ADD DEVICES</div>
+                <div class="device-set-card-body">
+                    <mat-form-field appearance="outline" class="device-set-filter-field">
+                        <mat-label>Find Devices</mat-label>
+                        <input matInput [(ngModel)]="availableFilter" placeholder="Name, part number, vendor, category" />
+                    </mat-form-field>
+                    <div class="device-set-helper">Showing up to 100 devices that are not already in this set. You can also use <strong>Paste From Excel</strong> to reconcile a copied column of device names by vendor.</div>
+                    <div *ngIf="availableDevices.length <= 0" class="device-set-empty">No matching devices available.</div>
+                    <div class="device-set-list" *ngIf="availableDevices.length > 0">
+                        <div class="device-set-list-row" *ngFor="let row of availableDevices">
+                            <div class="device-set-list-copy">
+                                <div class="device-set-list-title">{{row.name}}</div>
+                                <div class="device-set-list-meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}} · {{row.cost | currency}}</div>
+                            </div>
+                            <button mat-flat-button type="button" (click)="addDevice(row.deviceId)">Add</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>

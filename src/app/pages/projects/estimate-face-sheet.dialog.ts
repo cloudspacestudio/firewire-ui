@@ -12,6 +12,8 @@ import {
 import { MatIconModule } from '@angular/material/icon'
 
 export interface EstimateFaceSheetData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     date: string
     firetrolJobNumber: string
     projectName: string
@@ -191,9 +193,14 @@ export interface EstimateFaceSheetData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="estimate-face-sheet__footer">
-            <button mat-flat-button color="primary" type="button" (click)="downloadPdf()">
+            <div class="estimate-face-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button color="primary" type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
+                {{saveWorking ? 'Saving...' : 'Create Sheet'}}
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -430,6 +437,13 @@ export interface EstimateFaceSheetData {
             background: rgba(7, 11, 19, 0.96);
         }
 
+        .estimate-face-sheet__footer-status {
+            margin-right: auto;
+            color: rgba(167, 228, 255, 0.82);
+            font-size: 0.82rem;
+            letter-spacing: 0.04em;
+        }
+
         .estimate-face-sheet__footer button[mat-flat-button] {
             background:
                 linear-gradient(180deg, rgba(255, 140, 40, 0.9), rgba(255, 102, 40, 0.78)),
@@ -463,6 +477,8 @@ export class EstimateFaceSheetDialog implements AfterViewInit {
     data: EstimateFaceSheetData = inject(MAT_DIALOG_DATA)
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
     @ViewChild('descriptionOfWorkInput') private descriptionOfWorkInput?: ElementRef<HTMLTextAreaElement>
+    saveWorking = false
+    statusText = ''
 
     editable = {
         date: '',
@@ -532,7 +548,24 @@ export class EstimateFaceSheetDialog implements AfterViewInit {
         textarea.style.height = `${textarea.scrollHeight}px`
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Estimate Face Sheet.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

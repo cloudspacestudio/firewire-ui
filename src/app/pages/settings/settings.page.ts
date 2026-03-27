@@ -10,11 +10,12 @@ import { MatIconModule } from "@angular/material/icon"
 
 import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
+import { NavToolbar } from "../../common/components/nav-toolbar";
 
 @Component({
     standalone: true,
     selector: 'settings-page',
-    imports: [CommonModule, PageToolbar,
+    imports: [CommonModule, PageToolbar, NavToolbar,
         RouterLink, MatButtonModule,
         MatIconModule
     ],
@@ -23,6 +24,7 @@ import { PageToolbar } from '../../common/components/page-toolbar';
     styleUrls: ['./settings.page.scss']
 })
 export class SettingsPage implements OnInit {
+    navItems = NavToolbar.SettingsNavItems
 
     pageWorking = true
     

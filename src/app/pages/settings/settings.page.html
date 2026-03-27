@@ -1,16 +1,10 @@
-<page-toolbar>
+<page-toolbar title="SETTINGS">
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/home'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
-    <div class="button-bar">
-        <button mat-flat-button class="active">SETTINGS</button>
-        <button mat-raised-button>TENANT</button>
-        <button mat-raised-button>ORGS</button>
-        <button mat-raised-button>PREFERENCES</button>
-        <button mat-raised-button>USERS</button>
-    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'settings'" [disableRouteMatch]="true"></nav-toolbar>
 </page-toolbar>
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
@@ -39,7 +33,7 @@
                         <div class="settings-signal-note">
                             Core navigation is staged. Individual settings modules are being connected next.
                         </div>
-                        <a class="settings-admin-link" [routerLink]="'/admin'">
+                        <a class="settings-admin-link" [routerLink]="'/settings/project-admin'">
                             <span class="settings-admin-link__kicker">Active Module</span>
                             <span class="settings-admin-link__title">Open Project Admin</span>
                             <span class="settings-admin-link__meta">Manage Firewire project defaults and dynamic lists</span>

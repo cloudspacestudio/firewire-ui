@@ -19,6 +19,8 @@ export interface QuoteSheetLineItem {
 }
 
 export interface QuoteSheetData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     projectName: string
     projectAddress: string
     projectCityStateZip: string
@@ -205,9 +207,14 @@ export interface QuoteSheetData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="quote-sheet__footer">
-            <button mat-flat-button type="button" (click)="downloadPdf()">
+            <div class="quote-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
                 Create Sheet
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -259,7 +266,7 @@ export interface QuoteSheetData {
         .quote-sheet__total-row--grand{font-size:1.08rem;border-top:2px solid #101820;border-bottom:2px solid #101820;padding:8px 0}
         .quote-sheet__section--terms{margin-top:18px;border-top:2px solid #324fbf;padding-top:12px}
         .quote-sheet__terms-title{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:2rem;font-weight:700;text-transform:uppercase;margin-bottom:10px}
-        .quote-sheet__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}
+        .quote-sheet__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}.quote-sheet__footer-status{margin-right:auto;color:rgba(167,228,255,.82);font-size:.82rem;letter-spacing:.04em}
         .quote-sheet__footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
         @media (max-width:900px){.quote-sheet__paper-title{font-size:2rem}.quote-sheet__top-grid,.quote-sheet__meta-grid,.quote-sheet__foot-grid{grid-template-columns:1fr}.quote-sheet__info-row{grid-template-columns:1fr}.quote-sheet__terms-title{font-size:1.5rem}}
     `]
@@ -269,6 +276,8 @@ export class QuoteSheetDialog implements AfterViewInit {
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
     @ViewChild('termsInput') private termsInput?: ElementRef<HTMLTextAreaElement>
     @ViewChildren('autosizeInput') private autosizeInputs?: QueryList<ElementRef<HTMLTextAreaElement>>
+    saveWorking = false
+    statusText = ''
 
     editable = {
         projectName: '',
@@ -356,7 +365,24 @@ export class QuoteSheetDialog implements AfterViewInit {
         return this.getSubtotal() + this.getSalesTaxAmount() + Number(this.editable.shippingHandling || 0)
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Quote Sheet.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

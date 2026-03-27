@@ -9,44 +9,78 @@
 <div class="page-root">
     <div class="page-content">
         <div class="tabstrip">
-            <mat-form-field>
+            <mat-form-field class="categories-filter-field">
                 <mat-label>Filter</mat-label>
-                <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
+                <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
+            <div class="categories-tabstrip-actions">
+                <button mat-flat-button type="button" [disabled]="reconcileWorking" (click)="reconcileCategories()">
+                    <mat-icon>sync</mat-icon>
+                    <span>Reconcile Categories</span>
+                </button>
+            </div>
         </div>
+        <div *ngIf="statusText" class="categories-status">{{statusText}}</div>
         <div class="content-root with-tabstrip">
             <div>
 
-                <table mat-table [dataSource]="datasource" matSort>
+                <table mat-table [dataSource]="datasource" matSort [matSortActive]="currentSortActive" [matSortDirection]="currentSortDirection" (matSortChange)="onSortChange($event)">
 
                     <!-- Name Column -->
                     <ng-container matColumnDef="name" sticky="true">
                         <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
-                        <td mat-cell *matCellDef="let row"> {{row.name}} </td>
+                        <td mat-cell *matCellDef="let row">
+                            <a class="categories-name-link" [routerLink]="['/categories', row.categoryId]">{{row.name}}</a>
+                        </td>
                     </ng-container>
 
                     <!-- Short Name Column -->
                     <ng-container matColumnDef="shortName">
                         <th mat-header-cell *matHeaderCellDef mat-sort-header> Short Name </th>
-                        <td mat-cell *matCellDef="let row"> {{row.name}} </td>
+                        <td mat-cell *matCellDef="let row">{{row.shortName}}</td>
                     </ng-container>
 
                     <!-- Handle Column -->
                     <ng-container matColumnDef="handle">
                         <th mat-header-cell *matHeaderCellDef mat-sort-header> Handle </th>
-                        <td mat-cell *matCellDef="let row"> {{row.handle}} </td>
+                        <td mat-cell *matCellDef="let row">{{row.handle}}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="includeOnFloorplan">
+                        <th mat-header-cell *matHeaderCellDef> Floorplan </th>
+                        <td mat-cell *matCellDef="let row">
+                            <mat-icon *ngIf="getIncludeOnFloorplan(row)" class="categories-floorplan-icon">check_circle</mat-icon>
+                        </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef> Status </th>
+                        <td mat-cell *matCellDef="let row">
+                            <span class="categories-status-badge" [class.categories-status-badge--missing]="row.referencedByDeviceParts === false" [class.categories-status-badge--created]="row.createdByReconcile || row.createby === 'category-reconcile'">
+                                {{getCategoryStatus(row)}}
+                            </span>
+                        </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef> Actions </th>
+                        <td mat-cell *matCellDef="let row">
+                            <button mat-icon-button type="button" title="Open Category Detail" [routerLink]="['/categories', row.categoryId]">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                        </td>
                     </ng-container>
 
                     <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class]="getCategoryRowClass(row)"></tr>
 
                     <!-- Row shown when there is no matching data. -->
                     <tr class="mat-row" *matNoDataRow>
-                    <td class="mat-cell" colspan="4">{{getNoDataRowText(input.value)}}</td>
+                    <td class="mat-cell" [attr.colspan]="displayedColumns.length">{{getNoDataRowText(input.value)}}</td>
                     </tr>
                 </table>
 
-                <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of devices"></mat-paginator>
+                <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of devices"></mat-paginator>
 
             </div>
 

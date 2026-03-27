@@ -12,6 +12,8 @@ import {
 import { MatIconModule } from '@angular/material/icon'
 
 export interface BookingFaceSheetData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     date: string
     firetrolJobNumber: string
     projectName: string
@@ -275,9 +277,14 @@ export interface BookingFaceSheetData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="booking-face-sheet__footer">
-            <button mat-flat-button type="button" (click)="downloadPdf()">
+            <div class="booking-face-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
                 Create Sheet
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -312,7 +319,7 @@ export interface BookingFaceSheetData {
         .booking-face-sheet__paper-input--multiline{min-height:66px;overflow:hidden;resize:none;border:1px solid #a9b8c8;padding:8px 10px;line-height:1.35;background:rgba(255,255,210,.62)}
         .booking-face-sheet__paper-input:focus{background:rgba(232,242,255,.72)}
         .booking-face-sheet__paper-input--multiline:focus{box-shadow:inset 0 0 0 1px #6da4d6}
-        .booking-face-sheet__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}
+        .booking-face-sheet__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}.booking-face-sheet__footer-status{margin-right:auto;color:rgba(167,228,255,.82);font-size:.82rem;letter-spacing:.04em}
         .booking-face-sheet__footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
         @media (max-width:720px){.booking-face-sheet__titlebar{padding:16px 16px 10px}.booking-face-sheet__paper-inner{padding:16px}.booking-face-sheet__summary-grid,.booking-face-sheet__address-inline{grid-template-columns:1fr}.booking-face-sheet__footer{padding:8px 16px 16px}}
     `]
@@ -321,6 +328,8 @@ export class BookingFaceSheetDialog implements AfterViewInit {
     data: BookingFaceSheetData = inject(MAT_DIALOG_DATA)
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
     @ViewChild('descriptionOfWorkInput') private descriptionOfWorkInput?: ElementRef<HTMLTextAreaElement>
+    saveWorking = false
+    statusText = ''
 
     editable = {
         date: '',
@@ -420,7 +429,24 @@ export class BookingFaceSheetDialog implements AfterViewInit {
         textarea.style.height = `${textarea.scrollHeight}px`
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Booking Face Sheet.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

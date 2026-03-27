@@ -6,26 +6,9 @@ const clientRoot = repoRoot
 const outputPath = path.join(repoRoot, 'src', 'app', 'generated', 'about.generated.ts')
 const clientPackagePath = path.join(clientRoot, 'package.json')
 const clientLockPath = path.join(clientRoot, 'package-lock.json')
-const proxyConfigPath = path.join(clientRoot, 'src', 'proxy.config.json')
-const environmentPath = path.join(clientRoot, 'src', 'environments', 'environment.ts')
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'))
-}
-
-function safeReadJson(filePath) {
-    return fs.existsSync(filePath) ? readJson(filePath) : null
-}
-
-function parseEnvironmentTs(source) {
-    const authority = source.match(/authority:\s*'([^']+)'/)?.[1] || ''
-    const protectedResourceStartsWith = Array.from(source.matchAll(/protectedResourceStartsWith:\s*\[([^\]]*)\]/g))
-        .flatMap((match) => (match[1] || '').match(/'([^']+)'/g) || [])
-        .map((value) => value.replace(/'/g, ''))
-    const apiScopes = Array.from(source.matchAll(/apiScopes:\s*\[([^\]]*)\]/g))
-        .flatMap((match) => (match[1] || '').match(/'([^']+)'/g) || [])
-        .map((value) => value.replace(/'/g, ''))
-    return { authority, protectedResourceStartsWith, apiScopes }
 }
 
 function getInstalledProductionLibraries(packageJson, packageLock) {
@@ -42,30 +25,11 @@ function getInstalledProductionLibraries(packageJson, packageLock) {
     })
 }
 
-function getServerConnectionDetails() {
-    const proxyConfig = safeReadJson(proxyConfigPath) || {}
-    const environmentSource = fs.existsSync(environmentPath) ? fs.readFileSync(environmentPath, 'utf8') : ''
-    const environmentInfo = parseEnvironmentTs(environmentSource)
-    const apiProxy = proxyConfig['/api'] || {}
-
-    return {
-        browserOriginMode: 'window.location.origin',
-        apiProxyPath: '/api',
-        proxyTarget: typeof apiProxy.target === 'string' ? apiProxy.target : '',
-        defaultServerPort: '3000',
-        authAuthority: environmentInfo.authority,
-        apiScopes: environmentInfo.apiScopes,
-        protectedResourceStartsWith: environmentInfo.protectedResourceStartsWith
-    }
-}
-
 function main() {
     const clientPackage = readJson(clientPackagePath)
     const clientLock = readJson(clientLockPath)
-    const serverConnection = getServerConnectionDetails()
 
     const metadata = {
-        generatedAt: new Date().toISOString(),
         client: {
             name: clientPackage.name,
             version: clientPackage.version,
@@ -74,7 +38,9 @@ function main() {
         server: {
             name: 'Unavailable',
             version: 'Unavailable',
-            connection: serverConnection,
+            connection: {
+                apiProxyPath: '/api'
+            },
             libraries: []
         }
     }
@@ -87,7 +53,6 @@ function main() {
         '}',
         '',
         'export interface AboutMetadata {',
-        '    generatedAt: string',
         '    client: {',
         '        name: string',
         '        version: string',
@@ -97,13 +62,7 @@ function main() {
         '        name: string',
         '        version: string',
         '        connection: {',
-        '            browserOriginMode: string',
         '            apiProxyPath: string',
-        '            proxyTarget: string',
-        '            defaultServerPort: string',
-        '            authAuthority: string',
-        '            apiScopes: string[]',
-        '            protectedResourceStartsWith: string[]',
         '        }',
         '        libraries: AboutLibraryAttribution[]',
         '    }',
@@ -114,6 +73,12 @@ function main() {
     ].join('\n')
 
     fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+    const previousContents = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : null
+    if (previousContents === contents) {
+        console.log(`No changes to ${path.relative(repoRoot, outputPath)}.`)
+        return
+    }
+
     fs.writeFileSync(outputPath, contents, 'utf8')
     console.log(`Generated ${path.relative(repoRoot, outputPath)}.`)
 }

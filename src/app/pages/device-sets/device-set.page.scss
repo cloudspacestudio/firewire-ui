@@ -1,0 +1,118 @@
+.page-topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    letter-spacing: 0.04em;
+}
+
+.page-subtitle {
+    color: var(--fw-muted);
+}
+
+.device-set-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.device-set-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.component-group--span-2 {
+    grid-column: 1 / -1;
+}
+
+.device-set-card-body {
+    padding: 14px;
+}
+
+.device-set-name-field,
+.device-set-filter-field {
+    width: 100%;
+}
+
+.device-set-summary-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(120, 199, 255, 0.12);
+}
+
+.device-set-summary-line:last-child {
+    border-bottom: 0;
+}
+
+.device-set-summary-label {
+    color: var(--fw-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.74rem;
+}
+
+.device-set-helper,
+.device-set-empty {
+    color: var(--fw-muted);
+    margin-bottom: 10px;
+}
+
+.device-set-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.device-set-list-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(17, 37, 58, 0.7), rgba(10, 19, 33, 0.92));
+}
+
+.device-set-list-copy {
+    min-width: 0;
+}
+
+.device-set-list-title {
+    font-size: 1rem;
+}
+
+.device-set-list-meta {
+    color: var(--fw-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 960px) {
+    .page-topline {
+        flex-direction: column;
+    }
+
+    .device-set-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .component-group--span-2 {
+        grid-column: auto;
+    }
+
+    .device-set-list-row {
+        grid-template-columns: 1fr;
+    }
+}

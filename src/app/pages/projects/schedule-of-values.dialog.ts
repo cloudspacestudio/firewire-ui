@@ -22,6 +22,8 @@ interface ScheduleOfValuesRow {
 }
 
 export interface ScheduleOfValuesDialogData {
+    defaultFileName?: string
+    createSheet?: (fileName: string, html: string) => Promise<void> | void
     applicationNumber: string
     applicationDate: string
     periodTo: string
@@ -139,9 +141,14 @@ export interface ScheduleOfValuesDialogData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="sov__footer">
-            <button mat-flat-button type="button" (click)="downloadPdf()">
+            <div class="sov__footer-status" *ngIf="statusText">{{statusText}}</div>
+            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
                 <mat-icon fontIcon="description"></mat-icon>
                 Create Sheet
+            </button>
+            <button mat-stroked-button type="button" (click)="printSheet()">
+                <mat-icon fontIcon="print"></mat-icon>
+                Print Sheet
             </button>
             <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
@@ -187,13 +194,15 @@ export interface ScheduleOfValuesDialogData {
         .sov__input{width:100%;border:0;outline:0;background:rgba(185,244,244,.62);padding:0 2px;margin:0;font:inherit;color:#08131d;box-sizing:border-box}
         .sov__input.is-right,.sov__table .is-right{text-align:right}
         .sov__total-row td{font-weight:700;background:rgba(255,248,184,.58)}
-        .sov__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}
+        .sov__footer{padding:8px 22px 18px;border-top:1px solid rgba(72,221,255,.08);background:rgba(7,11,19,.96)}.sov__footer-status{margin-right:auto;color:rgba(167,228,255,.82);font-size:.82rem;letter-spacing:.04em}
         .sov__footer button[mat-flat-button]{background:linear-gradient(180deg,rgba(255,140,40,.9),rgba(255,102,40,.78)),rgba(255,120,50,.82);color:#fff7ef;margin-right:8px}
     `]
 })
 export class ScheduleOfValuesDialog {
     data: ScheduleOfValuesDialogData = inject(MAT_DIALOG_DATA)
     @ViewChild('printRoot') private printRoot?: ElementRef<HTMLElement>
+    saveWorking = false
+    statusText = ''
 
     fillerRows = Array.from({ length: 27 }, (_, index) => String(index + 3).padStart(2, '0'))
 
@@ -270,7 +279,24 @@ export class ScheduleOfValuesDialog {
         return this.formatAmount(this.sumRows((row) => this.parseAmount(row.retainageDisplay)))
     }
 
-    downloadPdf() {
+    async createSheet() {
+        if (!this.data.createSheet) {
+            return
+        }
+
+        this.saveWorking = true
+        this.statusText = ''
+        try {
+            await Promise.resolve(this.data.createSheet(this.data.defaultFileName || 'Schedule Of Values.html', this.renderPrintableDocument()))
+            this.statusText = 'Saved to Estimating documents.'
+        } catch (err: any) {
+            this.statusText = err?.message || 'Unable to create sheet.'
+        } finally {
+            this.saveWorking = false
+        }
+    }
+
+    printSheet() {
         const popup = window.open('', '_blank', 'width=1200,height=900')
         if (!popup) {
             return

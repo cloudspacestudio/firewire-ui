@@ -4,7 +4,7 @@ import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
 import { AfterViewInit, ElementRef, ViewChild } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
-import { RouterLink } from "@angular/router"
+import { Router, RouterLink } from "@angular/router"
 
 import { MatCardModule } from "@angular/material/card"
 import { MatButtonModule } from "@angular/material/button"
@@ -41,7 +41,10 @@ export class HomePage implements OnInit, AfterViewInit {
     backgroundSurfaceStyle: Record<string, string> = {}
     @ViewChild('backgroundVideo') backgroundVideo?: ElementRef<HTMLVideoElement>
 
-    constructor(private readonly userPreferences: UserPreferencesService) {}
+    constructor(
+        private readonly userPreferences: UserPreferencesService,
+        private readonly router: Router
+    ) {}
 
     ngOnInit(): void {
         this.loadRecentProjects()
@@ -112,6 +115,10 @@ export class HomePage implements OnInit, AfterViewInit {
         }
 
         return {}
+    }
+
+    navigateTo(route: string): void {
+        void this.router.navigateByUrl(route)
     }
 
 }

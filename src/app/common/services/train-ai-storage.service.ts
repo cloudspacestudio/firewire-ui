@@ -1,4 +1,6 @@
-import { Injectable } from "@angular/core"
+import { Injectable, inject } from "@angular/core"
+import { HttpClient } from "@angular/common/http"
+import { firstValueFrom } from "rxjs"
 
 export interface TrainAiFolderRecord {
     id: string
@@ -69,44 +71,17 @@ export interface TrainAiWorkspaceState {
     providedIn: 'root'
 })
 export class TrainAiStorageService {
-    private readonly dbName = 'firewire-train-ai'
-    private readonly dbVersion = 1
-    private readonly storeName = 'workspace'
-    private readonly workspaceKey = 'train-ai-workspace'
-    private dbPromise?: Promise<IDBDatabase>
+    private readonly http = inject(HttpClient)
 
     async loadWorkspace(): Promise<TrainAiWorkspaceState> {
-        const db = await this.getDb()
-        if (!db) {
-            return this.createDefaultWorkspace()
-        }
-
-        const tx = db.transaction(this.storeName, 'readonly')
-        const store = tx.objectStore(this.storeName)
-        const request = store.get(this.workspaceKey)
-        const result = await this.requestToPromise<any>(request)
-
-        if (!result?.value) {
-            return this.createDefaultWorkspace()
-        }
-
-        return this.normalizeWorkspace(result.value)
+        const response = await firstValueFrom(this.http.get<{ data?: { payload?: any } }>('/api/firewire/storage/design-train-ai'))
+        return this.normalizeWorkspace(response?.data?.payload)
     }
 
     async saveWorkspace(state: TrainAiWorkspaceState): Promise<void> {
-        const db = await this.getDb()
-        if (!db) {
-            return
-        }
-
-        const tx = db.transaction(this.storeName, 'readwrite')
-        const store = tx.objectStore(this.storeName)
-        store.put({
-            key: this.workspaceKey,
-            value: state
-        })
-
-        await this.transactionDone(tx)
+        await firstValueFrom(this.http.put('/api/firewire/storage/design-train-ai', {
+            payload: state
+        }))
     }
 
     createDefaultWorkspace(): TrainAiWorkspaceState {
@@ -124,45 +99,6 @@ export class TrainAiStorageService {
             files: [],
             annotations: []
         }
-    }
-
-    private async getDb(): Promise<IDBDatabase | null> {
-        if (typeof indexedDB === 'undefined') {
-            return null
-        }
-
-        if (!this.dbPromise) {
-            this.dbPromise = new Promise((resolve, reject) => {
-                const request = indexedDB.open(this.dbName, this.dbVersion)
-
-                request.onupgradeneeded = () => {
-                    const db = request.result
-                    if (!db.objectStoreNames.contains(this.storeName)) {
-                        db.createObjectStore(this.storeName, { keyPath: 'key' })
-                    }
-                }
-
-                request.onsuccess = () => resolve(request.result)
-                request.onerror = () => reject(request.error)
-            })
-        }
-
-        return this.dbPromise
-    }
-
-    private requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => resolve(request.result)
-            request.onerror = () => reject(request.error)
-        })
-    }
-
-    private transactionDone(transaction: IDBTransaction): Promise<void> {
-        return new Promise((resolve, reject) => {
-            transaction.oncomplete = () => resolve()
-            transaction.onerror = () => reject(transaction.error)
-            transaction.onabort = () => reject(transaction.error)
-        })
     }
 
     private normalizeWorkspace(input: any): TrainAiWorkspaceState {

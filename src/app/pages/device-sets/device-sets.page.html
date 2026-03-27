@@ -1,0 +1,72 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/home'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'device-sets'"></nav-toolbar>
+</page-toolbar>
+<div class="page-root">
+    <div class="page-content">
+        <div class="tabstrip">
+            <mat-form-field class="device-sets-filter-field">
+                <mat-label>Filter</mat-label>
+                <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Edwards" #input>
+            </mat-form-field>
+            <div class="device-sets-tabstrip-actions">
+                <button mat-flat-button type="button" (click)="createDeviceSet()">
+                    <mat-icon>library_add</mat-icon>
+                    <span>New Device Set</span>
+                </button>
+            </div>
+        </div>
+        <div *ngIf="statusText" class="project-create-status">{{statusText}}</div>
+        <div class="content-root with-tabstrip">
+            <table mat-table [dataSource]="datasource" matSort [matSortActive]="currentSortActive" [matSortDirection]="currentSortDirection" (matSortChange)="onSortChange($event)">
+                <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+                    <td mat-cell *matCellDef="let row">
+                        <a class="device-sets-name-link" [routerLink]="['/device-sets', row.deviceSetId]">{{row.name}}</a>
+                    </td>
+                </ng-container>
+
+                <ng-container matColumnDef="vendors">
+                    <th mat-header-cell *matHeaderCellDef>Vendors</th>
+                    <td mat-cell *matCellDef="let row">{{getVendorSummary(row)}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="deviceCount">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Devices</th>
+                    <td mat-cell *matCellDef="let row">{{row.deviceCount}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="updateat">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Updated</th>
+                    <td mat-cell *matCellDef="let row">{{row.updateat | date:'short'}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef style="width: 96px;"></th>
+                    <td mat-cell *matCellDef="let row" style="width: 96px;">
+                        <div class="device-sets-actions">
+                            <button mat-icon-button [routerLink]="['/device-sets', row.deviceSetId]">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button type="button" (click)="deleteDeviceSet(row)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                <tr class="mat-row" *matNoDataRow>
+                    <td class="mat-cell" colspan="5">{{getNoDataRowText(input.value)}}</td>
+                </tr>
+            </table>
+
+            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of device sets"></mat-paginator>
+        </div>
+    </div>
+</div>
