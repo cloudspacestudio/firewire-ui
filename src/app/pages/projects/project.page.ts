@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from "@angular/core"
+import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from "@angular/core"
 import { NgFor, NgIf } from '@angular/common'
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { CommonModule } from "@angular/common"
@@ -50,6 +50,7 @@ import { ReducedResponse, Reducer } from "../../common/reducer"
 import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 import { Category } from "../../schemas/category.schema"
 import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
+import { VwDevice } from "../../schemas/vwdevice.schema"
 
 interface ProjectBomRow {
     partNbr: string
@@ -98,6 +99,12 @@ interface TakeoffMatrix {
     title: string
     rows: string[]
     values: Record<string, Record<string, TakeoffValue>>
+}
+
+interface TakeoffColumnDefinition {
+    key: string
+    label: string
+    sourceQty?: number
 }
 
 type WireCategory = 'SLC' | 'Notification' | 'Audio' | '24V' | 'Style 6 or 7'
@@ -630,11 +637,16 @@ export class ProjectPage implements OnChanges, OnDestroy {
     bomSortKey: ProjectBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
     categories: Category[] = []
+    deviceRows: VwDevice[] = []
+    deviceLookupLoaded = false
     vendorPartRows: VwEddyPricelist[] = []
     vendorPartLookupLoaded = false
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
     activeBomLookupRow: ProjectBomRow | null = null
+    bomLookupMenuStyle: Record<string, string> = {}
+    private takeoffColumnDefinitionCache: TakeoffColumnDefinition[] = []
+    private activeBomLookupInput: HTMLInputElement | null = null
     expenseSections: ProjectExpenseSection[] = [
         {
             title: 'Permit & Fees',
@@ -1212,6 +1224,23 @@ export class ProjectPage implements OnChanges, OnDestroy {
         })
     }
 
+    canEditDocLibraryMarkup(file: DocLibraryFile): boolean {
+        const source = this.docLibraryFiles.find((item) => item.id === file.id)
+        const latestVersion = source ? this.getLatestDocLibraryVersion(source) : undefined
+        return file.folderId === 'drawings'
+            && String(latestVersion?.mimeType || '').toLowerCase().startsWith('image/')
+            && !!latestVersion?.dataUrl
+    }
+
+    getDocLibraryMarkupQueryParams(file: DocLibraryFile): Record<string, string> {
+        return {
+            projectKey: this.getDocLibraryStorageKey(),
+            bomProjectKey: this.firewireProject?.uuid || (this.projectSource === 'firewire' ? String(this.projectId || '') : ''),
+            fileId: file.id,
+            returnTo: this.router.url || `/projects/${this.projectSource}/${this.projectId}/doc-library`
+        }
+    }
+
     getSelectedDocLibraryFolderLabel(): string {
         return this.docLibraryFolders.find((folder) => folder.id === this.selectedDocLibraryFolder)?.label || 'All Documents'
     }
@@ -1682,28 +1711,59 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 rows: [this.createEmptyBomRow()]
             }
         ]
+        this.refreshTakeoffColumnDefinitions()
     }
 
     addBomRow(section: ProjectBomSection) {
         section.rows = [...section.rows, this.createEmptyBomRow()]
         this.bomSections = [...this.bomSections]
+        this.refreshTakeoffColumnDefinitions()
     }
 
-    async onBomPartLookupFocus(section: ProjectBomSection, row: ProjectBomRow): Promise<void> {
+    @HostListener('window:resize')
+    onWindowResize(): void {
+        this.positionBomPartLookup()
+    }
+
+    @HostListener('window:scroll')
+    onWindowScroll(): void {
+        this.positionBomPartLookup()
+    }
+
+    @HostListener('document:mousedown', ['$event'])
+    onDocumentMouseDown(event: MouseEvent): void {
+        if (!this.activeBomLookupRow) {
+            return
+        }
+        const target = event.target as HTMLElement | null
+        if (!target) {
+            this.closeBomPartLookup()
+            return
+        }
+        if (
+            target === this.activeBomLookupInput ||
+            target.closest('.sales-bom-part-lookup') ||
+            target.closest('.sales-bom-part-lookup__menu')
+        ) {
+            return
+        }
+        this.closeBomPartLookup()
+    }
+
+    async onBomPartLookupFocus(section: ProjectBomSection, row: ProjectBomRow, event?: FocusEvent): Promise<void> {
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
+        this.activeBomLookupInput = event?.target instanceof HTMLInputElement ? event.target : this.activeBomLookupInput
+        this.positionBomPartLookup()
         await this.ensureBomLookupDataLoaded()
+        this.positionBomPartLookup()
     }
 
     onBomPartLookupBlur(section: ProjectBomSection, row: ProjectBomRow): void {
         row.lookupQuery = String(row.lookupQuery || row.partNbr || '').trim()
         globalThis.setTimeout(() => {
-            if (this.getBomPartLookupResults(section, row).length === 1) {
-                return
-            }
-            if (this.activeBomLookupSectionKey === String(section.sectionKey || '')) {
-                this.activeBomLookupSectionKey = ''
-                this.activeBomLookupRow = null
+            if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row) {
+                this.closeBomPartLookup()
             }
         }, 120)
     }
@@ -1712,6 +1772,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.lookupQuery = value
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
+        this.positionBomPartLookup()
     }
 
     isBomLookupActive(section: ProjectBomSection, row: ProjectBomRow): boolean {
@@ -1749,6 +1810,42 @@ export class ProjectPage implements OnChanges, OnDestroy {
             .slice(0, 12)
     }
 
+    getBomDeviceLookupResults(section: ProjectBomSection, row: ProjectBomRow): VwDevice[] {
+        const activeSectionKey = String(section.sectionKey || '')
+        const query = String(row.lookupQuery || '').trim().toLowerCase()
+        if (this.activeBomLookupSectionKey !== activeSectionKey || query.length < 2) {
+            return []
+        }
+
+        const allowedVendorIds = new Set((section.vendorIds || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+        const allowedVendorNames = new Set((section.vendorNames || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+
+        return this.deviceRows
+            .filter((device) => {
+                if (allowedVendorIds.size <= 0 && allowedVendorNames.size <= 0) {
+                    return true
+                }
+                const deviceVendorId = String(device.vendorId || '').trim().toLowerCase()
+                const deviceVendorName = String(device.vendorName || '').trim().toLowerCase()
+                return allowedVendorIds.has(deviceVendorId) || allowedVendorNames.has(deviceVendorName)
+            })
+            .filter((device) => {
+                const haystack = [
+                    device.name,
+                    device.shortName,
+                    device.partNumber,
+                    device.categoryName,
+                    device.vendorName
+                ].join(' ').toLowerCase()
+                return haystack.includes(query)
+            })
+            .slice(0, 12)
+    }
+
+    hasBomLookupResults(section: ProjectBomSection, row: ProjectBomRow): boolean {
+        return this.getBomDeviceLookupResults(section, row).length > 0 || this.getBomPartLookupResults(section, row).length > 0
+    }
+
     selectBomPart(section: ProjectBomSection, row: ProjectBomRow, part: VwEddyPricelist): void {
         const category = this.getBomCategoryByName(String(part.Category || '').trim())
         row.partNbr = String(part.PartNumber || '').trim()
@@ -1756,9 +1853,64 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.description = String(part.LongDescription || '').trim()
         row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
         row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = Number(category?.defaultLabor || 0)
+        row.labor = this.getInstallationLaborCost(Number(category?.defaultLabor || 0))
+        this.refreshTakeoffColumnDefinitions()
+        this.closeBomPartLookup()
+    }
+
+    selectBomDevice(section: ProjectBomSection, row: ProjectBomRow, device: VwDevice): void {
+        const category = this.getBomCategoryByName(String(device.categoryName || '').trim())
+        const partNumber = String(device.partNumber || '').trim()
+        row.partNbr = partNumber
+        row.lookupQuery = partNumber
+        row.description = String(device.name || device.shortName || '').trim()
+        row.cost = Number(device.cost || 0)
+        row.type = category?.includeOnFloorplan ? String(device.categoryName || '').trim() : ''
+        row.labor = this.getInstallationLaborCost(Number(device.defaultLabor || 0))
+        this.refreshTakeoffColumnDefinitions()
+        this.closeBomPartLookup()
+    }
+
+    positionBomPartLookup(event?: Event): void {
+        if (event?.target instanceof HTMLInputElement) {
+            this.activeBomLookupInput = event.target
+        }
+        if (!this.activeBomLookupInput || !this.activeBomLookupRow) {
+            this.bomLookupMenuStyle = {}
+            return
+        }
+
+        const rect = this.activeBomLookupInput.getBoundingClientRect()
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768
+        const menuWidth = Math.min(920, Math.max(320, viewportWidth - 32))
+        const activeSection = this.bomSections.find((section) => String(section.sectionKey || '') === this.activeBomLookupSectionKey)
+        const resultCount = activeSection
+            ? this.getBomDeviceLookupResults(activeSection, this.activeBomLookupRow).length + this.getBomPartLookupResults(activeSection, this.activeBomLookupRow).length + 2
+            : 12
+        const preferredMenuHeight = Math.min(320, Math.max(72, resultCount * 48))
+        const belowSpace = Math.max(0, viewportHeight - rect.bottom - 16)
+        const aboveSpace = Math.max(0, rect.top - 16)
+        const openBelow = belowSpace >= preferredMenuHeight || belowSpace >= aboveSpace
+        const menuHeight = Math.max(72, Math.min(preferredMenuHeight, openBelow ? belowSpace : aboveSpace))
+        const left = Math.max(16, Math.min(rect.left, viewportWidth - menuWidth - 16))
+        const top = openBelow
+            ? Math.min(rect.bottom + 6, viewportHeight - menuHeight - 16)
+            : Math.max(16, rect.top - menuHeight - 6)
+
+        this.bomLookupMenuStyle = {
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${menuWidth}px`,
+            maxHeight: `${menuHeight}px`
+        }
+    }
+
+    private closeBomPartLookup(): void {
         this.activeBomLookupSectionKey = ''
         this.activeBomLookupRow = null
+        this.activeBomLookupInput = null
+        this.bomLookupMenuStyle = {}
     }
 
     getExpenseRateLabel(section: ProjectExpenseSection): string {
@@ -2027,6 +2179,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return Number(installationRate?.effectiveRate || installationRate?.payRate || 0)
     }
 
+    getInstallationLaborCost(hours: number): number {
+        return Number(hours || 0) * this.getInstallationHourlyRate()
+    }
+
     getGeneralExpenseTotal(): number {
         return this.expenseSections
             .filter((section) => !['Subcontracts', 'Special Markup Items'].includes(section.title))
@@ -2244,6 +2400,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     getTakeoffCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): string {
+        const seededValue = this.getTakeoffSeededCellValue(matrix, rowKey, columnKey)
+        if (seededValue !== null) {
+            return `${seededValue}`
+        }
         const value = matrix.values[rowKey]?.[columnKey]
         return value === null || typeof value === 'undefined' ? '' : `${value}`
     }
@@ -2270,14 +2430,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     getTakeoffRowTotal(matrix: TakeoffMatrix, rowKey: string): number {
-        return this.takeoffColumns.reduce((sum, columnKey) => {
-            return sum + Number(matrix.values[rowKey]?.[columnKey] || 0)
+        return this.getTakeoffColumnDefinitions().reduce((sum, column) => {
+            return sum + this.getTakeoffNumericCellValue(matrix, rowKey, column.key)
         }, 0)
     }
 
     getTakeoffColumnTotal(matrix: TakeoffMatrix, columnKey: string): number {
         return matrix.rows.reduce((sum, rowKey) => {
-            return sum + Number(matrix.values[rowKey]?.[columnKey] || 0)
+            return sum + this.getTakeoffNumericCellValue(matrix, rowKey, columnKey)
         }, 0)
     }
 
@@ -2291,6 +2451,65 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     getTakeoffGrandTotal(): number {
         return this.takeoffMatrices.reduce((sum, matrix) => sum + this.getTakeoffMatrixTotal(matrix), 0)
+    }
+
+    getTakeoffColumnDefinitions(): TakeoffColumnDefinition[] {
+        if (this.takeoffColumnDefinitionCache.length <= 0) {
+            this.refreshTakeoffColumnDefinitions()
+        }
+
+        return this.takeoffColumnDefinitionCache
+    }
+
+    refreshTakeoffColumnDefinitions(): void {
+        const maxColumns = this.takeoffColumns.length
+        const bomColumns = this.getBomTakeoffColumnDefinitions().slice(0, maxColumns)
+        const placeholders = Array.from({ length: Math.max(0, maxColumns - bomColumns.length) }, (_, index) => ({
+            key: `placeholder-${index}`,
+            label: ''
+        }))
+        this.takeoffColumnDefinitionCache = [...bomColumns, ...placeholders]
+    }
+
+    isTakeoffBomSeedCell(matrix: TakeoffMatrix, rowKey: string, columnKey: string): boolean {
+        return this.getTakeoffSeededCellValue(matrix, rowKey, columnKey) !== null
+    }
+
+    private getBomTakeoffColumnDefinitions(): TakeoffColumnDefinition[] {
+        return this.bomSections.flatMap((section, sectionIndex) => {
+            return (section.rows || [])
+                .map((row, rowIndex) => ({
+                    row,
+                    sectionIndex,
+                    rowIndex
+                }))
+                .filter(({ row }) => Number(row.qty || 0) > 1 && String(row.type || '').trim().length > 0)
+                .map(({ row, sectionIndex, rowIndex }) => ({
+                    key: `bom-${sectionIndex}-${rowIndex}-${this.normalizeTakeoffColumnKey(row.partNbr || row.description || row.type)}`,
+                    label: String(row.type || '').trim(),
+                    sourceQty: Number(row.qty || 0)
+                }))
+        })
+    }
+
+    private getTakeoffSeededCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): number | null {
+        if (matrix !== this.takeoffMatrices[0] || rowKey !== matrix.rows[0]) {
+            return null
+        }
+        const column = this.getTakeoffColumnDefinitions().find((item) => item.key === columnKey)
+        return typeof column?.sourceQty === 'number' ? column.sourceQty : null
+    }
+
+    private getTakeoffNumericCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): number {
+        const seededValue = this.getTakeoffSeededCellValue(matrix, rowKey, columnKey)
+        if (seededValue !== null) {
+            return seededValue
+        }
+        return Number(matrix.values[rowKey]?.[columnKey] || 0)
+    }
+
+    private normalizeTakeoffColumnKey(value: string): string {
+        return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item'
     }
 
     onTakeoffCellKeydown(event: KeyboardEvent) {
@@ -2917,6 +3136,14 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 })
                 .finally(() => {
                     this.vendorPartLookupWorking = false
+                }))
+        }
+
+        if (!this.deviceLookupLoaded) {
+            requests.push(firstValueFrom(this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices'))
+                .then((response) => {
+                    this.deviceRows = Array.isArray(response?.rows) ? response.rows : []
+                    this.deviceLookupLoaded = true
                 }))
         }
 
@@ -4027,6 +4254,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.wireRunNodes = this.cloneJson(worksheet.wireRunNodes || this.worksheetDefaults.wireRunNodes)
         this.firetrolProvideRows = this.cloneJson(worksheet.firetrolProvideRows || this.worksheetDefaults.firetrolProvideRows)
         this.bomSections = this.normalizeBomSections(worksheet.bomSections || this.worksheetDefaults.bomSections)
+        this.refreshTakeoffColumnDefinitions()
         this.expenseSections = this.normalizeExpenseSections(this.cloneJson(worksheet.expenseSections || this.worksheetDefaults.expenseSections))
         this.ssPmRate = Number(worksheet.ssPmRate ?? this.worksheetDefaults.ssPmRate)
         this.ssPmFixedAmount = Number(worksheet.ssPmFixedAmount ?? this.worksheetDefaults.ssPmFixedAmount)

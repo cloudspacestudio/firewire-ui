@@ -648,8 +648,8 @@
                                                     <thead>
                                                         <tr>
                                                             <th>Area</th>
-                                                            <th *ngFor="let column of takeoffColumns">
-                                                                <span class="takeoff-column-header">{{column}}</span>
+                                                            <th *ngFor="let column of getTakeoffColumnDefinitions()">
+                                                                <span class="takeoff-column-header">{{column.label}}</span>
                                                             </th>
                                                             <th class="right-align">Row Total</th>
                                                         </tr>
@@ -657,23 +657,24 @@
                                                     <tbody>
                                                         <tr *ngFor="let row of matrix.rows; let rowIndex = index">
                                                             <td class="takeoff-row-label">{{row}}</td>
-                                                            <td *ngFor="let column of takeoffColumns; let columnIndex = index">
+                                                            <td *ngFor="let column of getTakeoffColumnDefinitions(); let columnIndex = index">
                                                                 <input
                                                                     type="number"
                                                                     min="0"
                                                                     max="99"
                                                                     step="1"
                                                                     [attr.data-takeoff-cell]="matrixIndex + '-' + rowIndex + '-' + columnIndex"
-                                                                    [ngModel]="getTakeoffCellValue(matrix, row, column)"
-                                                                    (ngModelChange)="setTakeoffCellValue(matrix, row, column, $event)"
+                                                                    [ngModel]="getTakeoffCellValue(matrix, row, column.key)"
+                                                                    (ngModelChange)="setTakeoffCellValue(matrix, row, column.key, $event)"
                                                                     (keydown)="onTakeoffCellKeydown($event)"
-                                                                    [attr.aria-label]="matrix.title + ' ' + row + ' ' + column" />
+                                                                    [disabled]="isTakeoffBomSeedCell(matrix, row, column.key)"
+                                                                    [attr.aria-label]="matrix.title + ' ' + row + ' ' + column.label" />
                                                             </td>
                                                             <td class="right-align takeoff-row-total">{{getTakeoffRowTotal(matrix, row)}}</td>
                                                         </tr>
                                                         <tr class="takeoff-total-row">
                                                             <td>Total</td>
-                                                            <td *ngFor="let column of takeoffColumns">{{getTakeoffColumnTotal(matrix, column)}}</td>
+                                                            <td *ngFor="let column of getTakeoffColumnDefinitions()">{{getTakeoffColumnTotal(matrix, column.key)}}</td>
                                                             <td class="right-align takeoff-row-total">{{getTakeoffMatrixTotal(matrix)}}</td>
                                                         </tr>
                                                     </tbody>
@@ -691,8 +692,8 @@
                                                     <thead>
                                                         <tr>
                                                             <th>Summary</th>
-                                                            <th *ngFor="let column of takeoffColumns">
-                                                                <span class="takeoff-column-header">{{column}}</span>
+                                                            <th *ngFor="let column of getTakeoffColumnDefinitions()">
+                                                                <span class="takeoff-column-header">{{column.label}}</span>
                                                             </th>
                                                             <th class="right-align">Grand Total</th>
                                                         </tr>
@@ -700,7 +701,7 @@
                                                     <tbody>
                                                         <tr class="takeoff-total-row">
                                                             <td>All Areas</td>
-                                                            <td *ngFor="let column of takeoffColumns">{{getTakeoffCombinedColumnTotal(column)}}</td>
+                                                            <td *ngFor="let column of getTakeoffColumnDefinitions()">{{getTakeoffCombinedColumnTotal(column.key)}}</td>
                                                             <td class="right-align takeoff-row-total">{{getTakeoffGrandTotal()}}</td>
                                                         </tr>
                                                     </tbody>
@@ -800,6 +801,14 @@
                                                                             <mat-icon fontIcon="more_vert"></mat-icon>
                                                                         </button>
                                                                         <mat-menu #docLibraryRowMenu="matMenu" xPosition="before">
+                                                                            <a
+                                                                                *ngIf="canEditDocLibraryMarkup(file)"
+                                                                mat-menu-item
+                                                                [routerLink]="['/edit-markup']"
+                                                                [queryParams]="getDocLibraryMarkupQueryParams(file)">
+                                                                <mat-icon fontIcon="edit_location_alt"></mat-icon>
+                                                                <span>Edit Markup</span>
+                                                            </a>
                                                                             <button mat-menu-item type="button" (click)="openDocLibraryVersions(file.id)">
                                                                                 <mat-icon fontIcon="history"></mat-icon>
                                                                                 <span>Versions</span>
@@ -917,7 +926,7 @@
                                                 </div>
                                             </div>
 
-                                            <div class="firewire-bom-grid">
+                                                    <div class="firewire-bom-grid" (scroll)="positionBomPartLookup()">
                                                 <table>
                                                     <colgroup>
                                                         <col class="bom-col-part-nbr" />
@@ -987,11 +996,27 @@
                                                                 <div class="sales-bom-part-lookup">
                                                                     <input
                                                                         [(ngModel)]="row.lookupQuery"
-                                                                        (focus)="onBomPartLookupFocus(section, row)"
+                                                                        (focus)="onBomPartLookupFocus(section, row, $event)"
                                                                         (blur)="onBomPartLookupBlur(section, row)"
+                                                                        (input)="positionBomPartLookup($event)"
                                                                         (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
                                                                         [attr.aria-label]="'BOM part number ' + (idx + 1)" />
-                                                                    <div *ngIf="isBomLookupActive(section, row) && getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__menu">
+                                                                    <div
+                                                                        *ngIf="isBomLookupActive(section, row) && hasBomLookupResults(section, row)"
+                                                                        class="sales-bom-part-lookup__menu"
+                                                                        [ngStyle]="bomLookupMenuStyle">
+                                                                        <div *ngIf="getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
+                                                                        <button
+                                                                            *ngFor="let option of getBomDeviceLookupResults(section, row)"
+                                                                            type="button"
+                                                                            class="sales-bom-part-lookup__option"
+                                                                            (mousedown)="selectBomDevice(section, row, option)">
+                                                                            <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
+                                                                            <span class="sales-bom-part-lookup__description">{{option.name}}</span>
+                                                                            <span class="sales-bom-part-lookup__cost">{{option.cost | currency}}</span>
+                                                                            <span class="sales-bom-part-lookup__category">{{option.categoryName}}</span>
+                                                                        </button>
+                                                                        <div *ngIf="getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Vendor Parts</div>
                                                                         <button
                                                                             *ngFor="let option of getBomPartLookupResults(section, row)"
                                                                             type="button"
@@ -1009,7 +1034,7 @@
                                                                 <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />
                                                             </td>
                                                             <td class="right-align">
-                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
                                                             </td>
                                                             <td class="right-align">
                                                                 <div class="bom-currency-input">
@@ -1030,7 +1055,7 @@
                                                                 {{getBomRowExtLabor(row) | currency}}
                                                             </td>
                                                             <td>
-                                                                <input [(ngModel)]="row.type" [attr.aria-label]="'BOM type ' + (idx + 1)" />
+                                                                <input [(ngModel)]="row.type" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM type ' + (idx + 1)" />
                                                             </td>
                                                         </tr>
                                                     </tbody>

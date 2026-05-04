@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
-import { Component, ElementRef, Input, ViewChild, inject } from '@angular/core'
+import { Component, ElementRef, HostListener, Input, ViewChild, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { RouterLink } from '@angular/router'
 import { firstValueFrom } from 'rxjs'
@@ -18,12 +18,15 @@ import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectTy
 import { ProjectSettingsApi } from '../projects/project-settings.api'
 import {
     ProjectDocLibraryFileRecord,
+    ProjectDocLibraryFileVersionRecord,
     ProjectDocLibraryFolderDefinition,
     ProjectDocLibraryStorageService
 } from '../../common/services/project-doc-library-storage.service'
+import { DevicePartPriceSyncService } from '../../common/services/device-part-price-sync.service'
 import { DeviceSetSummary, DeviceSetDetail } from '../../schemas/device-set.schema'
 import { Category } from '../../schemas/category.schema'
 import { VwDeviceMaterial } from '../../schemas/vwdevicematerial.schema'
+import { VwDevice } from '../../schemas/vwdevice.schema'
 import { VwEddyPricelist } from '../../schemas/vwEddyPricelist'
 
 type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'DOC LIBRARY'
@@ -96,9 +99,11 @@ export class SalesProjectPage {
 
     private readonly projectSettingsApi = inject(ProjectSettingsApi)
     private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
+    private readonly devicePartPriceSync = inject(DevicePartPriceSyncService)
     readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
     readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'DOC LIBRARY']
     readonly docLibraryFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getFolderDefinitions()
+    readonly docLibraryImageTileMaxBytes = 4 * 1024 * 1024
 
     pageWorking = true
     saveWorking = false
@@ -129,11 +134,15 @@ export class SalesProjectPage {
     bomFilter = ''
     bomSortKey: SalesBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
+    deviceRows: VwDevice[] = []
+    deviceLookupLoaded = false
     vendorPartRows: VwEddyPricelist[] = []
     vendorPartLookupLoaded = false
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
     activeBomLookupRow: SalesBomRow | null = null
+    bomLookupMenuStyle: Record<string, string> = {}
+    private activeBomLookupInput: HTMLInputElement | null = null
 
     constructor(private http: HttpClient) {}
 
@@ -322,6 +331,56 @@ export class SalesProjectPage {
         return this.docLibraryFiles.filter((file) => file.folderId === this.selectedDocLibraryFolder)
     }
 
+    getDocLibraryDocumentRows(): ProjectDocLibraryFileRecord[] {
+        return this.getDocLibraryVisibleFiles().filter((file) => !this.isDocLibraryDisplayableImage(file))
+    }
+
+    getDocLibraryImageTiles(): ProjectDocLibraryFileRecord[] {
+        return this.getDocLibraryVisibleFiles().filter((file) => this.isDocLibraryDisplayableImage(file))
+    }
+
+    getLatestDocLibraryVersion(file: ProjectDocLibraryFileRecord): ProjectDocLibraryFileVersionRecord | undefined {
+        return file.versions?.[file.versions.length - 1]
+    }
+
+    isDocLibraryDisplayableImage(file: ProjectDocLibraryFileRecord): boolean {
+        const version = this.getLatestDocLibraryVersion(file)
+        const mimeType = String(version?.mimeType || '').toLowerCase()
+        return mimeType.startsWith('image/') && Number(version?.sizeBytes || 0) <= this.docLibraryImageTileMaxBytes && !!version?.dataUrl
+    }
+
+    canEditDocLibraryMarkup(file: ProjectDocLibraryFileRecord): boolean {
+        const version = this.getLatestDocLibraryVersion(file)
+        return file.folderId === 'drawings'
+            && String(version?.mimeType || '').toLowerCase().startsWith('image/')
+            && !!version?.dataUrl
+            && !!this.getDocLibraryStorageKey()
+    }
+
+    getDocLibraryMarkupLink(file: ProjectDocLibraryFileRecord): any[] {
+        return ['/edit-markup']
+    }
+
+    getDocLibraryMarkupQueryParams(file: ProjectDocLibraryFileRecord): Record<string, string> {
+        return {
+            projectKey: this.getDocLibraryStorageKey(),
+            bomProjectKey: this.projectId || this.project?.uuid || this.getDocLibraryStorageKey(),
+            fileId: file.id,
+            returnTo: `/sales/${this.projectId || this.project?.uuid || ''}`
+        }
+    }
+
+    getReadableDocLibraryFileSize(file: ProjectDocLibraryFileRecord): string {
+        const sizeBytes = Number(this.getLatestDocLibraryVersion(file)?.sizeBytes || 0)
+        if (sizeBytes >= 1024 * 1024) {
+            return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`
+        }
+        if (sizeBytes >= 1024) {
+            return `${Math.round(sizeBytes / 1024)} KB`
+        }
+        return `${sizeBytes} B`
+    }
+
     getDocLibraryFolderLabel(folderId: string): string {
         return this.docLibraryFolders.find((folder) => folder.id === folderId)?.label || 'Unfiled'
     }
@@ -403,21 +462,50 @@ export class SalesProjectPage {
         this.bomSections = [...this.bomSections]
     }
 
-    async onBomPartLookupFocus(section: SalesBomSection, row: SalesBomRow): Promise<void> {
+    @HostListener('window:resize')
+    onWindowResize(): void {
+        this.positionBomPartLookup()
+    }
+
+    @HostListener('window:scroll')
+    onWindowScroll(): void {
+        this.positionBomPartLookup()
+    }
+
+    @HostListener('document:mousedown', ['$event'])
+    onDocumentMouseDown(event: MouseEvent): void {
+        if (!this.activeBomLookupRow) {
+            return
+        }
+        const target = event.target as HTMLElement | null
+        if (!target) {
+            this.closeBomPartLookup()
+            return
+        }
+        if (
+            target === this.activeBomLookupInput ||
+            target.closest('.sales-bom-part-lookup') ||
+            target.closest('.sales-bom-part-lookup__menu')
+        ) {
+            return
+        }
+        this.closeBomPartLookup()
+    }
+
+    async onBomPartLookupFocus(section: SalesBomSection, row: SalesBomRow, event?: FocusEvent): Promise<void> {
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
+        this.activeBomLookupInput = event?.target instanceof HTMLInputElement ? event.target : this.activeBomLookupInput
+        this.positionBomPartLookup()
         await this.ensureVendorPartLookupLoaded()
+        this.positionBomPartLookup()
     }
 
     onBomPartLookupBlur(section: SalesBomSection, row: SalesBomRow): void {
         row.lookupQuery = String(row.lookupQuery || row.partNbr || '').trim()
         globalThis.setTimeout(() => {
-            if (this.getBomPartLookupResults(section, row).length === 1) {
-                return
-            }
-            if (this.activeBomLookupSectionKey === String(section.sectionKey || '')) {
-                this.activeBomLookupSectionKey = ''
-                this.activeBomLookupRow = null
+            if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row) {
+                this.closeBomPartLookup()
             }
         }, 120)
     }
@@ -426,6 +514,7 @@ export class SalesProjectPage {
         row.lookupQuery = value
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
+        this.positionBomPartLookup()
     }
 
     isBomLookupActive(section: SalesBomSection, row: SalesBomRow): boolean {
@@ -463,6 +552,42 @@ export class SalesProjectPage {
             .slice(0, 12)
     }
 
+    getBomDeviceLookupResults(section: SalesBomSection, row: SalesBomRow): VwDevice[] {
+        const activeSectionKey = String(section.sectionKey || '')
+        const query = String(row.lookupQuery || '').trim().toLowerCase()
+        if (this.activeBomLookupSectionKey !== activeSectionKey || query.length < 2) {
+            return []
+        }
+
+        const allowedVendorIds = new Set((section.vendorIds || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+        const allowedVendorNames = new Set((section.vendorNames || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
+
+        return this.deviceRows
+            .filter((device) => {
+                if (allowedVendorIds.size <= 0 && allowedVendorNames.size <= 0) {
+                    return true
+                }
+                const deviceVendorId = String(device.vendorId || '').trim().toLowerCase()
+                const deviceVendorName = String(device.vendorName || '').trim().toLowerCase()
+                return allowedVendorIds.has(deviceVendorId) || allowedVendorNames.has(deviceVendorName)
+            })
+            .filter((device) => {
+                const haystack = [
+                    device.name,
+                    device.shortName,
+                    device.partNumber,
+                    device.categoryName,
+                    device.vendorName
+                ].join(' ').toLowerCase()
+                return haystack.includes(query)
+            })
+            .slice(0, 12)
+    }
+
+    hasBomLookupResults(section: SalesBomSection, row: SalesBomRow): boolean {
+        return this.getBomDeviceLookupResults(section, row).length > 0 || this.getBomPartLookupResults(section, row).length > 0
+    }
+
     selectBomPart(section: SalesBomSection, row: SalesBomRow, part: VwEddyPricelist): void {
         const category = this.getCategoryByName(String(part.Category || '').trim())
         row.partNbr = String(part.PartNumber || '').trim()
@@ -470,12 +595,66 @@ export class SalesProjectPage {
         row.description = String(part.LongDescription || '').trim()
         row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
         row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = Number(category?.defaultLabor || 0)
-        this.activeBomLookupSectionKey = ''
-        this.activeBomLookupRow = null
+        row.labor = this.getInstallationLaborCost(Number(category?.defaultLabor || 0))
+        this.closeBomPartLookup()
         this.saveMessage = category
             ? `Loaded ${row.partNbr} from vendor parts.`
             : `Loaded ${row.partNbr}. Category ${String(part.Category || '').trim() || 'Unknown'} is not configured yet.`
+    }
+
+    selectBomDevice(section: SalesBomSection, row: SalesBomRow, device: VwDevice): void {
+        const includeOnFloorplan = this.getCategoryIncludeOnFloorplan(device.categoryId, device.categoryName)
+        const partNumber = String(device.partNumber || '').trim()
+        row.partNbr = partNumber
+        row.lookupQuery = partNumber
+        row.description = String(device.name || device.shortName || '').trim()
+        row.cost = Number(device.cost || 0)
+        row.type = includeOnFloorplan ? String(device.categoryName || '').trim() : ''
+        row.labor = this.getInstallationLaborCost(Number(device.defaultLabor || 0))
+        this.closeBomPartLookup()
+        this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
+    }
+
+    positionBomPartLookup(event?: Event): void {
+        if (event?.target instanceof HTMLInputElement) {
+            this.activeBomLookupInput = event.target
+        }
+        if (!this.activeBomLookupInput || !this.activeBomLookupRow) {
+            this.bomLookupMenuStyle = {}
+            return
+        }
+
+        const rect = this.activeBomLookupInput.getBoundingClientRect()
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768
+        const menuWidth = Math.min(920, Math.max(320, viewportWidth - 32))
+        const activeSection = this.bomSections.find((section) => String(section.sectionKey || '') === this.activeBomLookupSectionKey)
+        const resultCount = activeSection
+            ? this.getBomDeviceLookupResults(activeSection, this.activeBomLookupRow).length + this.getBomPartLookupResults(activeSection, this.activeBomLookupRow).length + 2
+            : 12
+        const preferredMenuHeight = Math.min(320, Math.max(72, resultCount * 48))
+        const belowSpace = Math.max(0, viewportHeight - rect.bottom - 16)
+        const aboveSpace = Math.max(0, rect.top - 16)
+        const openBelow = belowSpace >= preferredMenuHeight || belowSpace >= aboveSpace
+        const menuHeight = Math.max(72, Math.min(preferredMenuHeight, openBelow ? belowSpace : aboveSpace))
+        const left = Math.max(16, Math.min(rect.left, viewportWidth - menuWidth - 16))
+        const top = openBelow
+            ? Math.min(rect.bottom + 6, viewportHeight - menuHeight - 16)
+            : Math.max(16, rect.top - menuHeight - 6)
+
+        this.bomLookupMenuStyle = {
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${menuWidth}px`,
+            maxHeight: `${menuHeight}px`
+        }
+    }
+
+    private closeBomPartLookup(): void {
+        this.activeBomLookupSectionKey = ''
+        this.activeBomLookupRow = null
+        this.activeBomLookupInput = null
+        this.bomLookupMenuStyle = {}
     }
 
     removeBomSection(sectionIndex: number): void {
@@ -490,7 +669,7 @@ export class SalesProjectPage {
         }
 
         this.saveWorking = true
-        this.saveMessage = 'Loading device set into BOM...'
+        this.saveMessage = 'Refreshing device set prices and loading BOM...'
 
         try {
             const detailResponse = await firstValueFrom(this.http.get<{ data?: DeviceSetDetail }>(`/api/firewire/device-sets/${deviceSetId}`))
@@ -499,6 +678,9 @@ export class SalesProjectPage {
                 throw new Error('Unable to load device set.')
             }
 
+            await Promise.all(detail.devices.map((device) => this.devicePartPriceSync.syncDevice(device.deviceId)))
+            const vendorParts = await this.devicePartPriceSync.getVendorPartRows()
+            const vendorPartMap = this.devicePartPriceSync.createVendorPartMap(vendorParts)
             const materialResults = await Promise.all(detail.devices.map(async(device) => {
                 const response = await firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
                 return {
@@ -512,7 +694,7 @@ export class SalesProjectPage {
                 sectionKey: this.createClientId(),
                 vendorIds: Array.from(new Set(detail.devices.map((device) => String(device.vendorId || '').trim()).filter(Boolean))),
                 vendorNames: Array.from(new Set(detail.devices.map((device) => String(device.vendorName || '').trim()).filter(Boolean))),
-                rows: materialResults.flatMap(({ device, materials }) => this.createBomRowsFromDevice(device, materials))
+                rows: materialResults.flatMap(({ device, materials }) => this.createBomRowsFromDevice(device, materials, vendorPartMap))
             }
 
             if (nextSection.rows.length <= 0) {
@@ -628,31 +810,52 @@ export class SalesProjectPage {
         return String(this.projectId || this.project?.uuid || '').trim()
     }
 
-    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[]): SalesBomRow[] {
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwEddyPricelist>): SalesBomRow[] {
         const includeOnFloorplan = this.getCategoryIncludeOnFloorplan(device.categoryId, device.categoryName)
         const typeValue = includeOnFloorplan ? String(device.categoryName || '').trim() : ''
 
         if (!materials.length) {
+            const partNumber = String(device.partNumber || '').trim()
             return [{
-                partNbr: String(device.partNumber || '').trim(),
-                lookupQuery: String(device.partNumber || '').trim(),
+                partNbr: partNumber,
+                lookupQuery: partNumber,
                 description: String(device.name || '').trim(),
                 qty: 0,
-                cost: Number(device.cost || 0),
-                labor: Number(device.defaultLabor || 0),
+                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0)),
+                labor: this.getInstallationLaborCost(Number(device.defaultLabor || 0)),
                 type: typeValue
             }]
         }
 
-        return materials.map((material, index) => ({
-            partNbr: String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim(),
-            lookupQuery: String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim(),
-            description: String(material.materialName || material.deviceName || device.name || '').trim(),
-            qty: 0,
-            cost: Number(material.materialCost || material.cost || device.cost || 0),
-            labor: index === 0 ? Number(device.defaultLabor || material.materialDefaultLabor || 0) : 0,
-            type: typeValue
-        }))
+        return materials.map((material, index) => {
+            const partNumber = String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim()
+            return {
+                partNbr: partNumber,
+                lookupQuery: partNumber,
+                description: String(material.materialName || material.deviceName || device.name || '').trim(),
+                qty: 0,
+                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0)),
+                labor: index === 0 ? this.getInstallationLaborCost(Number(device.defaultLabor || material.materialDefaultLabor || 0)) : 0,
+                type: typeValue
+            }
+        })
+    }
+
+    private getInstallationLaborCost(hours: number): number {
+        return Number(hours || 0) * this.getInstallationLaborRate()
+    }
+
+    private getInstallationLaborRate(): number {
+        const rates = Array.isArray(this.project?.worksheetData?.laborRates)
+            ? this.project?.worksheetData?.laborRates
+            : []
+        const installationRate = rates.find((row: any) => String(row?.label || '').trim().toLowerCase() === 'installation')
+        return Number(installationRate?.effectiveRate || installationRate?.payRate || 56)
+    }
+
+    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwEddyPricelist> | undefined, fallbackCost: number): number {
+        const vendorPart = vendorPartMap?.get(this.devicePartPriceSync.normalizePartNumber(partNumber))
+        return vendorPart ? this.devicePartPriceSync.getVendorPartPrice(vendorPart) : Number(fallbackCost || 0)
     }
 
     private getCategoryIncludeOnFloorplan(categoryId: string | null | undefined, categoryName: string | null | undefined): boolean {
@@ -870,15 +1073,24 @@ export class SalesProjectPage {
     }
 
     private async ensureVendorPartLookupLoaded(): Promise<void> {
-        if (this.vendorPartLookupLoaded || this.vendorPartLookupWorking) {
+        if ((this.vendorPartLookupLoaded && this.deviceLookupLoaded) || this.vendorPartLookupWorking) {
             return
         }
 
         this.vendorPartLookupWorking = true
         try {
-            const response = await firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist'))
-            this.vendorPartRows = Array.isArray(response?.rows) ? response.rows : []
+            const [partsResponse, devicesResponse] = await Promise.all([
+                this.vendorPartLookupLoaded
+                    ? Promise.resolve({ rows: this.vendorPartRows })
+                    : firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist')),
+                this.deviceLookupLoaded
+                    ? Promise.resolve({ rows: this.deviceRows })
+                    : firstValueFrom(this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices'))
+            ])
+            this.vendorPartRows = Array.isArray(partsResponse?.rows) ? partsResponse.rows : []
+            this.deviceRows = Array.isArray(devicesResponse?.rows) ? devicesResponse.rows : []
             this.vendorPartLookupLoaded = true
+            this.deviceLookupLoaded = true
         } finally {
             this.vendorPartLookupWorking = false
         }

@@ -1,0 +1,95 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="['/device-sets', deviceSetId]">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'device-sets'"></nav-toolbar>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="page-topline">
+            <div>
+                <div class="page-title">{{detail?.name || 'Device Set Parts'}}</div>
+                <div class="page-subtitle">Linked part details for every device in this set.</div>
+            </div>
+            <div class="device-set-parts-actions">
+                <button mat-stroked-button type="button" [disabled]="syncWorking || pageWorking" (click)="syncDeviceSetPartPrices()">
+                    <mat-icon>sync</mat-icon>
+                    <span>{{syncWorking ? 'Refreshing...' : 'Refresh Prices'}}</span>
+                </button>
+                <button mat-stroked-button type="button" [routerLink]="['/device-sets', deviceSetId]">
+                    <mat-icon>edit</mat-icon>
+                    <span>Back To Editor</span>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="errText" class="device-set-parts-status">{{errText}}</div>
+        <div *ngIf="statusText" class="device-set-parts-status">{{statusText}}</div>
+
+        <div class="device-set-parts-summary">
+            <div class="device-set-parts-stat">
+                <span>Devices</span>
+                <strong>{{deviceCount}}</strong>
+            </div>
+            <div class="device-set-parts-stat">
+                <span>Linked Parts</span>
+                <strong>{{partRows.length}}</strong>
+            </div>
+            <div class="device-set-parts-stat">
+                <span>Material Cost</span>
+                <strong>{{totalMaterialCost | currency}}</strong>
+            </div>
+            <div class="device-set-parts-stat">
+                <span>Vendor Cost</span>
+                <strong>{{totalVendorCost | currency}}</strong>
+            </div>
+            <div class="device-set-parts-stat">
+                <span>Out Of Sync</span>
+                <strong>{{outOfSyncCount}}</strong>
+            </div>
+        </div>
+
+        <mat-form-field appearance="outline" class="device-set-parts-filter">
+            <mat-label>Filter linked parts</mat-label>
+            <input matInput [(ngModel)]="filterText" placeholder="Device, part number, vendor, category" />
+        </mat-form-field>
+
+        <div class="device-set-parts-table">
+            <div class="device-set-parts-row device-set-parts-row--header">
+                <span>Device</span>
+                <span>Device Part</span>
+                <span>Linked Part</span>
+                <span>Description</span>
+                <span>Stored Cost</span>
+                <span>Vendor Price</span>
+                <span>Labor</span>
+                <span>Category</span>
+            </div>
+
+            <div *ngIf="pageWorking" class="device-set-parts-empty">Loading linked part details...</div>
+            <div *ngIf="!pageWorking && filteredPartRows.length <= 0" class="device-set-parts-empty">
+                No linked parts match the current filter.
+            </div>
+
+            <div class="device-set-parts-row" *ngFor="let row of filteredPartRows">
+                <span>
+                    <strong>{{row.sourceDeviceName}}</strong>
+                    <small>{{row.sourceDeviceVendorName}}</small>
+                </span>
+                <span>{{row.sourceDevicePartNumber}}</span>
+                <span>{{row.materialPartNumber}}</span>
+                <span>
+                    <strong>{{row.materialName}}</strong>
+                    <small>{{row.materialShortName || row.org}}</small>
+                </span>
+                <span [class.is-out-of-sync]="isPriceOutOfSync(row)">{{row.materialCost | currency}}</span>
+                <span>{{row.currentVendorPrice === null ? 'No match' : (row.currentVendorPrice | currency)}}</span>
+                <span>{{row.materialDefaultLabor || 0}}</span>
+                <span>{{row.deviceCategoryName || row.deviceCategoryShortName}}</span>
+            </div>
+        </div>
+    </div>
+</div>

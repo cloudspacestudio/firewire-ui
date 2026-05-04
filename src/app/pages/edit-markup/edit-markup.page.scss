@@ -1,0 +1,363 @@
+.edit-markup-page {
+    min-height: calc(100vh - 58px);
+    background: #070d16;
+    color: #eaf6ff;
+}
+
+.edit-markup-state {
+    margin: 18px;
+    padding: 16px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(8, 14, 25, 0.72);
+}
+
+.edit-markup-tool-split {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid rgba(132, 255, 190, 0.36);
+    background: rgba(7, 13, 22, 0.82);
+}
+
+.edit-markup-tool-split button[mat-stroked-button] {
+    border: 0;
+}
+
+.edit-markup-tool-split__colors {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    border-left: 1px solid rgba(132, 255, 190, 0.22);
+}
+
+.edit-markup-tool-split__color {
+    width: 22px;
+    height: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 4px;
+    cursor: grab;
+}
+
+.edit-markup-tool-split__color:active {
+    cursor: grabbing;
+}
+
+.edit-markup-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    height: calc(100vh - 58px);
+}
+
+.edit-markup-stage {
+    overflow: auto;
+    background: rgba(2, 6, 12, 0.92);
+    border-right: 1px solid rgba(72, 221, 255, 0.14);
+}
+
+.edit-markup-surface {
+    position: relative;
+    width: 100%;
+    line-height: 0;
+    cursor: crosshair;
+}
+
+.edit-markup-stage.is-pan-mode .edit-markup-surface {
+    cursor: grab;
+}
+
+.edit-markup-stage.is-pan-mode.is-panning .edit-markup-surface {
+    cursor: grabbing;
+}
+
+.edit-markup-surface img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+}
+
+.edit-markup-tag {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    background: rgba(8, 20, 32, 0.92);
+    color: #f7fbff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.edit-markup-tag.is-selected {
+    box-shadow: 0 0 0 2px rgba(255, 164, 61, 0.82);
+}
+
+.edit-markup-tag__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.edit-markup-note {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 96px;
+    height: 96px;
+    padding: 14px 8px 8px;
+    border: 1px solid rgba(20, 20, 20, 0.28);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24), inset 0 -14px 22px rgba(0, 0, 0, 0.05);
+    color: #18202a;
+    line-height: 1.18;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.edit-markup-note::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.14));
+    clip-path: polygon(100% 0, 0 100%, 100% 100%);
+}
+
+.edit-markup-note--paper {
+    width: 128px;
+    min-height: 128px;
+    border-radius: 3px;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(44, 62, 80, 0.11) 0,
+        rgba(44, 62, 80, 0.11) 1px,
+        transparent 1px,
+        transparent 22px
+    );
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.edit-markup-note.is-selected {
+    outline: 3px solid rgba(88, 228, 255, 0.86);
+    outline-offset: 3px;
+}
+
+.edit-markup-note__gripper {
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    z-index: 2;
+    transform: translateX(-50%);
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 10px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.18);
+    cursor: grab;
+    touch-action: none;
+}
+
+.edit-markup-note__gripper:active {
+    cursor: grabbing;
+}
+
+.edit-markup-note__gripper span {
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.edit-markup-note__text {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    outline: 0;
+    resize: none;
+}
+
+.edit-markup-note__text::placeholder {
+    color: rgba(24, 32, 42, 0.42);
+}
+
+.edit-markup-rail {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px;
+    overflow: auto;
+    background: rgba(7, 13, 22, 0.96);
+}
+
+.edit-markup-rail h2 {
+    margin: 4px 0 0;
+    font-size: 1rem;
+}
+
+.edit-markup-eyebrow {
+    color: #84ffbe;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.edit-markup-view-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.edit-markup-view-controls .is-active {
+    border-color: rgba(255, 164, 61, 0.72);
+}
+
+.edit-markup-zoom,
+.edit-markup-status {
+    grid-column: 1 / -1;
+    color: rgba(191, 214, 228, 0.76);
+    font-size: 0.78rem;
+}
+
+.edit-markup-palette,
+.edit-markup-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.edit-markup-palette {
+    align-content: start;
+    overflow: auto;
+}
+
+.edit-markup-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+    max-height: 150px;
+    padding: 8px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(8, 20, 32, 0.68);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.edit-markup-item.is-active {
+    border-color: rgba(255, 164, 61, 0.72);
+    box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.24);
+}
+
+.edit-markup-item.is-complete {
+    background: rgba(20, 48, 40, 0.68);
+}
+
+.edit-markup-item__chip {
+    min-width: 48px;
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    color: #071018;
+    font-weight: 700;
+    font-size: 0.68rem;
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
+.edit-markup-item__body {
+    flex: 1 1 150px;
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.edit-markup-item__category,
+.edit-markup-item__part {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgba(191, 214, 228, 0.72);
+    font-size: 0.66rem;
+}
+
+.edit-markup-item__category {
+    color: #84ffbe;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.edit-markup-item__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+
+.edit-markup-item__count {
+    min-width: 28px;
+    padding: 4px 8px;
+    border: 1px solid rgba(72, 221, 255, 0.24);
+    border-radius: 999px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.edit-markup-empty {
+    padding: 12px;
+    border: 1px dashed rgba(72, 221, 255, 0.28);
+    border-radius: 8px;
+    color: rgba(191, 214, 228, 0.78);
+    font-size: 0.78rem;
+}
+
+.edit-markup-item__actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.edit-markup-item__actions button {
+    min-height: 30px;
+    line-height: 28px;
+    padding: 0 10px;
+    font-size: 0.72rem;
+}
+
+@media (max-width: 980px) {
+    .edit-markup-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(360px, 1fr) auto;
+        height: auto;
+        min-height: calc(100vh - 58px);
+    }
+
+    .edit-markup-stage {
+        border-right: 0;
+        border-bottom: 1px solid rgba(72, 221, 255, 0.14);
+    }
+}

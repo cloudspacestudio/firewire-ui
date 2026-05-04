@@ -24,6 +24,10 @@
                     <mat-icon>sync</mat-icon>
                     <span>Reconcile</span>
                 </button>
+                <button mat-stroked-button type="button" [disabled]="priceSyncWorking || reconcileWorking || pageWorking" (click)="refreshDevicePartPrices()">
+                    <mat-icon>price_check</mat-icon>
+                    <span>{{priceSyncWorking ? 'Refreshing...' : 'Refresh Prices'}}</span>
+                </button>
             </div>
         </div>
         <div *ngIf="reconcileStatusText" class="project-create-status">{{reconcileStatusText}}</div>

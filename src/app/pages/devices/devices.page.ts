@@ -17,6 +17,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { NavToolbar } from "../../common/components/nav-toolbar"
+import { DevicePartPriceSyncService } from "../../common/services/device-part-price-sync.service"
 
 interface DeviceVendorLinkIssue {
     deviceId: string
@@ -59,6 +60,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
     devices: VwDevice[] = []
     navItems = NavToolbar.DeviceNavItems
     reconcileWorking = false
+    priceSyncWorking = false
     reconcileStatusText = ''
     vendorLinkIssues: DeviceVendorLinkIssue[] = []
     lastReconciledAt: Date | null = null
@@ -69,7 +71,11 @@ export class DevicesPage implements OnInit, AfterViewInit  {
 
     datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
     
-    constructor(private http: HttpClient, private dialog: MatDialog) {}
+    constructor(
+        private http: HttpClient,
+        private dialog: MatDialog,
+        private priceSync: DevicePartPriceSyncService
+    ) {}
 
     ngOnInit(): void {
         this.devices = []
@@ -143,7 +149,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
 
     async reconcileVendorLinks() {
         this.reconcileWorking = true
-        this.reconcileStatusText = 'Reconciling device part links against vendor sources...'
+        this.reconcileStatusText = 'Reconciling device part links and syncing latest part prices...'
         try {
             const response = await this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', {
                 params: {
@@ -154,11 +160,27 @@ export class DevicesPage implements OnInit, AfterViewInit  {
             this.lastReconciledAt = new Date()
             const activeCount = this.vendorLinkIssues.filter((issue) => !issue.ignored).length
             const ignoredCount = this.vendorLinkIssues.filter((issue) => issue.ignored).length
-            this.reconcileStatusText = `Reconciled ${this.devices.length} devices. ${activeCount} active issue${activeCount === 1 ? '' : 's'}, ${ignoredCount} ignored.`
+            const priceSummary = await this.syncVisibleDevicePrices()
+            this.reconcileStatusText = `Reconciled ${this.devices.length} devices. ${activeCount} active issue${activeCount === 1 ? '' : 's'}, ${ignoredCount} ignored. Updated ${priceSummary.updatedCount} device price${priceSummary.updatedCount === 1 ? '' : 's'} from vendor parts.${priceSummary.missingCount > 0 ? ` ${priceSummary.missingCount} linked part${priceSummary.missingCount === 1 ? '' : 's'} still missing vendor price matches.` : ''}`
+            await this.reloadDevices()
         } catch (err: any) {
             this.reconcileStatusText = err?.error?.message || err?.message || 'Unable to reconcile vendor links.'
         } finally {
             this.reconcileWorking = false
+        }
+    }
+
+    async refreshDevicePartPrices() {
+        this.priceSyncWorking = true
+        this.reconcileStatusText = `Refreshing part prices for ${this.devices.length} device${this.devices.length === 1 ? '' : 's'}...`
+        try {
+            const priceSummary = await this.syncVisibleDevicePrices()
+            this.reconcileStatusText = `Updated ${priceSummary.updatedCount} device price${priceSummary.updatedCount === 1 ? '' : 's'} from vendor parts.${priceSummary.missingCount > 0 ? ` ${priceSummary.missingCount} linked part${priceSummary.missingCount === 1 ? '' : 's'} still missing vendor price matches.` : ''}`
+            await this.reloadDevices()
+        } catch (err: any) {
+            this.reconcileStatusText = err?.error?.message || err?.message || 'Unable to refresh device part prices.'
+        } finally {
+            this.priceSyncWorking = false
         }
     }
 
@@ -219,6 +241,28 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         try {
             localStorage.setItem(this.getDevicesFilterStorageKey(), this.textFilter)
         } catch {}
+    }
+
+    private async reloadDevices(): Promise<void> {
+        const response = await this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices').toPromise()
+        this.devices = Array.isArray(response?.rows) ? response.rows : []
+        this.datasource = new MatTableDataSource(this.devices)
+        this.datasource.paginator = this.paginator || null
+        this.datasource.sort = this.sort || null
+        this.applyStoredSortState()
+        this.applyStoredFilterState()
+    }
+
+    private async syncVisibleDevicePrices(): Promise<{ updatedCount: number, missingCount: number }> {
+        const results = []
+        for (const device of this.devices) {
+            results.push(await this.priceSync.syncDevice(device.deviceId))
+        }
+
+        return {
+            updatedCount: results.filter((result) => result.updated).length,
+            missingCount: results.reduce((total, result) => total + result.missingPartNumbers.length, 0)
+        }
     }
 
     private readStoredDevicesFilter(): string {

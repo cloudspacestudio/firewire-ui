@@ -2937,13 +2937,11 @@
 }
 
 .sales-bom-part-lookup__menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 8px;
+    position: fixed;
     width: min(920px, calc(100vw - 120px));
-    min-width: 680px;
+    min-width: min(680px, calc(100vw - 32px));
     max-width: none;
-    z-index: 10;
+    z-index: 10000;
     display: grid;
     max-height: 320px;
     overflow: auto;
@@ -2965,6 +2963,21 @@
     background: transparent;
     color: var(--fw-text);
     text-align: left;
+}
+
+.sales-bom-part-lookup__section-label {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(72, 221, 255, 0.12);
+    background: rgba(72, 221, 255, 0.08);
+    color: var(--fw-accent-2);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.sales-bom-part-lookup__section-label:first-child {
+    border-top: 0;
 }
 
 .sales-bom-part-lookup__option:first-child {

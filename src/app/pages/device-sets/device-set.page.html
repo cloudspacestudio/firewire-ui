@@ -14,6 +14,14 @@
                 <div class="page-subtitle">Curated device grouping for project quick start workflows.</div>
             </div>
             <div class="device-set-actions">
+                <a
+                    mat-stroked-button
+                    [routerLink]="['/device-sets', deviceSetId, 'parts']"
+                    target="_blank"
+                    rel="noopener">
+                    <mat-icon>open_in_new</mat-icon>
+                    <span>Open Linked Parts</span>
+                </a>
                 <button mat-stroked-button type="button" [disabled]="saveWorking || pageWorking" (click)="openImportDialog()">
                     <mat-icon>content_paste</mat-icon>
                     <span>Paste From Excel</span>

@@ -219,7 +219,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="firewire-bom-grid">
+                                    <div class="firewire-bom-grid" (scroll)="positionBomPartLookup()">
                                         <table>
                                             <colgroup>
                                                 <col class="bom-col-part-nbr" />
@@ -289,11 +289,27 @@
                                                         <div class="sales-bom-part-lookup">
                                                             <input
                                                                 [(ngModel)]="row.lookupQuery"
-                                                                (focus)="onBomPartLookupFocus(section, row)"
+                                                                (focus)="onBomPartLookupFocus(section, row, $event)"
                                                                 (blur)="onBomPartLookupBlur(section, row)"
+                                                                (input)="positionBomPartLookup($event)"
                                                                 (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
                                                                 [attr.aria-label]="'BOM part number ' + (idx + 1)" />
-                                                            <div *ngIf="isBomLookupActive(section, row) && getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__menu">
+                                                            <div
+                                                                *ngIf="isBomLookupActive(section, row) && hasBomLookupResults(section, row)"
+                                                                class="sales-bom-part-lookup__menu"
+                                                                [ngStyle]="bomLookupMenuStyle">
+                                                                <div *ngIf="getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
+                                                                <button
+                                                                    *ngFor="let option of getBomDeviceLookupResults(section, row)"
+                                                                    type="button"
+                                                                    class="sales-bom-part-lookup__option"
+                                                                    (mousedown)="selectBomDevice(section, row, option)">
+                                                                    <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
+                                                                    <span class="sales-bom-part-lookup__description">{{option.name}}</span>
+                                                                    <span class="sales-bom-part-lookup__cost">{{option.cost | currency}}</span>
+                                                                    <span class="sales-bom-part-lookup__category">{{option.categoryName}}</span>
+                                                                </button>
+                                                                <div *ngIf="getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Vendor Parts</div>
                                                                 <button
                                                                     *ngFor="let option of getBomPartLookupResults(section, row)"
                                                                     type="button"
@@ -386,9 +402,10 @@
                                     <div *ngIf="getDocLibraryVisibleFiles().length <= 0" class="sales-project-doc-library__empty">
                                         No documents in this section yet.
                                     </div>
-                                    <div *ngIf="getDocLibraryVisibleFiles().length > 0" class="sales-project-doc-library__list">
+                                    <div *ngIf="getDocLibraryVisibleFiles().length > 0" class="sales-project-doc-library__content">
+                                        <div *ngIf="getDocLibraryDocumentRows().length > 0" class="sales-project-doc-library__list">
                                         <button
-                                            *ngFor="let file of getDocLibraryVisibleFiles()"
+                                            *ngFor="let file of getDocLibraryDocumentRows()"
                                             type="button"
                                             class="sales-project-doc-library__row"
                                             (click)="downloadDocLibraryFile(file.id)">
@@ -398,6 +415,33 @@
                                             </div>
                                             <mat-icon fontIcon="download"></mat-icon>
                                         </button>
+                                        </div>
+                                        <div *ngIf="getDocLibraryImageTiles().length > 0" class="sales-project-doc-library__image-grid">
+                                            <div
+                                                *ngFor="let file of getDocLibraryImageTiles()"
+                                                class="sales-project-doc-library__image-tile"
+                                                role="group">
+                                                <img [src]="getLatestDocLibraryVersion(file)?.dataUrl" [alt]="file.name" loading="lazy" />
+                                                <button
+                                                    type="button"
+                                                    class="sales-project-doc-library__image-download"
+                                                    [attr.aria-label]="'Download ' + file.name"
+                                                    (click)="downloadDocLibraryFile(file.id)">
+                                                    <mat-icon fontIcon="download"></mat-icon>
+                                                </button>
+                                                <span class="sales-project-doc-library__image-meta">
+                                                    {{getDocLibraryFolderLabel(file.folderId)}} / {{getReadableDocLibraryFileSize(file)}}
+                                                </span>
+                                                <a
+                                                    *ngIf="canEditDocLibraryMarkup(file)"
+                                                    mat-stroked-button
+                                                    class="sales-project-doc-library__markup-link"
+                                                    [routerLink]="getDocLibraryMarkupLink(file)"
+                                                    [queryParams]="getDocLibraryMarkupQueryParams(file)">
+                                                    Edit Markup
+                                                </a>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

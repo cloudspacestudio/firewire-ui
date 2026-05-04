@@ -1,5 +1,5 @@
 import { Injectable, inject } from "@angular/core"
-import { HttpClient } from "@angular/common/http"
+import { HttpClient, HttpErrorResponse } from "@angular/common/http"
 import { firstValueFrom } from "rxjs"
 
 export interface ProjectDocLibraryFolderDefinition {
@@ -31,6 +31,7 @@ export interface ProjectDocLibraryFileRecord {
 
 export interface ProjectDocLibraryWorkspaceState {
     files: ProjectDocLibraryFileRecord[]
+    editMarkupDocuments?: any[]
 }
 
 export const PROJECT_DOC_LIBRARY_FOLDERS: ProjectDocLibraryFolderDefinition[] = [
@@ -54,14 +55,23 @@ export class ProjectDocLibraryStorageService {
     }
 
     async saveWorkspace(projectKey: string, state: ProjectDocLibraryWorkspaceState): Promise<void> {
+        const payload: ProjectDocLibraryWorkspaceState = { ...state }
+        if (!Array.isArray(payload.editMarkupDocuments)) {
+            const existingPayload = await this.loadExistingPayload(projectKey)
+            if (Array.isArray(existingPayload?.editMarkupDocuments)) {
+                payload.editMarkupDocuments = existingPayload.editMarkupDocuments
+            }
+        }
+
         await firstValueFrom(this.http.put(`/api/firewire/storage/project-doc-library/${encodeURIComponent(projectKey)}`, {
-            payload: state
+            payload
         }))
     }
 
     createDefaultWorkspace(): ProjectDocLibraryWorkspaceState {
         return {
-            files: []
+            files: [],
+            editMarkupDocuments: []
         }
     }
 
@@ -71,7 +81,21 @@ export class ProjectDocLibraryStorageService {
 
     private normalizeWorkspace(input: any): ProjectDocLibraryWorkspaceState {
         return {
-            files: Array.isArray(input?.files) ? input.files : []
+            files: Array.isArray(input?.files) ? input.files : [],
+            editMarkupDocuments: Array.isArray(input?.editMarkupDocuments) ? input.editMarkupDocuments : []
+        }
+    }
+
+    private async loadExistingPayload(projectKey: string): Promise<any> {
+        try {
+            const response = await firstValueFrom(this.http.get<{ data?: { payload?: any } }>(`/api/firewire/storage/project-doc-library/${encodeURIComponent(projectKey)}`))
+            return response?.data?.payload || {}
+        } catch (error) {
+            if (error instanceof HttpErrorResponse && error.status === 404) {
+                return {}
+            }
+
+            throw error
         }
     }
 }

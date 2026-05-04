@@ -1,0 +1,151 @@
+<page-toolbar title="EDIT MARKUP">
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="returnTo">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+        <div class="edit-markup-tool-split" *ngIf="!pageWorking && imageDataUrl">
+            <button
+                mat-stroked-button
+                type="button"
+                draggable="true"
+                (dragstart)="onMarkupToolDragStart($event, 'sticky', getDefaultStickyNoteColor())">
+                Sticky Note
+            </button>
+            <span class="edit-markup-tool-split__colors" aria-label="Sticky note colors">
+                <button
+                    *ngFor="let color of stickyNoteColors"
+                    type="button"
+                    class="edit-markup-tool-split__color"
+                    draggable="true"
+                    [style.background]="color.value"
+                    [attr.aria-label]="'Drag ' + color.label + ' sticky note'"
+                    (dragstart)="onMarkupToolDragStart($event, 'sticky', color.value)">
+                </button>
+            </span>
+        </div>
+        <button
+            *ngIf="!pageWorking && imageDataUrl"
+            mat-stroked-button
+            type="button"
+            draggable="true"
+            (dragstart)="onMarkupToolDragStart($event, 'paper', paperNoteColor)">
+            Note Paper
+        </button>
+    </div>
+</page-toolbar>
+
+<div class="edit-markup-page">
+    <div *ngIf="pageWorking" class="edit-markup-state">Loading markup editor...</div>
+    <div *ngIf="!pageWorking && !imageDataUrl" class="edit-markup-state">{{statusText || 'Unable to open markup source.'}}</div>
+
+    <div *ngIf="!pageWorking && imageDataUrl" class="edit-markup-shell">
+        <section
+            class="edit-markup-stage"
+            [class.is-pan-mode]="panMode"
+            [class.is-panning]="isPanning"
+            (mousedown)="onPanStart($event)"
+            (mousemove)="onPanMove($event)"
+            (mouseup)="onPanEnd()"
+            (mouseleave)="onPanEnd()">
+            <div
+                class="edit-markup-surface"
+                [ngStyle]="getSurfaceStyle()"
+                (click)="onStageClick($event)"
+                (dragover)="onSurfaceDragOver($event)"
+                (drop)="onSurfaceDrop($event)">
+                <img [src]="imageDataUrl" [alt]="sourceFile?.name || 'Markup drawing'" />
+                <button
+                    *ngFor="let tag of visibleTags"
+                    type="button"
+                    class="edit-markup-tag"
+                    [class.is-selected]="selectedTagId === tag.id"
+                    [ngStyle]="getTagStyle(tag)"
+                    (click)="selectTag(tag, $event)">
+                    <span class="edit-markup-tag__dot" [style.background]="tag.color"></span>
+                    <span>{{tag.itemCode}}</span>
+                </button>
+                <div
+                    *ngFor="let note of notes"
+                    class="edit-markup-note"
+                    [class.edit-markup-note--paper]="note.kind === 'paper'"
+                    [class.is-selected]="selectedNoteId === note.id"
+                    [ngStyle]="getNoteStyle(note)"
+                    (click)="selectNote(note, $event)">
+                    <button
+                        type="button"
+                        class="edit-markup-note__gripper"
+                        aria-label="Move note"
+                        (pointerdown)="onNoteGripperPointerDown(note, $event)"
+                        (pointermove)="onNoteGripperPointerMove($event)"
+                        (pointerup)="onNoteGripperPointerUp($event)"
+                        (pointercancel)="onNoteGripperPointerUp($event)">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <textarea
+                        class="edit-markup-note__text"
+                        spellcheck="true"
+                        [attr.data-markup-note-editor]="note.id"
+                        [placeholder]="getNotePlaceholder(note)"
+                        [ngModel]="note.text"
+                        (ngModelChange)="onNoteTextChange(note, $event)"
+                        (click)="$event.stopPropagation()">
+                    </textarea>
+                </div>
+            </div>
+        </section>
+
+        <aside class="edit-markup-rail">
+            <div>
+                <div class="edit-markup-eyebrow">Drawing</div>
+                <h2>{{sourceFile?.name}}</h2>
+            </div>
+
+            <div class="edit-markup-view-controls">
+                <button mat-stroked-button type="button" (click)="zoomOut()">Zoom -</button>
+                <button mat-stroked-button type="button" (click)="zoomIn()">Zoom +</button>
+                <button mat-stroked-button type="button" (click)="resetView()">Reset</button>
+                <button mat-stroked-button type="button" (click)="togglePanMode()" [class.is-active]="panMode">{{panMode ? 'Pan: On' : 'Pan: Off'}}</button>
+                <div class="edit-markup-zoom">Zoom {{zoomLevel.toFixed(2)}}x</div>
+            </div>
+
+            <div class="edit-markup-eyebrow">Parts</div>
+            <div class="edit-markup-palette">
+                <div *ngIf="paletteItems.length <= 0" class="edit-markup-empty">
+                    No categorized BOM items with quantity are available for markup.
+                </div>
+                <div
+                    *ngFor="let item of paletteItems"
+                    class="edit-markup-item"
+                    [class.is-active]="activeItemId === item.id"
+                    [class.is-complete]="isItemComplete(item)"
+                    role="button"
+                    tabindex="0"
+                    (click)="setActiveItem(item)"
+                    (keyup.enter)="setActiveItem(item)">
+                    <span class="edit-markup-item__chip" [style.background]="item.color">{{item.code}}</span>
+                    <span class="edit-markup-item__body">
+                        <span class="edit-markup-item__category">{{item.category}}</span>
+                        <span class="edit-markup-item__name">{{item.name}}</span>
+                        <span class="edit-markup-item__part" *ngIf="item.partNumber">Part {{item.partNumber}}</span>
+                    </span>
+                    <span class="edit-markup-item__count">{{getItemTagCount(item.id)}} / {{item.quantity}}</span>
+                    <div class="edit-markup-item__actions" *ngIf="activeItemId === item.id">
+                        <button mat-stroked-button type="button" (click)="toggleItemVisibility(item, $event)">
+                            {{hiddenItemIds.has(item.id) ? 'Show' : 'Hide'}}
+                        </button>
+                        <button mat-stroked-button type="button" [disabled]="getItemTagCount(item.id) <= 0" (click)="clearItemTags(item, $event)">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-markup-actions">
+                <button mat-stroked-button type="button" [disabled]="!selectedTagId && !selectedNoteId" (click)="armMoveSelected()">Move Selected</button>
+                <button mat-stroked-button type="button" [disabled]="!selectedTagId && !selectedNoteId" (click)="deleteSelected()">Delete Selected</button>
+                <button mat-flat-button type="button" [disabled]="saveWorking" (click)="saveMarkup()">{{saveWorking ? 'Saving...' : 'Save Markup'}}</button>
+                <div class="edit-markup-status">{{statusText}}</div>
+            </div>
+        </aside>
+    </div>
+</div>
