@@ -48,7 +48,7 @@
 
             <mat-form-field class="parts-filter">
                 <mat-label>Filter</mat-label>
-                <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
+                <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
 
             <button
@@ -213,7 +213,7 @@
                 </tr>
             </table>
 
-            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of parts"></mat-paginator>
+            <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of parts"></mat-paginator>
         </div>
     </div>
 

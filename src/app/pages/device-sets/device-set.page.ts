@@ -665,6 +665,7 @@ interface DeviceSetCreateDeviceFromPartCategoryOption {
 
 @Component({
     standalone: true,
+    selector: 'fw-device-set-create-device-from-part-dialog',
     imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule, MatSelectModule],
     template: `
         <div mat-dialog-title>Create Device From Part</div>

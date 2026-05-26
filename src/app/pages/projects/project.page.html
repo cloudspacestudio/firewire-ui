@@ -21,6 +21,36 @@
     <button type="button" class="project-upload-toast__dismiss" (click)="clearProjectUploadErrorToast()">Dismiss</button>
 </div>
 
+<div
+    *ngIf="deleteProjectConfirmationShown && firewireProject"
+    class="project-delete-confirmation-backdrop"
+    role="presentation"
+    (click)="cancelDeleteFirewireProject()">
+    <section
+        class="project-delete-confirmation"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-delete-confirmation-title"
+        (click)="$event.stopPropagation()">
+        <h2 id="project-delete-confirmation-title">Delete Project</h2>
+        <div class="project-delete-confirmation__body">
+            <mat-icon fontIcon="warning"></mat-icon>
+            <p>
+                Delete <strong>{{firewireProject.name || firewireForm.name || 'this project'}}</strong>?
+                This permanently deletes the project data, worksheet/BOM data, and project files.
+            </p>
+        </div>
+        <div class="project-delete-confirmation__actions">
+            <button mat-button type="button" (click)="cancelDeleteFirewireProject()" [disabled]="firewireSaveWorking">
+                Cancel
+            </button>
+            <button mat-flat-button color="warn" type="button" (click)="deleteFirewireProject()" [disabled]="firewireSaveWorking">
+                {{firewireSaveWorking ? 'Deleting...' : 'Delete Project'}}
+            </button>
+        </div>
+    </section>
+</div>
+
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
         <div class="tabstrip">
@@ -88,6 +118,11 @@
                     <button mat-menu-item type="button" (click)="toggleProjectManualLock()" [disabled]="isProjectStatusLocked()">
                         <mat-icon [fontIcon]="isProjectManuallyLocked() ? 'lock_open' : 'lock'"></mat-icon>
                         <span>{{isProjectManuallyLocked() ? 'Unlock' : 'Lock'}}</span>
+                    </button>
+                    <mat-divider></mat-divider>
+                    <button mat-menu-item type="button" class="project-delete-menu-item" (click)="confirmDeleteFirewireProject()">
+                        <mat-icon fontIcon="delete"></mat-icon>
+                        <span>Delete Project</span>
                     </button>
                 </mat-menu>
             </div>
@@ -892,6 +927,28 @@
                                                 </div>
                                             </mat-card-content>
                                         </mat-card>
+                                        <mat-card class="system-danger-card">
+                                            <mat-card-header>
+                                                <mat-card-title>Danger Zone</mat-card-title>
+                                            </mat-card-header>
+                                            <mat-card-content>
+                                                <div class="system-danger-zone">
+                                                    <div>
+                                                        <h4>Delete Project</h4>
+                                                        <p>Permanently delete this project, worksheet/BOM data, and project files.</p>
+                                                    </div>
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        class="system-danger-zone__button"
+                                                        (click)="confirmDeleteFirewireProject()"
+                                                        [disabled]="firewireSaveWorking">
+                                                        <mat-icon fontIcon="delete"></mat-icon>
+                                                        DELETE PROJECT
+                                                    </button>
+                                                </div>
+                                            </mat-card-content>
+                                        </mat-card>
                                     </div>
                                     </ng-template>
                                     </ng-template>
@@ -899,6 +956,15 @@
 
                                     <ng-template #firewireWorkspaceBomOrPlaceholder>
                                     <div *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspaceWireTakeoffOrPlaceholder" class="firewire-bom-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                        <div *ngIf="firewireSaveWorking" class="firewire-save-overlay" role="status" aria-live="polite">
+                                            <div class="firewire-save-overlay__panel">
+                                                <div class="firewire-save-overlay__spinner" aria-hidden="true"></div>
+                                                <div>
+                                                    <div class="firewire-save-overlay__title">Saving changes</div>
+                                                    <div class="firewire-save-overlay__message">{{firewireSaveMessage || 'Updating the BOM worksheet...'}}</div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="firewire-bom-toolbar">
                                             <div class="firewire-bom-toolbar__meta">
                                                 <div class="firewire-workspace-placeholder__eyebrow">Project BOM</div>
@@ -937,6 +1003,7 @@
                                                         <col class="bom-col-labor" />
                                                         <col class="bom-col-ext-labor" />
                                                         <col class="bom-col-type" />
+                                                        <col class="bom-col-actions" />
                                                     </colgroup>
                                                     <thead>
                                                         <tr>
@@ -988,6 +1055,7 @@
                                                                     <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
                                                                 </button>
                                                             </th>
+                                                            <th class="bom-actions-heading">Actions</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -1031,7 +1099,11 @@
                                                                 </div>
                                                             </td>
                                                             <td>
-                                                                <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />
+                                                                <textarea
+                                                                    fwAutosizeTextarea
+                                                                    rows="2"
+                                                                    [(ngModel)]="row.description"
+                                                                    [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
                                                             </td>
                                                             <td class="right-align">
                                                                 <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
@@ -1056,6 +1128,17 @@
                                                             </td>
                                                             <td>
                                                                 <input [(ngModel)]="row.type" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM type ' + (idx + 1)" />
+                                                            </td>
+                                                            <td class="bom-actions-cell">
+                                                                <button
+                                                                    mat-icon-button
+                                                                    type="button"
+                                                                    class="bom-delete-row-button"
+                                                                    (click)="removeBomRow(section, row)"
+                                                                    [disabled]="isActiveFirewireWorkspaceLocked()"
+                                                                    [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
+                                                                    <mat-icon fontIcon="delete"></mat-icon>
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     </tbody>

@@ -8,8 +8,8 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
-import { MatPaginator, MatPaginatorModule } from "@angular/material/paginator"
-import { MatSort, MatSortModule } from "@angular/material/sort"
+import { MatPaginator, MatPaginatorModule, PageEvent } from "@angular/material/paginator"
+import { MatSort, MatSortModule, Sort, SortDirection } from "@angular/material/sort"
 import { MatTableDataSource, MatTableModule } from "@angular/material/table"
 import { PageToolbar } from "../../common/components/page-toolbar"
 import { NavToolbar } from "../../common/components/nav-toolbar"
@@ -52,12 +52,14 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     set paginatorRef(value: MatPaginator | undefined) {
         this.paginator = value
         this.datasource.paginator = value || null
+        this.applyStoredPageSizeState()
     }
 
     @ViewChild(MatSort)
     set sortRef(value: MatSort | undefined) {
         this.sort = value
         this.datasource.sort = value || null
+        this.applyStoredSortState()
     }
 
     pageWorking = true
@@ -66,6 +68,10 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     errText?: string
     createStatusText = ''
     fieldwireCreateSaving: Record<string, boolean> = {}
+    textFilter = ''
+    currentSortActive = 'name'
+    currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
     projectSettings: ProjectSettingsCatalogSchema = {
         jobType: [],
         scopeType: [],
@@ -84,6 +90,11 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     ) {}
 
     ngOnInit(): void {
+        this.textFilter = this.readStoredFilter()
+        const storedSort = this.readStoredSort()
+        this.currentSortActive = storedSort.active
+        this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredPageSize()
         this.loadProjectSettings()
         this.loadProjects()
     }
@@ -91,6 +102,8 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     ngAfterViewInit(): void {
         this.datasource.paginator = this.paginator || null
         this.datasource.sort = this.sort || null
+        this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     loadProjects() {
@@ -105,6 +118,9 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
                     this.datasource = new MatTableDataSource(this.projects)
                     this.datasource.paginator = this.paginator || null
                     this.datasource.sort = this.sort || null
+                    this.applyStoredSortState()
+                    this.applyStoredPageSizeState()
+                    this.applyStoredFilterState()
                 }
                 this.pageWorking = false
             },
@@ -117,12 +133,24 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     }
 
     applyFilter(event: Event) {
-        const filterValue = (event.target as HTMLInputElement).value
-        this.datasource.filter = filterValue.trim().toLowerCase()
+        this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.datasource.filter = this.textFilter.trim().toLowerCase()
+        this.storeFilter()
 
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage()
         }
+    }
+
+    onSortChange(sort: Sort) {
+        this.currentSortActive = sort.active || 'name'
+        this.currentSortDirection = sort.direction || 'asc'
+        this.storeSort()
+    }
+
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storePageSize()
     }
 
     getNoDataRowText(filterValue: string) {
@@ -193,5 +221,90 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
                 console.error(err)
             }
         })
+    }
+
+    private applyStoredFilterState() {
+        this.datasource.filter = this.textFilter.trim().toLowerCase()
+    }
+
+    private applyStoredSortState() {
+        if (!this.sort) {
+            return
+        }
+        this.sort.active = this.currentSortActive
+        this.sort.direction = this.currentSortDirection
+    }
+
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
+    private storeFilter() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.fieldwire-projects.filter', this.textFilter)
+        } catch {}
+    }
+
+    private readStoredFilter(): string {
+        if (typeof localStorage === 'undefined') {
+            return ''
+        }
+        try {
+            return localStorage.getItem('firewire.fieldwire-projects.filter') || ''
+        } catch {
+            return ''
+        }
+    }
+
+    private storeSort() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.fieldwire-projects.sort', JSON.stringify({
+                active: this.currentSortActive,
+                direction: this.currentSortDirection
+            }))
+        } catch {}
+    }
+
+    private readStoredSort(): { active: string, direction: SortDirection } {
+        if (typeof localStorage === 'undefined') {
+            return { active: 'name', direction: 'asc' }
+        }
+        try {
+            const parsed = JSON.parse(localStorage.getItem('firewire.fieldwire-projects.sort') || '{}') as { active?: unknown, direction?: unknown }
+            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active.trim() : 'name'
+            const direction = parsed.direction === 'asc' || parsed.direction === 'desc' ? parsed.direction : 'asc'
+            return { active, direction }
+        } catch {
+            return { active: 'name', direction: 'asc' }
+        }
+    }
+
+    private storePageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.fieldwire-projects.pageSize', String(this.pageSize))
+        } catch {}
+    }
+
+    private readStoredPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem('firewire.fieldwire-projects.pageSize') || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
+        }
     }
 }

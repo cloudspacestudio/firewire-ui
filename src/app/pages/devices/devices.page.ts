@@ -8,7 +8,7 @@ import { CommonModule } from "@angular/common"
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
-import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
+import {MatPaginator, MatPaginatorModule, PageEvent} from '@angular/material/paginator';
 import {MatSort, MatSortModule, Sort, SortDirection} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
@@ -50,7 +50,7 @@ interface DeviceSetMembershipSummary {
     styleUrls: ['./devices.page.scss']
 })
 export class DevicesPage implements OnInit, AfterViewInit  {
-    readonly baseDisplayedColumns: string[] = ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'cost', 'attributeCount', 'subTaskCount', 'categoryName', 'actions'];
+    readonly baseDisplayedColumns: string[] = ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions'];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
@@ -67,6 +67,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
     textFilter = ''
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
     deviceSetCounts = new Map<string, number>()
 
     datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
@@ -83,6 +84,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         const storedSort = this.readStoredDevicesSort()
         this.currentSortActive = storedSort.active
         this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredDevicesPageSize()
 
         Promise.all([
             this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices').toPromise(),
@@ -108,6 +110,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         this.datasource.paginator = this.paginator||null;
         this.datasource.sort = this.sort||null;
         this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     applyFilter(event: Event) {
@@ -126,12 +129,17 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         this.storeDevicesSort()
     }
 
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storeDevicesPageSize()
+    }
+
     get displayedColumns(): string[] {
         if (!this.lastReconciledAt) {
             return [...this.baseDisplayedColumns]
         }
 
-        return ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'vendorLinkStatus', 'cost', 'attributeCount', 'subTaskCount', 'categoryName', 'actions']
+        return ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'vendorLinkStatus', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions']
     }
 
     getNoDataRowText(filterValue: string) {
@@ -250,6 +258,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         this.datasource.paginator = this.paginator || null
         this.datasource.sort = this.sort || null
         this.applyStoredSortState()
+        this.applyStoredPageSizeState()
         this.applyStoredFilterState()
     }
 
@@ -314,12 +323,43 @@ export class DevicesPage implements OnInit, AfterViewInit  {
         this.datasource.filter = this.textFilter.trim().toLowerCase()
     }
 
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
     private getDevicesFilterStorageKey(): string {
         return 'firewire.devices.filter'
     }
 
     private getDevicesSortStorageKey(): string {
         return 'firewire.devices.sort'
+    }
+
+    private getDevicesPageSizeStorageKey(): string {
+        return 'firewire.devices.pageSize'
+    }
+
+    private storeDevicesPageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem(this.getDevicesPageSizeStorageKey(), String(this.pageSize))
+        } catch {}
+    }
+
+    private readStoredDevicesPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem(this.getDevicesPageSizeStorageKey()) || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
+        }
     }
 
 }

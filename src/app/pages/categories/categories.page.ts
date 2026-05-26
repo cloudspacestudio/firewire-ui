@@ -52,7 +52,7 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
     textFilter = ''
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
-    pageSize = 10
+    pageSize = 25
 
     datasource: MatTableDataSource<ReconciledCategory> = new MatTableDataSource(this.categories);
     
@@ -119,7 +119,7 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
     }
 
     onPageChange(event: PageEvent) {
-        this.pageSize = Number(event.pageSize || 10)
+        this.pageSize = Number(event.pageSize || 25)
         this.storePageSize()
     }
 
@@ -290,13 +290,13 @@ export class CategoriesPage implements OnInit, AfterViewInit  {
 
     private readStoredPageSize(): number {
         if (typeof localStorage === 'undefined') {
-            return 10
+            return 25
         }
         try {
-            const raw = Number(localStorage.getItem('firewire.categories.pageSize') || '10')
-            return [5, 10, 25, 100].includes(raw) ? raw : 10
+            const raw = Number(localStorage.getItem('firewire.categories.pageSize') || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
         } catch {
-            return 10
+            return 25
         }
     }
 

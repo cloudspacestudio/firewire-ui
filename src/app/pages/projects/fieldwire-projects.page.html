@@ -12,7 +12,7 @@
             <div class="project-actions">
                 <mat-form-field>
                     <mat-label>Filter</mat-label>
-                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
+                    <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
                 </mat-form-field>
                 <span *ngIf="createStatusText" class="project-create-status">{{createStatusText}}</span>
             </div>
@@ -25,7 +25,7 @@
                 </p>
             </section>
 
-            <table mat-table [dataSource]="datasource" matSort>
+            <table mat-table [dataSource]="datasource" matSort [matSortActive]="currentSortActive" [matSortDirection]="currentSortDirection" (matSortChange)="onSortChange($event)">
                 <ng-container matColumnDef="name" sticky="true">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
                     <td mat-cell *matCellDef="let row"> {{row.name}} </td>
@@ -62,7 +62,7 @@
                 </tr>
             </table>
 
-            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of fieldwire projects"></mat-paginator>
+            <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of fieldwire projects"></mat-paginator>
         </div>
     </div>
 

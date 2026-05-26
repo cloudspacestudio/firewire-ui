@@ -71,6 +71,7 @@ export class DeviceDetailComponent implements OnChanges {
     private readonly speakerFalseValue = 'false'
     private readonly strobeFalseValue = 'false'
     private readonly vendorPartLookupMinChars = 3
+    private readonly defaultLaborRate = 50
 
     @Input() deviceId?: string
     @Output() deviceLoaded: EventEmitter<VwDevice> = new EventEmitter()
@@ -185,9 +186,11 @@ export class DeviceDetailComponent implements OnChanges {
             this.statusText = ''
             this.editDevice = {
                 ...this.device,
+                serialNumber: this.readBooleanMode(this.device.serialNumber),
                 slcAddress: this.readSlcMode(this.device.slcAddress),
                 speakerAddress: this.readBooleanMode(this.device.speakerAddress),
-                strobeAddress: this.readBooleanMode(this.device.strobeAddress)
+                strobeAddress: this.readBooleanMode(this.device.strobeAddress),
+                laborRate: this.getDeviceLaborRate()
             }
             this.editLinkedPartNumbers = this.deviceMaterials.map((row) => String(row.materialPartNumber || '').trim()).filter(Boolean)
             this.editAttributes = this.sortAttributes().map((attribute) => ({
@@ -314,10 +317,12 @@ export class DeviceDetailComponent implements OnChanges {
         const payload = {
             device: {
                 ...this.editDevice,
+                serialNumber: this.writeBooleanMode(this.editDevice.serialNumber),
                 slcAddress: this.writeSlcMode(this.editDevice.slcAddress),
                 speakerAddress: this.writeBooleanMode(this.editDevice.speakerAddress),
                 strobeAddress: this.writeBooleanMode(this.editDevice.strobeAddress),
-                defaultLabor: resolvedDefaultLabor
+                defaultLabor: resolvedDefaultLabor,
+                laborRate: this.getDeviceLaborRate()
             },
             partNumbers: [...this.editLinkedPartNumbers],
             attributes: this.editAttributes.map((attribute, index) => ({
@@ -503,6 +508,36 @@ export class DeviceDetailComponent implements OnChanges {
         }
     }
 
+    getVendorPartCategory(material: VwDeviceMaterial): string {
+        const row = material as VwDeviceMaterial & {
+            materialCategoryName?: string
+            materialCategoryShortName?: string
+            categoryName?: string
+            categoryShortName?: string
+        }
+        return String(
+            row.materialCategoryName
+            || row.materialCategoryShortName
+            || row.categoryName
+            || row.categoryShortName
+            || row.deviceCategoryName
+            || row.deviceCategoryShortName
+            || ''
+        ).trim()
+    }
+
+    openVendorPartDetail(material: VwDeviceMaterial) {
+        this.dialog.open(VendorPartDetailDialog, {
+            width: '520px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                material,
+                category: this.getVendorPartCategory(material)
+            }
+        })
+    }
+
     getVendorPartSearchHint(): string {
         if (!this.hasVendorPartLookup()) {
             return 'Vendor part search is not configured for this vendor yet.'
@@ -569,6 +604,27 @@ export class DeviceDetailComponent implements OnChanges {
         return this.getSubTaskLaborTotal(this.editMode ? this.editSubTasks : this.deviceSubTasks) <= 0
     }
 
+    getShowCalculatedLaborCost(): boolean {
+        return !this.getShowDefaultLabor()
+    }
+
+    getCalculatedLaborCost(): number {
+        const source = this.editMode ? this.editSubTasks : this.deviceSubTasks
+        const laborRate = this.getDeviceLaborRate()
+        return source.reduce((total, row) => {
+            const laborHours = Number(row?.laborHours || 0)
+            if (!Number.isFinite(laborHours) || laborHours <= 0) {
+                return total
+            }
+            return total + (laborHours * laborRate)
+        }, 0)
+    }
+
+    getDeviceLaborRate(): number {
+        const value = Number(this.editMode ? this.editDevice.laborRate : this.device?.laborRate)
+        return Number.isFinite(value) && value > 0 ? value : this.defaultLaborRate
+    }
+
     getReadOnlyDefaultLabor(): number {
         return this.getSubTaskLaborTotal(this.deviceSubTasks) > 0
             ? this.getSubTaskLaborTotal(this.deviceSubTasks)
@@ -594,6 +650,9 @@ export class DeviceDetailComponent implements OnChanges {
         const nextManaged: EditableAttribute[] = []
 
         const slcMode = String(this.editDevice.slcAddress || this.slcNoneValue)
+        if (String(this.editDevice.serialNumber || this.speakerFalseValue) === 'true') {
+            nextManaged.push(this.createManagedAttribute('Serial Number'))
+        }
         if (slcMode === 'one' || slcMode === 'two') {
             nextManaged.push(this.createManagedAttribute('SLC Channel 1'))
         }
@@ -630,7 +689,7 @@ export class DeviceDetailComponent implements OnChanges {
     }
 
     private isManagedAttribute(name: string): boolean {
-        return ['SLC Channel 1', 'SLC Channel 2', 'MAC Address', 'SLC Address', 'Speaker Address', 'Strobe Address'].includes(name)
+        return ['Serial Number', 'SLC Channel 1', 'SLC Channel 2', 'MAC Address', 'SLC Address', 'Speaker Address', 'Strobe Address'].includes(name)
     }
 
     private readSlcMode(raw: string | undefined | null): string {
@@ -673,7 +732,7 @@ export class DeviceDetailComponent implements OnChanges {
     private getResolvedDefaultLabor(): number {
         const subTaskTotal = this.getSubTaskLaborTotal(this.editSubTasks)
         if (subTaskTotal > 0) {
-            return subTaskTotal
+            return this.getCalculatedLaborCost()
         }
         return Number(this.editDevice.defaultLabor || 0)
     }
@@ -703,6 +762,7 @@ export class DeviceDetailComponent implements OnChanges {
                 categoryId: String(this.editDevice.categoryId || '').trim(),
                 cost: Number(this.editDevice.cost || 0),
                 defaultLabor: Number(this.editDevice.defaultLabor || 0),
+                laborRate: this.getDeviceLaborRate(),
                 serialNumber: String(this.editDevice.serialNumber || '').trim(),
                 slcAddress: String(this.editDevice.slcAddress || '').trim(),
                 speakerAddress: String(this.editDevice.speakerAddress || '').trim(),
@@ -799,6 +859,102 @@ export class DeviceDetailComponent implements OnChanges {
 
 interface ConfirmDeviceDeleteDialogData {
     name: string
+}
+
+interface VendorPartDetailDialogData {
+    material: VwDeviceMaterial
+    category: string
+}
+
+@Component({
+    standalone: true,
+    selector: 'fw-vendor-part-detail-dialog',
+    imports: [
+        CommonModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose,
+        MatButtonModule,
+        MatIconModule
+    ],
+    styles: [`
+        :host {
+            display: block;
+            max-width: 520px;
+        }
+
+        .vendor-part-dialog__titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .vendor-part-dialog__content {
+            display: grid;
+            gap: 14px;
+        }
+
+        .vendor-part-dialog__part {
+            color: var(--fw-accent-2);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .vendor-part-dialog__description {
+            line-height: 1.45;
+        }
+
+        .vendor-part-dialog__grid {
+            display: grid;
+            grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+            gap: 8px 18px;
+        }
+
+        .vendor-part-dialog__label {
+            color: var(--fw-muted);
+        }
+
+        .vendor-part-dialog__value {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+    `],
+    template: `
+        <div mat-dialog-title class="vendor-part-dialog__titlebar">
+            <span>Vendor Part Detail</span>
+            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content class="vendor-part-dialog__content">
+            <div>
+                <div class="vendor-part-dialog__part">{{data.material.materialPartNumber}}</div>
+                <div class="vendor-part-dialog__description">{{data.material.materialName}}</div>
+            </div>
+            <div class="vendor-part-dialog__grid">
+                <div class="vendor-part-dialog__label">Short Name</div>
+                <div class="vendor-part-dialog__value">{{data.material.materialShortName || 'None'}}</div>
+                <div class="vendor-part-dialog__label">Category</div>
+                <div class="vendor-part-dialog__value">{{data.category || 'None'}}</div>
+                <div class="vendor-part-dialog__label">Cost</div>
+                <div class="vendor-part-dialog__value">{{data.material.materialCost | currency}}</div>
+                <div class="vendor-part-dialog__label">Default Labor</div>
+                <div class="vendor-part-dialog__value">{{data.material.materialDefaultLabor || 0}}</div>
+                <div class="vendor-part-dialog__label">Material ID</div>
+                <div class="vendor-part-dialog__value">{{data.material.materialId}}</div>
+                <div class="vendor-part-dialog__label">Linked Device</div>
+                <div class="vendor-part-dialog__value">{{data.material.deviceName}}</div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-flat-button type="button" mat-dialog-close>Close</button>
+        </mat-dialog-actions>
+    `
+})
+export class VendorPartDetailDialog {
+    readonly data = inject<VendorPartDetailDialogData>(MAT_DIALOG_DATA)
 }
 
 @Component({

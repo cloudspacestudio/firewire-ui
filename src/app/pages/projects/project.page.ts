@@ -15,6 +15,7 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatDatepickerModule } from "@angular/material/datepicker"
+import { MatDividerModule } from "@angular/material/divider"
 import { MatMenuModule } from "@angular/material/menu"
 import { MatSelectModule } from "@angular/material/select"
 
@@ -25,6 +26,7 @@ import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectUp
 import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
+import { AutosizeTextareaDirective } from "../../common/directives/autosize-textarea.directive"
 import { AzureMapsService } from "../../common/services/azure-maps.service"
 import {
     ProjectDocLibraryFileRecord,
@@ -311,10 +313,10 @@ declare const atlas: any
     standalone: true,
     selector: 'project-page',
     imports: [NgFor, NgIf, CommonModule, FormsModule,
-        RouterLink, PageToolbar,
+        RouterLink, PageToolbar, AutosizeTextareaDirective,
         MatButtonModule, MatFormFieldModule,
         MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule,
-        MatChipsModule, MatIconModule, MatCardModule, MatMenuModule],
+        MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
     providers: [HttpClient],
     templateUrl: './project.page.html',
     styleUrls: ['./project.page.scss']
@@ -370,6 +372,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     initialWorksheetState = ''
     firewireSaveWorking = false
     firewireSaveMessage = ''
+    deleteProjectConfirmationShown = false
     systemWeatherForecast: SystemWeatherForecastDay[] = []
     systemWeatherLoading = false
     systemWeatherStatus = ''
@@ -1720,6 +1723,17 @@ export class ProjectPage implements OnChanges, OnDestroy {
         this.refreshTakeoffColumnDefinitions()
     }
 
+    removeBomRow(section: ProjectBomSection, row: ProjectBomRow) {
+        if (this.isActiveFirewireWorkspaceLocked()) {
+            return
+        }
+
+        section.rows = (section.rows || []).filter((item) => item !== row)
+        this.bomSections = [...this.bomSections]
+        this.refreshTakeoffColumnDefinitions()
+        this.closeBomPartLookup()
+    }
+
     @HostListener('window:resize')
     onWindowResize(): void {
         this.positionBomPartLookup()
@@ -1748,6 +1762,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
             return
         }
         this.closeBomPartLookup()
+    }
+
+    @HostListener('document:keydown.escape')
+    onDocumentEscape(): void {
+        this.cancelDeleteFirewireProject()
     }
 
     async onBomPartLookupFocus(section: ProjectBomSection, row: ProjectBomRow, event?: FocusEvent): Promise<void> {
@@ -2656,6 +2675,44 @@ export class ProjectPage implements OnChanges, OnDestroy {
         } catch (err) {
             console.error(err)
         }
+    }
+
+    async confirmDeleteFirewireProject(): Promise<void> {
+        if (!this.projectId || !this.firewireProject || this.firewireSaveWorking) {
+            return
+        }
+
+        this.deleteProjectConfirmationShown = true
+    }
+
+    cancelDeleteFirewireProject(): void {
+        if (this.firewireSaveWorking) {
+            return
+        }
+        this.deleteProjectConfirmationShown = false
+    }
+
+    deleteFirewireProject(): void {
+        if (!this.projectId || !this.firewireProject || this.firewireSaveWorking) {
+            return
+        }
+        this.firewireSaveWorking = true
+        this.firewireSaveMessage = 'Deleting project...'
+        this.http.delete(`/api/firewire/projects/firewire/${this.projectId}`).subscribe({
+            next: () => {
+                this.removeDeletedProjectFromLocalLists()
+                this.firewireProject = undefined
+                this.firewireSaveWorking = false
+                this.deleteProjectConfirmationShown = false
+                this.firewireSaveMessage = ''
+                void this.router.navigateByUrl(this.getBackRoute())
+            },
+            error: (err: any) => {
+                this.firewireSaveWorking = false
+                this.deleteProjectConfirmationShown = false
+                this.firewireSaveMessage = err?.error?.message || err?.message || 'Unable to delete project.'
+            }
+        })
     }
 
     saveProjectAsTemplate() {
@@ -4149,6 +4206,26 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         } catch {
             localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify([nextEntry]))
         }
+    }
+
+    private removeDeletedProjectFromLocalLists(): void {
+        if (typeof localStorage === 'undefined' || !this.projectId) {
+            return
+        }
+
+        try {
+            const favorites = JSON.parse(localStorage.getItem(this.favoriteProjectsStorageKey) || '[]') as string[]
+            if (Array.isArray(favorites)) {
+                localStorage.setItem(this.favoriteProjectsStorageKey, JSON.stringify(favorites.filter((id) => id !== this.projectId)))
+            }
+        } catch {}
+
+        try {
+            const recent = JSON.parse(localStorage.getItem(this.recentProjectsStorageKey) || '[]') as RecentProjectLink[]
+            if (Array.isArray(recent)) {
+                localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify(recent.filter((entry) => entry.id !== this.projectId)))
+            }
+        } catch {}
     }
 
     private createEmptyFirewireForm(): FirewireProjectUpsert {

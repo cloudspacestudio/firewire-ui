@@ -9,8 +9,8 @@ import { CommonModule } from "@angular/common"
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
-import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
-import {MatSort, MatSortModule} from '@angular/material/sort';
+import {MatPaginator, MatPaginatorModule, PageEvent} from '@angular/material/paginator';
+import {MatSort, MatSortModule, Sort, SortDirection} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -46,6 +46,10 @@ export class VendorsPage implements OnInit, AfterViewInit  {
     statusText = ''
     editingVendorId: string | null = null
     saveWorking = false
+    textFilter = ''
+    currentSortActive = 'name'
+    currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
     editModel: Vendor = this.createEmptyVendor()
 
     datasource: MatTableDataSource<Vendor> = new MatTableDataSource(this.vendors);
@@ -53,21 +57,40 @@ export class VendorsPage implements OnInit, AfterViewInit  {
     constructor(private http: HttpClient, private dialog: MatDialog) {}
 
     ngOnInit(): void {
+        this.textFilter = this.readStoredFilter()
+        const storedSort = this.readStoredSort()
+        this.currentSortActive = storedSort.active
+        this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredPageSize()
         this.loadVendors()
     }
 
     ngAfterViewInit(): void {
         this.datasource.paginator = this.paginator||null;
         this.datasource.sort = this.sort||null;
+        this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     applyFilter(event: Event) {
-        const filterValue = (event.target as HTMLInputElement).value;
-        this.datasource.filter = filterValue.trim().toLowerCase();
+        this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.datasource.filter = this.textFilter.trim().toLowerCase();
+        this.storeFilter()
 
         if (this.datasource.paginator) {
             this.datasource.paginator.firstPage();
         }
+    }
+
+    onSortChange(sort: Sort) {
+        this.currentSortActive = sort.active || 'name'
+        this.currentSortDirection = sort.direction || 'asc'
+        this.storeSort()
+    }
+
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storePageSize()
     }
 
     getNoDataRowText(filterValue: string) {
@@ -230,6 +253,9 @@ export class VendorsPage implements OnInit, AfterViewInit  {
                     this.datasource = new MatTableDataSource(this.vendors)
                     this.datasource.paginator = this.paginator || null
                     this.datasource.sort = this.sort || null
+                    this.applyStoredSortState()
+                    this.applyStoredPageSizeState()
+                    this.applyStoredFilterState()
                     this.pageWorking = false
                     return
                 }
@@ -254,6 +280,91 @@ export class VendorsPage implements OnInit, AfterViewInit  {
             link: '',
             logoFileName: null,
             logoDataUrl: null
+        }
+    }
+
+    private applyStoredFilterState() {
+        this.datasource.filter = this.textFilter.trim().toLowerCase()
+    }
+
+    private applyStoredSortState() {
+        if (!this.sort) {
+            return
+        }
+        this.sort.active = this.currentSortActive
+        this.sort.direction = this.currentSortDirection
+    }
+
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
+    private storeFilter() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.vendors.filter', this.textFilter)
+        } catch {}
+    }
+
+    private readStoredFilter(): string {
+        if (typeof localStorage === 'undefined') {
+            return ''
+        }
+        try {
+            return localStorage.getItem('firewire.vendors.filter') || ''
+        } catch {
+            return ''
+        }
+    }
+
+    private storeSort() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.vendors.sort', JSON.stringify({
+                active: this.currentSortActive,
+                direction: this.currentSortDirection
+            }))
+        } catch {}
+    }
+
+    private readStoredSort(): { active: string, direction: SortDirection } {
+        if (typeof localStorage === 'undefined') {
+            return { active: 'name', direction: 'asc' }
+        }
+        try {
+            const parsed = JSON.parse(localStorage.getItem('firewire.vendors.sort') || '{}') as { active?: unknown, direction?: unknown }
+            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active.trim() : 'name'
+            const direction = parsed.direction === 'asc' || parsed.direction === 'desc' ? parsed.direction : 'asc'
+            return { active, direction }
+        } catch {
+            return { active: 'name', direction: 'asc' }
+        }
+    }
+
+    private storePageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.vendors.pageSize', String(this.pageSize))
+        } catch {}
+    }
+
+    private readStoredPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem('firewire.vendors.pageSize') || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
         }
     }
 }

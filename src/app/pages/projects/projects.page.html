@@ -12,7 +12,7 @@
             <div class="project-actions">
                 <mat-form-field>
                     <mat-label>Filter</mat-label>
-                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
+                    <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. My Project" #input>
                 </mat-form-field>
                 <button mat-flat-button type="button" (click)="toggleCreatePanel()">
                     {{createPanelOpen ? 'CLOSE FIREWIRE FORM' : 'NEW FIREWIRE PROJECT'}}
@@ -205,7 +205,7 @@
                 </tr>
             </table>
 
-            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of projects"></mat-paginator>
+            <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of projects"></mat-paginator>
             </ng-container>
 
             <ng-template #projectsMapView>

@@ -11,12 +11,12 @@
         <div class="tabstrip">
             <mat-form-field>
                 <mat-label>Filter</mat-label>
-                <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
+                <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
             </mat-form-field>
             <span *ngIf="statusText" class="project-create-status">{{statusText}}</span>
         </div>
         <div class="content-root with-tabstrip">
-            <table mat-table [dataSource]="datasource" matSort>
+            <table mat-table [dataSource]="datasource" matSort [matSortActive]="currentSortActive" [matSortDirection]="currentSortDirection" (matSortChange)="onSortChange($event)">
 
                 <ng-container matColumnDef="logo" sticky="true">
                     <th mat-header-cell *matHeaderCellDef> Logo </th>
@@ -117,7 +117,7 @@
                 </tr>
             </table>
 
-            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of devices"></mat-paginator>
+            <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of devices"></mat-paginator>
 
         </div>
     </div>

@@ -21,7 +21,7 @@ import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatIconModule } from "@angular/material/icon"
-import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
+import {MatPaginator, MatPaginatorModule, PageEvent} from '@angular/material/paginator';
 import {MatSort, MatSortModule, Sort, SortDirection} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
@@ -58,10 +58,13 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
     mapReady = false
     mapLoadError = ''
     private readonly projectsViewModeStorageKey = 'firewire.projectsViewMode'
+    private readonly projectsTextFilterStorageKey = 'firewire.projects.textFilter'
     private readonly projectsStatusFilterStorageKey = 'firewire.projects.statusFilter'
     private readonly projectsSortStorageKey = 'firewire.projects.sort'
+    private readonly projectsPageSizeStorageKey = 'firewire.projects.pageSize'
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
     private atlasMap: any
     private atlasPopup: any
     private atlasMarkers = new Map<string, { marker: any, element: HTMLButtonElement }>()
@@ -96,6 +99,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
     set paginatorRef(value: MatPaginator | undefined) {
         this.paginator = value;
         this.datasource.paginator = value || null;
+        this.applyStoredPageSizeState()
     }
 
     @ViewChild(MatSort)
@@ -132,10 +136,12 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit(): void {
         this.projectsViewMode = this.readStoredProjectsViewMode()
+        this.textFilter = this.readStoredProjectsTextFilter()
         this.selectedProjectStatuses = this.readStoredProjectStatusFilter()
         const storedSort = this.readStoredProjectsSort()
         this.currentSortActive = storedSort.active
         this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredProjectsPageSize()
         this.configureFilterPredicate()
         this.preferencesSubscription = this.userPreferences.preferences$.subscribe((preferences) => {
             this.projectMapPreferences = { ...preferences.projectMap }
@@ -150,6 +156,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
         this.datasource.paginator = this.paginator||null;
         this.datasource.sort = this.sort||null;
         this.applyStoredSortState()
+        this.applyStoredPageSizeState()
         if (this.projectsViewMode === 'Map') {
             this.queueMapRender()
         }
@@ -178,6 +185,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
                     this.datasource.paginator = this.paginator || null
                     this.datasource.sort = this.sort || null
                     this.applyStoredSortState()
+                    this.applyStoredPageSizeState()
                     this.applyCombinedFilter()
                     this.pageWorking = false
                     return
@@ -196,6 +204,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
 
     applyFilter(event: Event) {
         this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.storeProjectsTextFilter()
         this.applyCombinedFilter()
     }
 
@@ -214,6 +223,11 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
         this.currentSortActive = sort.active || 'name'
         this.currentSortDirection = sort.direction || 'asc'
         this.storeProjectsSort()
+    }
+
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storeProjectsPageSize()
     }
 
     onProjectsViewModeChange(value: 'Grid' | 'Map') {
@@ -752,6 +766,28 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
+    private storeProjectsTextFilter() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem(this.projectsTextFilterStorageKey, this.textFilter)
+        } catch {
+            return
+        }
+    }
+
+    private readStoredProjectsTextFilter(): string {
+        if (typeof localStorage === 'undefined') {
+            return ''
+        }
+        try {
+            return localStorage.getItem(this.projectsTextFilterStorageKey) || ''
+        } catch {
+            return ''
+        }
+    }
+
     private readStoredProjectStatusFilter(): string[] {
         if (typeof localStorage === 'undefined') {
             return []
@@ -801,6 +837,35 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
 
         this.sort.active = this.currentSortActive
         this.sort.direction = this.currentSortDirection
+    }
+
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
+    private storeProjectsPageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem(this.projectsPageSizeStorageKey, String(this.pageSize))
+        } catch {
+            return
+        }
+    }
+
+    private readStoredProjectsPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem(this.projectsPageSizeStorageKey) || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
+        }
     }
 
     private getProjectCoordinates(row: ProjectListItemSchema): [number, number] | null {

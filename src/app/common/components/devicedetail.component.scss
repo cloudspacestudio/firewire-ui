@@ -147,7 +147,102 @@
 
 .device-detail-table td:first-child {
     width: 140px;
+    padding-left: 12px;
     color: var(--fw-muted);
+}
+
+.device-detail-empty {
+    padding: 8px 12px 14px;
+    box-sizing: border-box;
+}
+
+.device-detail-part-link {
+    display: inline-flex;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: var(--fw-text);
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: rgba(72, 221, 255, 0.42);
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.device-detail-part-link:hover {
+    color: var(--fw-accent-2);
+    text-decoration-color: rgba(72, 221, 255, 0.86);
+}
+
+.device-detail-vendor-parts-list {
+    display: grid;
+    gap: 8px;
+}
+
+.device-detail-vendor-part-item {
+    min-height: 104px;
+    height: auto !important;
+    padding-block: 10px !important;
+}
+
+.device-detail-vendor-part-item ::ng-deep .mdc-list-item__content {
+    align-self: stretch;
+}
+
+.device-detail-vendor-part-item ::ng-deep .mdc-list-item__primary-text::before,
+.device-detail-vendor-part-item ::ng-deep .mdc-list-item__primary-text::after {
+    display: none;
+}
+
+.device-detail-vendor-part-icon,
+.device-detail-part-image {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-top: 8px;
+}
+
+.device-detail-vendor-part-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 24px;
+    line-height: 24px;
+}
+
+.device-detail-part-image {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.device-detail-vendor-part-content {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 2px 0;
+}
+
+.device-detail-vendor-part-number {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.device-detail-vendor-part-description {
+    color: var(--fw-text);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+}
+
+.device-detail-vendor-part-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--fw-accent-2);
+    font-size: 0.84rem;
+    line-height: 1.3;
 }
 
 .device-detail-form-grid {
@@ -159,6 +254,12 @@
 .device-detail-edit-list {
     display: grid;
     gap: 12px;
+}
+
+.device-detail-edit-list > button[mat-stroked-button] {
+    width: calc(100% - 24px);
+    justify-self: center;
+    padding-inline: 18px !important;
 }
 
 .device-detail-edit-row {
@@ -177,8 +278,38 @@
 }
 
 .device-detail-edit-row--custom {
-    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+    column-gap: 8px;
     align-items: center;
+    overflow: hidden;
+}
+
+.device-detail-edit-row--managed {
+    grid-template-columns: minmax(0, 1fr) 40px;
+    column-gap: 8px;
+    align-items: center;
+    overflow: hidden;
+}
+
+.device-detail-edit-row--managed mat-form-field {
+    max-width: 100%;
+}
+
+.device-detail-managed-lock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: rgba(199, 221, 239, 0.68);
+    justify-self: center;
+}
+
+.device-detail-managed-lock mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 18px;
 }
 
 .device-detail-edit-row--subtask {
@@ -201,6 +332,18 @@
 .device-detail-edit-row--part button,
 .device-detail-edit-row--custom button {
     justify-self: end;
+}
+
+.device-detail-edit-row--custom mat-form-field {
+    max-width: 100%;
+}
+
+.device-detail-edit-row--custom button {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    justify-self: center;
 }
 
 .device-detail-linked-part {
@@ -333,12 +476,6 @@
     margin-left: 10px;
     color: #ffb17a;
     font-size: 0.82rem;
-}
-
-.device-detail-part-image {
-    width: 60px;
-    height: 60px;
-    object-fit: contain;
 }
 
 @media (max-width: 900px) {

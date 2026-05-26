@@ -5,6 +5,7 @@ export interface VwDevice {
     createat: Date
     createby: string
     defaultLabor: number
+    laborRate?: number
     deviceId: string
     name: string
     partNumber: string

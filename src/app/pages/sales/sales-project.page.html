@@ -175,6 +175,15 @@
                             </div>
 
                             <div *ngIf="activeTab === 'BOM'" class="firewire-bom-panel sales-project-bom-panel">
+                                <div *ngIf="saveWorking" class="firewire-save-overlay" role="status" aria-live="polite">
+                                    <div class="firewire-save-overlay__panel">
+                                        <div class="firewire-save-overlay__spinner" aria-hidden="true"></div>
+                                        <div>
+                                            <div class="firewire-save-overlay__title">Saving changes</div>
+                                            <div class="firewire-save-overlay__message">{{saveMessage || 'Updating the BOM worksheet...'}}</div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="firewire-bom-toolbar">
                                     <div class="firewire-bom-toolbar__meta">
                                         <div class="sales-project-placeholder__eyebrow">Project BOM</div>
@@ -230,6 +239,7 @@
                                                 <col class="bom-col-labor" />
                                                 <col class="bom-col-ext-labor" />
                                                 <col class="bom-col-type" />
+                                                <col class="bom-col-actions" />
                                             </colgroup>
                                             <thead>
                                                 <tr>
@@ -281,6 +291,7 @@
                                                             <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
                                                         </button>
                                                     </th>
+                                                    <th class="bom-actions-heading">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -324,7 +335,11 @@
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <input [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)" />
+                                                        <textarea
+                                                            fwAutosizeTextarea
+                                                            rows="2"
+                                                            [(ngModel)]="row.description"
+                                                            [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
                                                     </td>
                                                     <td class="right-align">
                                                         <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
@@ -349,6 +364,16 @@
                                                     </td>
                                                     <td>
                                                         <input [(ngModel)]="row.type" [attr.aria-label]="'BOM type ' + (idx + 1)" />
+                                                    </td>
+                                                    <td class="bom-actions-cell">
+                                                        <button
+                                                            mat-icon-button
+                                                            type="button"
+                                                            class="bom-delete-row-button"
+                                                            (click)="removeBomRow(section, row)"
+                                                            [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
+                                                            <mat-icon fontIcon="delete"></mat-icon>
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             </tbody>

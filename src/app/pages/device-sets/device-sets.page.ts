@@ -9,7 +9,7 @@ import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialog
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
-import { MatPaginator, MatPaginatorModule } from "@angular/material/paginator"
+import { MatPaginator, MatPaginatorModule, PageEvent } from "@angular/material/paginator"
 import { MatSort, MatSortModule, Sort, SortDirection } from "@angular/material/sort"
 import { MatTableDataSource, MatTableModule } from "@angular/material/table"
 
@@ -49,6 +49,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
     textFilter = ''
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
     deviceSets: DeviceSetSummary[] = []
     datasource = new MatTableDataSource<DeviceSetSummary>(this.deviceSets)
     navItems = NavToolbar.DeviceNavItems
@@ -60,6 +61,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         const storedSort = this.readStoredSort()
         this.currentSortActive = storedSort.active
         this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredPageSize()
         this.loadDeviceSets()
     }
 
@@ -67,6 +69,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         this.datasource.paginator = this.paginator || null
         this.datasource.sort = this.sort || null
         this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     loadDeviceSets() {
@@ -86,6 +89,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
                     return haystack.includes(filter)
                 }
                 this.applyStoredSortState()
+                this.applyStoredPageSizeState()
                 this.applyStoredFilterState()
                 this.pageWorking = false
             },
@@ -109,6 +113,11 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         this.currentSortActive = sort.active || 'name'
         this.currentSortDirection = sort.direction || 'asc'
         this.storeSort()
+    }
+
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storePageSize()
     }
 
     async createDeviceSet() {
@@ -203,6 +212,12 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         })
     }
 
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
     private storeFilter() {
         if (typeof localStorage === 'undefined') {
             return
@@ -246,6 +261,27 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
             return { active, direction }
         } catch {
             return { active: 'name', direction: 'asc' }
+        }
+    }
+
+    private storePageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.device-sets.pageSize', String(this.pageSize))
+        } catch {}
+    }
+
+    private readStoredPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem('firewire.device-sets.pageSize') || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
         }
     }
 }

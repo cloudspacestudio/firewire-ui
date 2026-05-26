@@ -70,6 +70,8 @@
                     <tr><td>Vendor</td><td>{{device.vendorName}}</td></tr>
                     <tr><td>Cost</td><td>{{getDisplayedDeviceCost() | currency}}</td></tr>
                     <tr *ngIf="getShowDefaultLabor()"><td>Default Labor</td><td>{{getReadOnlyDefaultLabor()}}</td></tr>
+                    <tr *ngIf="getShowCalculatedLaborCost()"><td>Labor Rate</td><td>{{getDeviceLaborRate() | currency}}</td></tr>
+                    <tr *ngIf="getShowCalculatedLaborCost()"><td>Calculated Labor Cost</td><td>{{getCalculatedLaborCost() | currency}}</td></tr>
                     <tr><td>Short Name</td><td>{{device.shortName}}</td></tr>
                     <tr><td>Serial Number</td><td>{{displaySetting(device.serialNumber)}}</td></tr>
                     <tr><td>SLC Address</td><td>{{displaySetting(device.slcAddress)}}</td></tr>
@@ -104,9 +106,19 @@
                         <mat-label>Default Labor</mat-label>
                         <input matInput type="number" [(ngModel)]="editDevice.defaultLabor" />
                     </mat-form-field>
+                    <mat-form-field *ngIf="getShowCalculatedLaborCost()">
+                        <mat-label>Labor Rate</mat-label>
+                        <input matInput type="number" min="0" step="0.01" [(ngModel)]="editDevice.laborRate" />
+                    </mat-form-field>
+                    <mat-form-field *ngIf="getShowCalculatedLaborCost()">
+                        <mat-label>Calculated Labor Cost</mat-label>
+                        <input matInput [value]="getCalculatedLaborCost() | currency" readonly />
+                    </mat-form-field>
                     <mat-form-field>
                         <mat-label>Serial Number</mat-label>
-                        <input matInput [(ngModel)]="editDevice.serialNumber" />
+                        <mat-select [(ngModel)]="editDevice.serialNumber" (selectionChange)="onAddressSettingChanged()">
+                            <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>SLC Address</mat-label>
@@ -142,11 +154,14 @@
                 </ng-container>
                 <ng-template #attributeEdit>
                     <div class="device-detail-edit-list">
-                        <div *ngFor="let attribute of getManagedAttributeRows()" class="device-detail-edit-row">
+                        <div *ngFor="let attribute of getManagedAttributeRows()" class="device-detail-edit-row device-detail-edit-row--managed">
                             <mat-form-field>
                                 <mat-label>{{attribute.name}}</mat-label>
                                 <input matInput [(ngModel)]="attribute.defaultValue" />
                             </mat-form-field>
+                            <span class="device-detail-managed-lock" title="Managed by device address settings">
+                                <mat-icon>lock</mat-icon>
+                            </span>
                         </div>
                         <div *ngFor="let attribute of getCustomAttributeRows(); let index = index" class="device-detail-edit-row device-detail-edit-row--custom">
                             <mat-form-field>
@@ -207,20 +222,32 @@
 
             <section class="component-group">
                 <h4>VENDOR PARTS</h4>
-                <mat-list *ngIf="!isVendorPartsEditView() && deviceMaterials.length > 0; else partsEdit">
-                    <mat-list-item *ngFor="let material of deviceMaterials">
-                        <mat-icon *ngIf="!partImagePath || partImageFailed" matListItemIcon>inventory_2</mat-icon>
-                        <img *ngIf="partImagePath && !partImageFailed" matListItemIcon [src]="partImagePath" class="device-detail-part-image" (error)="onPartImageError()" />
-                        <span matListItemTitle>{{material.materialName}}</span>
-                        <span matListItemLine>{{material.materialPartNumber}}</span>
-                        <span matListItemLine>
-                            {{material.materialCost | currency}}
-                            <span *ngIf="getLinkedPartIssue(material.materialPartNumber) as issue" class="device-detail-issue">
-                                Missing vendor link
-                                <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
-                                <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
-                            </span>
-                        </span>
+                <mat-list *ngIf="!isVendorPartsEditView() && deviceMaterials.length > 0; else partsEdit" class="device-detail-vendor-parts-list">
+                    <mat-list-item *ngFor="let material of deviceMaterials" class="device-detail-vendor-part-item">
+                        <mat-icon *ngIf="!partImagePath || partImageFailed" class="device-detail-vendor-part-icon">inventory_2</mat-icon>
+                        <img *ngIf="partImagePath && !partImageFailed" [src]="partImagePath" class="device-detail-part-image" (error)="onPartImageError()" />
+                        <div class="device-detail-vendor-part-content">
+                            <button
+                                *ngIf="material.materialId; else vendorPartNameOnly"
+                                type="button"
+                                class="device-detail-part-link device-detail-vendor-part-number"
+                                (click)="openVendorPartDetail(material)">
+                                {{material.materialPartNumber}}
+                            </button>
+                            <ng-template #vendorPartNameOnly>
+                                <span class="device-detail-vendor-part-number">{{material.materialPartNumber}}</span>
+                            </ng-template>
+                            <div class="device-detail-vendor-part-description">{{material.materialName}}</div>
+                            <div class="device-detail-vendor-part-meta">
+                                <span *ngIf="getVendorPartCategory(material)">{{getVendorPartCategory(material)}}</span>
+                                <span>{{material.materialCost | currency}}</span>
+                                <span *ngIf="getLinkedPartIssue(material.materialPartNumber) as issue" class="device-detail-issue">
+                                    Missing vendor link
+                                    <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
+                                    <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
+                                </span>
+                            </div>
+                        </div>
                     </mat-list-item>
                 </mat-list>
                 <ng-template #partsEdit>

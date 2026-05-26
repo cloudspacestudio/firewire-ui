@@ -13,6 +13,7 @@ import { MatInputModule } from '@angular/material/input'
 import { MatSelectModule } from '@angular/material/select'
 
 import { PageToolbar } from '../../common/components/page-toolbar'
+import { AutosizeTextareaDirective } from '../../common/directives/autosize-textarea.directive'
 import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectType } from '../../schemas/firewire-project.schema'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
@@ -85,7 +86,8 @@ interface SalesCustomerInfo {
         MatIconModule,
         MatInputModule,
         MatSelectModule,
-        PageToolbar
+        PageToolbar,
+        AutosizeTextareaDirective
     ],
     providers: [HttpClient],
     templateUrl: './sales-project.page.html',
@@ -460,6 +462,12 @@ export class SalesProjectPage {
     addBomRow(section: SalesBomSection): void {
         section.rows = [...section.rows, this.createEmptyBomRow()]
         this.bomSections = [...this.bomSections]
+    }
+
+    removeBomRow(section: SalesBomSection, row: SalesBomRow): void {
+        section.rows = (section.rows || []).filter((item) => item !== row)
+        this.bomSections = [...this.bomSections]
+        this.closeBomPartLookup()
     }
 
     @HostListener('window:resize')

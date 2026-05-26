@@ -79,7 +79,7 @@ export class SalesPage {
     selectedProjectStatuses: string[] = []
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
-    pageSize = 10
+    pageSize = 25
     projects: ProjectListItemSchema[] = []
     datasource: MatTableDataSource<ProjectListItemSchema> = new MatTableDataSource<ProjectListItemSchema>([])
     createModel: FirewireProjectUpsert = this.createDefaultProject()
@@ -446,13 +446,13 @@ export class SalesPage {
 
     private readStoredPageSize(): number {
         if (typeof localStorage === 'undefined') {
-            return 10
+            return 25
         }
         try {
-            const value = Number(localStorage.getItem(this.salesPageSizeStorageKey) || '10')
-            return Number.isFinite(value) && value > 0 ? value : 10
+            const value = Number(localStorage.getItem(this.salesPageSizeStorageKey) || '25')
+            return Number.isFinite(value) && value > 0 ? value : 25
         } catch {
-            return 10
+            return 25
         }
     }
 }

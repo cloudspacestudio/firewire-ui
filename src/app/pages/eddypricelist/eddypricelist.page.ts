@@ -11,7 +11,7 @@ import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialog
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
 import { MatDividerModule } from "@angular/material/divider"
-import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
+import {MatPaginator, MatPaginatorModule, PageEvent} from '@angular/material/paginator';
 import {MatSort, MatSortModule, Sort, SortDirection} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
@@ -106,6 +106,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     selectedVendorId = ''
     currentSortActive = 'PartNumber'
     currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
 
     datasource: MatTableDataSource<VwEddyPricelist> = new MatTableDataSource(this.eddypricelists);
     
@@ -121,10 +122,12 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             const vendorKey = String(params.get('vendorKey') || '').trim().toLowerCase()
             const nextView = this.vendorViews.find((view) => view.key === vendorKey) || this.vendorViews[0]
             this.activeVendorView = nextView
+            this.textFilter = this.readStoredPartsTextFilter()
             this.selectedCategories = this.readStoredCategoryFilter()
             const storedSort = this.readStoredPartsSort()
             this.currentSortActive = storedSort.active
             this.currentSortDirection = storedSort.direction
+            this.pageSize = this.readStoredPartsPageSize()
             this.configureFilterPredicate()
             this.statusText = ''
             void this.loadActiveVendorContext()
@@ -137,10 +140,12 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         this.datasource.paginator = this.paginator||null;
         this.datasource.sort = this.sort||null;
         this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     applyFilter(event: Event) {
         this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.storePartsTextFilter()
         this.applyCombinedFilter()
     }
 
@@ -159,6 +164,11 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         this.currentSortActive = sort.active || 'PartNumber'
         this.currentSortDirection = sort.direction || 'asc'
         this.storePartsSort()
+    }
+
+    onPageChange(event: PageEvent) {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storePartsPageSize()
     }
 
     getNoDataRowText(filterValue: string) {
@@ -397,6 +407,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
                     this.datasource.paginator = this.paginator || null
                     this.datasource.sort = this.sort || null
                     this.applyStoredSortState()
+                    this.applyStoredPageSizeState()
                     this.applyCombinedFilter()
                     this.pageWorking = false
                     return
@@ -460,8 +471,38 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         return `firewire.parts.${this.activeVendorView.key}.categoryFilter`
     }
 
+    private getPartsTextFilterStorageKey(): string {
+        return `firewire.parts.${this.activeVendorView.key}.textFilter`
+    }
+
     private getPartsSortStorageKey(): string {
         return `firewire.parts.${this.activeVendorView.key}.sort`
+    }
+
+    private getPartsPageSizeStorageKey(): string {
+        return `firewire.parts.${this.activeVendorView.key}.pageSize`
+    }
+
+    private storePartsTextFilter() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem(this.getPartsTextFilterStorageKey(), this.textFilter)
+        } catch {
+            return
+        }
+    }
+
+    private readStoredPartsTextFilter(): string {
+        if (typeof localStorage === 'undefined') {
+            return ''
+        }
+        try {
+            return localStorage.getItem(this.getPartsTextFilterStorageKey()) || ''
+        } catch {
+            return ''
+        }
     }
 
     private storeCategoryFilter() {
@@ -523,6 +564,35 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         this.sort.direction = this.currentSortDirection
     }
 
+    private applyStoredPageSizeState() {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
+    private storePartsPageSize() {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem(this.getPartsPageSizeStorageKey(), String(this.pageSize))
+        } catch {
+            return
+        }
+    }
+
+    private readStoredPartsPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem(this.getPartsPageSizeStorageKey()) || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
+        }
+    }
+
 }
 
 interface CreateDeviceFromPartDialogData {
@@ -538,6 +608,7 @@ interface CreateDeviceFromPartCategoryOption {
 
 @Component({
     standalone: true,
+    selector: 'fw-create-device-from-part-dialog',
     imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule, MatSelectModule],
     template: `
         <div mat-dialog-title>Create Device From Part</div>

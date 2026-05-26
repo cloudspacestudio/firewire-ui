@@ -13,11 +13,11 @@
 
                 <mat-form-field>
                     <mat-label>Filter</mat-label>
-                    <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
+                    <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Strobe" #input>
                 </mat-form-field>
 
                 <div class="mat-elevation-z8">
-                    <table mat-table [dataSource]="datasource" matSort>
+                    <table mat-table [dataSource]="datasource" matSort [matSortActive]="currentSortActive" [matSortDirection]="currentSortDirection" (matSortChange)="onSortChange($event)">
 
                         <!-- Name Column -->
                         <ng-container matColumnDef="name" sticky="true">
@@ -58,7 +58,7 @@
                         </tr>
                     </table>
 
-                    <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of devices"></mat-paginator>
+                    <mat-paginator [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 100]" (page)="onPageChange($event)" aria-label="Select page of devices"></mat-paginator>
                 </div>
 
             </div>
