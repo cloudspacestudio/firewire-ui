@@ -34,6 +34,7 @@ import {
     ProjectDocLibraryFolderDefinition,
     ProjectDocLibraryStorageService
 } from "../../common/services/project-doc-library-storage.service"
+import { PdfThumbnailService } from "../../common/services/pdf-thumbnail.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
 import { BookingFaceSheetDialog } from "./booking-face-sheet.dialog"
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
@@ -53,6 +54,7 @@ import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 import { Category } from "../../schemas/category.schema"
 import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 import { VwDevice } from "../../schemas/vwdevice.schema"
+import { FloorplanDesignerDialog, FloorplanDesignerDialogResult } from "../design/floorplan-designer.dialog"
 
 interface ProjectBomRow {
     partNbr: string
@@ -167,6 +169,7 @@ interface DocLibraryFolder {
 interface DocLibraryFile {
     id: string
     folderId: string
+    storageKey?: string
     name: string
     extension: string
     category: string
@@ -322,11 +325,15 @@ declare const atlas: any
     styleUrls: ['./project.page.scss']
 })
 export class ProjectPage implements OnChanges, OnDestroy {
+    private readonly defaultLaborHourlyRate = 56
+    private readonly defaultLaborCost = this.defaultLaborHourlyRate * 2
+    private readonly floorplansFolderId = 'floorplans'
     private dialog = inject(MatDialog)
     private router = inject(Router)
     private route = inject(ActivatedRoute)
     private readonly azureMapsService = inject(AzureMapsService)
     private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
+    private readonly pdfThumbnailService = inject(PdfThumbnailService)
     private readonly userPreferences = inject(UserPreferencesService)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
     private readonly recentProjectsLimit = 6
@@ -430,6 +437,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         'SS CAD',
         'SS TECH',
         'EXPENSES',
+        'FLOORPLANS',
         'SUMMARY',
         'DOC LIBRARY',
         'SYSTEM'
@@ -479,10 +487,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
         supervisionFactorPercent: 5,
         mobilizationFactorPercent: 5
     }
-    private readonly docLibraryFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getFolderDefinitions()
+    private readonly docLibraryFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getRootFolderDefinitions()
+    private readonly docLibrarySelectableFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getSelectableFolderDefinitions()
     selectedDocLibraryFolder = 'all'
     docLibraryFiles: ProjectDocLibraryFileRecord[] = []
     docLibraryStatusMessage = ''
+    floorplanStatusMessage = ''
+    floorplanUploadBusy = false
     readonly takeoffColumns = [
         'FACP',
         'Annunciator',
@@ -1170,13 +1181,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     get docLibraryFolders(): DocLibraryFolder[] {
-        const allCount = this.docLibraryFiles.length
+        const visibleFiles = this.getDocLibraryFilesOnly()
+        const allCount = visibleFiles.length
         return [
             { id: 'all', label: 'All Documents', itemCount: allCount, badge: allCount > 0 ? 'LIVE' : undefined },
             ...this.docLibraryFolderDefinitions.map((folder) => ({
                 id: folder.id,
                 label: folder.label,
-                itemCount: this.docLibraryFiles.filter((file) => file.folderId === folder.id).length
+                itemCount: visibleFiles.filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, folder.id)).length
             }))
         ]
     }
@@ -1215,6 +1227,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
             return {
                 id: file.id,
                 folderId: file.folderId,
+                storageKey: file.storageKey,
                 name: file.name,
                 extension: file.extension.toUpperCase(),
                 category: this.getDocLibraryFolderLabel(file.folderId),
@@ -1227,17 +1240,43 @@ export class ProjectPage implements OnChanges, OnDestroy {
         })
     }
 
+    getFloorplanFiles(): ProjectDocLibraryFileRecord[] {
+        return this.docLibraryFiles
+            .filter((file) => file.folderId === this.floorplansFolderId)
+            .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+    }
+
+    isFloorplanPdf(file: ProjectDocLibraryFileRecord): boolean {
+        const version = this.getLatestDocLibraryVersion(file)
+        return String(version?.mimeType || '').toLowerCase() === 'application/pdf'
+            || String(file.extension || '').toLowerCase() === 'pdf'
+    }
+
+    getFloorplanVersionContent(file: ProjectDocLibraryFileRecord): string {
+        const version = this.getLatestDocLibraryVersion(file)
+        return version?.dataUrl || version?.contentUrl || ''
+    }
+
+    getFloorplanPreviewContent(file: ProjectDocLibraryFileRecord): string {
+        const version = this.getLatestDocLibraryVersion(file)
+        return version?.thumbnailDataUrl || version?.dataUrl || version?.contentUrl || ''
+    }
+
+    getFloorplanTotalBytes(): number {
+        return this.getFloorplanFiles().reduce((sum, file) => sum + Number(this.getLatestDocLibraryVersion(file)?.sizeBytes || 0), 0)
+    }
+
     canEditDocLibraryMarkup(file: DocLibraryFile): boolean {
         const source = this.docLibraryFiles.find((item) => item.id === file.id)
         const latestVersion = source ? this.getLatestDocLibraryVersion(source) : undefined
-        return file.folderId === 'drawings'
+        return source ? this.projectDocLibraryStorage.isDrawing(source)
             && String(latestVersion?.mimeType || '').toLowerCase().startsWith('image/')
-            && !!latestVersion?.dataUrl
+            && !!(latestVersion?.dataUrl || latestVersion?.contentUrl) : false
     }
 
     getDocLibraryMarkupQueryParams(file: DocLibraryFile): Record<string, string> {
         return {
-            projectKey: this.getDocLibraryStorageKey(),
+            projectKey: file.storageKey || this.getDocLibraryStorageKey(),
             bomProjectKey: this.firewireProject?.uuid || (this.projectSource === 'firewire' ? String(this.projectId || '') : ''),
             fileId: file.id,
             returnTo: this.router.url || `/projects/${this.projectSource}/${this.projectId}/doc-library`
@@ -1570,9 +1609,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     getBomBaseManHourEstimate(): number {
-        return this.bomSections.reduce((sum, section) => {
+        const laborCost = this.bomSections.reduce((sum, section) => {
             return sum + section.rows.reduce((rowSum, row) => rowSum + this.getBomRowExtLabor(row), 0)
         }, 0)
+        const installRate = this.getInstallationHourlyRate() || this.defaultLaborHourlyRate
+        return installRate > 0 ? Math.ceil(laborCost / installRate) : 0
     }
 
     getBomDeviceCount(): number {
@@ -1872,7 +1913,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.description = String(part.LongDescription || '').trim()
         row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
         row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = this.getInstallationLaborCost(Number(category?.defaultLabor || 0))
+        row.labor = this.getDefaultLaborCost(category?.defaultLabor)
         this.refreshTakeoffColumnDefinitions()
         this.closeBomPartLookup()
     }
@@ -1885,7 +1926,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.description = String(device.name || device.shortName || '').trim()
         row.cost = Number(device.cost || 0)
         row.type = category?.includeOnFloorplan ? String(device.categoryName || '').trim() : ''
-        row.labor = this.getInstallationLaborCost(Number(device.defaultLabor || 0))
+        row.labor = this.getDefaultLaborCost(device.defaultLabor)
         this.refreshTakeoffColumnDefinitions()
         this.closeBomPartLookup()
     }
@@ -2195,11 +2236,19 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     getInstallationHourlyRate(): number {
         const installationRate = this.laborRates.find((row) => row.label === 'Installation')
-        return Number(installationRate?.effectiveRate || installationRate?.payRate || 0)
+        return Number(installationRate?.effectiveRate || installationRate?.payRate || this.defaultLaborHourlyRate)
     }
 
     getInstallationLaborCost(hours: number): number {
         return Number(hours || 0) * this.getInstallationHourlyRate()
+    }
+
+    getDefaultLaborCost(value: unknown): number {
+        const baselineLaborCost = value === null || typeof value === 'undefined' || value === ''
+            ? this.defaultLaborCost
+            : Number(value)
+        const normalizedBaseline = Number.isFinite(baselineLaborCost) ? baselineLaborCost : this.defaultLaborCost
+        return (normalizedBaseline / this.defaultLaborHourlyRate) * this.getInstallationHourlyRate()
     }
 
     getGeneralExpenseTotal(): number {
@@ -3253,6 +3302,12 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         void this.chooseDocLibraryFolderForUpload(fileInput)
     }
 
+    onUploadProjectFloorplansClick(fileInput: HTMLInputElement) {
+        this.clearProjectUploadErrorToast()
+        this.floorplanStatusMessage = ''
+        fileInput.click()
+    }
+
     canDeactivate(): boolean | Observable<boolean> {
         if (!this.isProjectDirty) {
             return true
@@ -3338,7 +3393,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
 
-        const blob = this.dataUrlToBlob(version.dataUrl)
+        const blob = version.dataUrl
+            ? this.dataUrlToBlob(version.dataUrl)
+            : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -3379,6 +3436,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
 
         file.folderId = targetFolderId
+        file.documentKind = this.projectDocLibraryStorage.getDocumentKindForFolder(targetFolderId)
         file.updatedAt = new Date().toISOString()
         await this.persistDocLibraryWorkspace()
         this.docLibraryStatusMessage = `Moved ${file.name} to ${this.getDocLibraryFolderLabel(targetFolderId)}.`
@@ -3411,61 +3469,58 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     async saveGeneratedEstimatingSheet(fileName: string, html: string): Promise<void> {
         const normalizedFileName = this.ensureHtmlFileName(fileName)
         const now = new Date().toISOString()
-        const dataUrl = this.textToDataUrl(html, 'text/html')
+        const generatedFile = new File([html], normalizedFileName, { type: 'text/html', lastModified: Date.now() })
         const duplicate = this.docLibraryFiles.find((item) =>
-            item.folderId === 'estimating'
+            item.folderId === 'sales/booking'
             && item.name.toLowerCase() === normalizedFileName.toLowerCase())
 
         if (duplicate) {
-            duplicate.versions.push({
-                id: this.createClientId(),
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getDocLibraryStorageKey(), generatedFile, {
+                fileId: duplicate.id,
+                versionId: this.createClientId(),
+                folderId: duplicate.folderId,
                 versionNumber: duplicate.versions.length + 1,
-                uploadedAt: now,
-                uploadedBy: 'Current User',
-                sourceFileName: normalizedFileName,
-                sizeBytes: new Blob([html], { type: 'text/html' }).size,
-                mimeType: 'text/html',
-                lastModified: Date.now(),
-                dataUrl
+                lastModified: generatedFile.lastModified
             })
+            duplicate.versions.push(version)
             duplicate.updatedAt = now
         } else {
+            const fileId = this.createClientId()
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getDocLibraryStorageKey(), generatedFile, {
+                fileId,
+                versionId: this.createClientId(),
+                folderId: 'sales/booking',
+                versionNumber: 1,
+                lastModified: generatedFile.lastModified
+            })
             this.docLibraryFiles.push({
-                id: this.createClientId(),
-                folderId: 'estimating',
+                id: fileId,
+                folderId: 'sales/booking',
+                storageKey: this.getDocLibraryStorageKey(),
                 name: normalizedFileName,
                 extension: 'html',
                 createdAt: now,
                 updatedAt: now,
-                versions: [
-                    {
-                        id: this.createClientId(),
-                        versionNumber: 1,
-                        uploadedAt: now,
-                        uploadedBy: 'Current User',
-                        sourceFileName: normalizedFileName,
-                        sizeBytes: new Blob([html], { type: 'text/html' }).size,
-                        mimeType: 'text/html',
-                        lastModified: Date.now(),
-                        dataUrl
-                    }
-                ]
+                versions: [version]
             })
         }
 
         await this.persistDocLibraryWorkspace()
-        this.docLibraryStatusMessage = `Saved ${normalizedFileName} to Estimating.`
+        this.docLibraryStatusMessage = `Saved ${normalizedFileName} to ${this.getDocLibraryFolderLabel('sales/booking')}.`
     }
 
     private getDocLibraryVisibleRecords(): ProjectDocLibraryFileRecord[] {
         if (this.selectedDocLibraryFolder === 'all') {
-            return this.docLibraryFiles
+            return this.getDocLibraryFilesOnly()
         }
-        return this.docLibraryFiles.filter((file) => file.folderId === this.selectedDocLibraryFolder)
+        return this.getDocLibraryFilesOnly().filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, this.selectedDocLibraryFolder))
     }
 
     private getDocLibraryFolderLabel(folderId: string): string {
-        return this.docLibraryFolderDefinitions.find((folder) => folder.id === folderId)?.label || 'Unfiled'
+        if (folderId === 'all') {
+            return 'All Documents'
+        }
+        return this.projectDocLibraryStorage.getFolderPathLabel(folderId)
     }
 
     private async chooseDocLibraryFolderForUpload(fileInput: HTMLInputElement): Promise<void> {
@@ -3474,7 +3529,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
 
-        const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'estimating')
+        const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'sales')
         if (!selectedFolderId) {
             return
         }
@@ -3492,12 +3547,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 title,
                 confirmLabel,
                 selectedFolderId,
-                folders: this.docLibraryFolderDefinitions.map((folder) => ({ id: folder.id, label: folder.label }))
+                folders: this.docLibrarySelectableFolderDefinitions.map((folder) => ({
+                    id: folder.id,
+                    label: this.projectDocLibraryStorage.getFolderPathLabel(folder.id)
+                }))
             } as ProjectDocLibraryCategoryDialogData
         }).afterClosed())
     }
 
-    private getLatestDocLibraryVersion(file: ProjectDocLibraryFileRecord): ProjectDocLibraryFileVersionRecord | undefined {
+    getLatestDocLibraryVersion(file: ProjectDocLibraryFileRecord): ProjectDocLibraryFileVersionRecord | undefined {
         if (!file.versions || file.versions.length <= 0) {
             return undefined
         }
@@ -3509,62 +3567,108 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             throw new Error('Select a document library section before uploading.')
         }
 
+        return this.uploadDocLibraryFileToFolder(file, this.selectedDocLibraryFolder, true)
+    }
+
+    private async uploadDocLibraryFileToFolder(file: File, folderId: string, confirmVersion: boolean, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
-            item.folderId === this.selectedDocLibraryFolder
+            item.folderId === folderId
             && item.name.toLowerCase() === file.name.toLowerCase())
-        const dataUrl = await this.readFileAsDataUrl(file)
         const now = new Date().toISOString()
+        const projectKey = this.getDocLibraryStorageKey()
 
         if (duplicate) {
-            const dialogRef = this.dialog.open(ProjectDocLibraryOverwriteDialog, {
-                panelClass: 'fw-medium-dialog-pane',
-                data: {
-                    fileName: duplicate.name,
-                    nextVersionNumber: duplicate.versions.length + 1
-                } as ProjectDocLibraryOverwriteDialogData
-            })
-            const shouldOverwrite = await firstValueFrom(dialogRef.afterClosed())
-            if (!shouldOverwrite) {
-                return 'skipped'
+            if (confirmVersion) {
+                const dialogRef = this.dialog.open(ProjectDocLibraryOverwriteDialog, {
+                    panelClass: 'fw-medium-dialog-pane',
+                    data: {
+                        fileName: duplicate.name,
+                        nextVersionNumber: duplicate.versions.length + 1
+                    } as ProjectDocLibraryOverwriteDialogData
+                })
+                const shouldOverwrite = await firstValueFrom(dialogRef.afterClosed())
+                if (!shouldOverwrite) {
+                    return 'skipped'
+                }
             }
 
-            duplicate.versions.push({
-                id: this.createClientId(),
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+                fileId: duplicate.id,
+                versionId: this.createClientId(),
+                folderId,
                 versionNumber: duplicate.versions.length + 1,
-                uploadedAt: now,
-                uploadedBy: 'Current User',
-                sourceFileName: file.name,
-                sizeBytes: file.size,
-                mimeType: file.type || 'application/octet-stream',
-                lastModified: file.lastModified,
-                dataUrl
+                lastModified: file.lastModified
             })
+            version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+            duplicate.versions.push(version)
             duplicate.updatedAt = now
             return 'versioned'
         }
 
+        const fileId = this.createClientId()
+        const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+            fileId,
+            versionId: this.createClientId(),
+            folderId,
+            versionNumber: 1,
+            lastModified: file.lastModified
+        })
+        version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+
         this.docLibraryFiles.push({
-            id: this.createClientId(),
-            folderId: this.selectedDocLibraryFolder,
+            id: fileId,
+            folderId,
+            storageKey: projectKey,
+            documentKind: this.projectDocLibraryStorage.getDocumentKindForFolder(folderId),
             name: file.name,
             extension: this.getDocLibraryExtension(file.name),
             createdAt: now,
             updatedAt: now,
-            versions: [
-                {
-                    id: this.createClientId(),
-                    versionNumber: 1,
-                    uploadedAt: now,
-                    uploadedBy: 'Current User',
-                    sourceFileName: file.name,
-                    sizeBytes: file.size,
-                    mimeType: file.type || 'application/octet-stream',
-                    lastModified: file.lastModified,
-                    dataUrl
-                }
-            ]
+            versions: [version]
         })
         return 'uploaded'
+    }
+
+    private getDocLibraryFilesOnly(): ProjectDocLibraryFileRecord[] {
+        return this.docLibraryFiles.filter((file) => file.folderId !== this.floorplansFolderId)
+    }
+
+    private isFloorplanUploadFile(file: File): boolean {
+        const mimeType = String(file.type || '').toLowerCase()
+        const extension = this.getDocLibraryExtension(file.name)
+        return mimeType.startsWith('image/')
+            || mimeType === 'application/pdf'
+            || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'pdf'].includes(extension)
+    }
+
+    private async createPdfThumbnailIfNeeded(file: File): Promise<string> {
+        const mimeType = String(file.type || '').toLowerCase()
+        const extension = this.getDocLibraryExtension(file.name)
+        if (mimeType !== 'application/pdf' && extension !== 'pdf') {
+            return ''
+        }
+
+        return this.pdfThumbnailService.createThumbnail(file)
+    }
+
+    private async ensureFloorplanPdfThumbnails(): Promise<void> {
+        let changed = false
+        for (const file of this.getFloorplanFiles()) {
+            const version = this.getLatestDocLibraryVersion(file)
+            if (!version || version.thumbnailDataUrl || !this.isFloorplanPdf(file)) {
+                continue
+            }
+
+            const blob = version.dataUrl
+                ? this.dataUrlToBlob(version.dataUrl)
+                : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
+            version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            changed = true
+        }
+
+        if (changed) {
+            await this.persistDocLibraryWorkspace()
+        }
     }
 
     private async persistDocLibraryWorkspace(): Promise<void> {
@@ -3583,6 +3687,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
         this.docLibraryFiles = this.mergeDocLibraryFiles(workspaces.flatMap((workspace) => workspace.files || []))
+        await this.ensureFloorplanPdfThumbnails()
     }
 
     private mergeDocLibraryFiles(files: ProjectDocLibraryFileRecord[]): ProjectDocLibraryFileRecord[] {
@@ -4331,6 +4436,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.wireRunNodes = this.cloneJson(worksheet.wireRunNodes || this.worksheetDefaults.wireRunNodes)
         this.firetrolProvideRows = this.cloneJson(worksheet.firetrolProvideRows || this.worksheetDefaults.firetrolProvideRows)
         this.bomSections = this.normalizeBomSections(worksheet.bomSections || this.worksheetDefaults.bomSections)
+        this.defaultBaseManHourEstimateFromBom()
         this.refreshTakeoffColumnDefinitions()
         this.expenseSections = this.normalizeExpenseSections(this.cloneJson(worksheet.expenseSections || this.worksheetDefaults.expenseSections))
         this.ssPmRate = Number(worksheet.ssPmRate ?? this.worksheetDefaults.ssPmRate)
@@ -4376,6 +4482,92 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private resetWorksheetState() {
         this.applyWorksheetState(null)
+    }
+
+    async onProjectFloorplanFileSelected(event: Event) {
+        const input = event.target as HTMLInputElement | null
+        if (!input || !input.files || input.files.length <= 0) {
+            return
+        }
+
+        this.floorplanUploadBusy = true
+        this.clearProjectUploadErrorToast()
+        this.floorplanStatusMessage = ''
+
+        try {
+            const files = Array.from(input.files)
+            let uploadedCount = 0
+            let skippedCount = 0
+
+            for (const file of files) {
+                if (!this.isFloorplanUploadFile(file)) {
+                    skippedCount += 1
+                    continue
+                }
+                await this.uploadDocLibraryFileToFolder(file, this.floorplansFolderId, false, await this.createPdfThumbnailIfNeeded(file))
+                uploadedCount += 1
+            }
+
+            await this.persistDocLibraryWorkspace()
+
+            const summaryParts: string[] = []
+            if (uploadedCount > 0) {
+                summaryParts.push(`${uploadedCount} uploaded`)
+            }
+            if (skippedCount > 0) {
+                summaryParts.push(`${skippedCount} skipped`)
+            }
+            this.floorplanStatusMessage = summaryParts.length > 0
+                ? `Floorplans updated: ${summaryParts.join(', ')}.`
+                : 'No floorplan changes were made.'
+        } catch (err: any) {
+            this.floorplanStatusMessage = err?.message || 'Floorplan upload failed.'
+            this.showProjectUploadErrorToast(this.floorplanStatusMessage)
+            console.error('Project floorplan upload failed.', err)
+        } finally {
+            this.floorplanUploadBusy = false
+            input.value = ''
+        }
+    }
+
+    async renameFloorplanFile(file: ProjectDocLibraryFileRecord): Promise<void> {
+        file.name = String(file.name || '').trim() || 'Floorplan'
+        file.extension = this.getDocLibraryExtension(file.name) || file.extension
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        this.floorplanStatusMessage = `Renamed ${file.name}.`
+    }
+
+    async openFloorplanDesigner(file: ProjectDocLibraryFileRecord): Promise<void> {
+        const result = await firstValueFrom(this.dialog.open(FloorplanDesignerDialog, {
+            panelClass: 'fw-fullscreen-dialog-pane',
+            maxWidth: '100vw',
+            width: '100vw',
+            data: {
+                file,
+                imageUrl: this.getFloorplanPreviewContent(file)
+            }
+        }).afterClosed()) as FloorplanDesignerDialogResult | undefined
+
+        if (!result?.design) {
+            return
+        }
+
+        file.floorplanDesign = result.design
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+    }
+
+    private defaultBaseManHourEstimateFromBom(): void {
+        if (Number(this.baseManHourEstimate || 0) > 0) {
+            return
+        }
+
+        const bomLaborHours = this.getBomBaseManHourEstimate()
+        if (bomLaborHours > 0) {
+            this.baseManHourEstimate = bomLaborHours
+        }
     }
 
     private normalizeExpenseSections(sections: ProjectExpenseSection[]): ProjectExpenseSection[] {

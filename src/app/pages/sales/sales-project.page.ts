@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs'
 
 import { MatButtonModule } from '@angular/material/button'
 import { MatCardModule } from '@angular/material/card'
+import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatIconModule } from '@angular/material/icon'
 import { MatInputModule } from '@angular/material/input'
@@ -23,14 +24,16 @@ import {
     ProjectDocLibraryFolderDefinition,
     ProjectDocLibraryStorageService
 } from '../../common/services/project-doc-library-storage.service'
+import { PdfThumbnailService } from '../../common/services/pdf-thumbnail.service'
 import { DevicePartPriceSyncService } from '../../common/services/device-part-price-sync.service'
 import { DeviceSetSummary, DeviceSetDetail } from '../../schemas/device-set.schema'
 import { Category } from '../../schemas/category.schema'
 import { VwDeviceMaterial } from '../../schemas/vwdevicematerial.schema'
 import { VwDevice } from '../../schemas/vwdevice.schema'
 import { VwEddyPricelist } from '../../schemas/vwEddyPricelist'
+import { FloorplanDesignerDialog, FloorplanDesignerDialogResult } from '../design/floorplan-designer.dialog'
 
-type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'DOC LIBRARY'
+type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'FLOORPLANS' | 'DOC LIBRARY'
 type SalesBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'type'
 
 interface SalesBomRow {
@@ -73,6 +76,13 @@ interface SalesCustomerInfo {
     contractOrPoNumber: string
 }
 
+interface SalesDocLibraryCategoryDialogData {
+    title: string
+    confirmLabel: string
+    selectedFolderId: string
+    folders: Array<{ id: string, label: string }>
+}
+
 @Component({
     standalone: true,
     selector: 'sales-project-page',
@@ -94,17 +104,25 @@ interface SalesCustomerInfo {
     styleUrls: ['./sales-project.page.scss']
 })
 export class SalesProjectPage {
+    private readonly defaultLaborHourlyRate = 56
+    private readonly defaultLaborCost = this.defaultLaborHourlyRate * 2
+    private readonly floorplansFolderId = 'floorplans'
     @Input() projectId?: string
 
     @ViewChild('docLibraryUploadInput')
     docLibraryUploadInput?: ElementRef<HTMLInputElement>
+    @ViewChild('floorplanUploadInput')
+    floorplanUploadInput?: ElementRef<HTMLInputElement>
 
     private readonly projectSettingsApi = inject(ProjectSettingsApi)
     private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
+    private readonly pdfThumbnailService = inject(PdfThumbnailService)
     private readonly devicePartPriceSync = inject(DevicePartPriceSyncService)
+    private readonly dialog = inject(MatDialog)
     readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
-    readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'DOC LIBRARY']
-    readonly docLibraryFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getFolderDefinitions()
+    readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'FLOORPLANS', 'DOC LIBRARY']
+    readonly docLibraryFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getRootFolderDefinitions()
+    readonly docLibrarySelectableFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getSelectableFolderDefinitions()
     readonly docLibraryImageTileMaxBytes = 4 * 1024 * 1024
 
     pageWorking = true
@@ -113,6 +131,8 @@ export class SalesProjectPage {
     saveMessage = ''
     docLibraryStatusMessage = ''
     docLibraryUploadBusy = false
+    floorplanStatusMessage = ''
+    floorplanUploadBusy = false
     activeTab: SalesWorkspaceTab = 'PROJECT DETAILS'
     selectedDocLibraryFolder = 'all'
     selectedDeviceSetId = ''
@@ -201,9 +221,22 @@ export class SalesProjectPage {
         if (tab !== 'DOC LIBRARY') {
             this.docLibraryStatusMessage = ''
         }
+        if (tab !== 'FLOORPLANS') {
+            this.floorplanStatusMessage = ''
+        }
     }
 
-    onUploadDocsClick(): void {
+    onUploadFloorplansClick(): void {
+        if (!this.floorplanUploadInput?.nativeElement) {
+            return
+        }
+
+        this.activeTab = 'FLOORPLANS'
+        this.floorplanStatusMessage = ''
+        this.floorplanUploadInput.nativeElement.click()
+    }
+
+    async onUploadDocsClick(): Promise<void> {
         if (!this.docLibraryUploadInput?.nativeElement) {
             return
         }
@@ -212,11 +245,31 @@ export class SalesProjectPage {
         this.docLibraryStatusMessage = ''
 
         if (this.selectedDocLibraryFolder === 'all') {
-            this.docLibraryStatusMessage = 'Choose a document category before uploading.'
-            return
+            const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'sales')
+            if (!selectedFolderId) {
+                return
+            }
+            this.selectedDocLibraryFolder = selectedFolderId
         }
 
         this.docLibraryUploadInput.nativeElement.click()
+    }
+
+    private async openDocLibraryCategoryDialog(title: string, confirmLabel: string, selectedFolderId: string): Promise<string | undefined> {
+        return firstValueFrom(this.dialog.open(SalesDocLibraryCategoryDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                title,
+                confirmLabel,
+                selectedFolderId,
+                folders: this.docLibrarySelectableFolders.map((folder) => ({
+                    id: folder.id,
+                    label: this.projectDocLibraryStorage.getFolderPathLabel(folder.id)
+                }))
+            } as SalesDocLibraryCategoryDialogData
+        }).afterClosed())
     }
 
     async saveProjectDetails(): Promise<void> {
@@ -315,22 +368,54 @@ export class SalesProjectPage {
     }
 
     getDocLibraryFoldersWithAll(): Array<{ id: string, label: string, itemCount: number }> {
-        const allCount = this.docLibraryFiles.length
+        const visibleFiles = this.getDocLibraryFilesOnly()
+        const allCount = visibleFiles.length
         return [
             { id: 'all', label: 'All Documents', itemCount: allCount },
             ...this.docLibraryFolders.map((folder) => ({
                 id: folder.id,
                 label: folder.label,
-                itemCount: this.docLibraryFiles.filter((file) => file.folderId === folder.id).length
+                itemCount: visibleFiles.filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, folder.id)).length
             }))
         ]
     }
 
     getDocLibraryVisibleFiles(): ProjectDocLibraryFileRecord[] {
         if (this.selectedDocLibraryFolder === 'all') {
-            return this.docLibraryFiles
+            return this.getDocLibraryFilesOnly()
         }
-        return this.docLibraryFiles.filter((file) => file.folderId === this.selectedDocLibraryFolder)
+        return this.getDocLibraryFilesOnly().filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, this.selectedDocLibraryFolder))
+    }
+
+    getFloorplanFiles(): ProjectDocLibraryFileRecord[] {
+        return this.docLibraryFiles
+            .filter((file) => file.folderId === this.floorplansFolderId)
+            .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+    }
+
+    isFloorplanPdf(file: ProjectDocLibraryFileRecord): boolean {
+        const version = this.getLatestDocLibraryVersion(file)
+        return String(version?.mimeType || '').toLowerCase() === 'application/pdf'
+            || String(file.extension || '').toLowerCase() === 'pdf'
+    }
+
+    getFloorplanPreviewContent(file: ProjectDocLibraryFileRecord): string {
+        const version = this.getLatestDocLibraryVersion(file)
+        return version?.thumbnailDataUrl || version?.dataUrl || version?.contentUrl || ''
+    }
+
+    getFloorplanTotalBytes(): number {
+        return this.getFloorplanFiles().reduce((sum, file) => sum + Number(this.getLatestDocLibraryVersion(file)?.sizeBytes || 0), 0)
+    }
+
+    formatFloorplanBytes(sizeBytes: number): string {
+        if (sizeBytes >= 1024 * 1024) {
+            return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`
+        }
+        if (sizeBytes >= 1024) {
+            return `${Math.round(sizeBytes / 1024)} KB`
+        }
+        return `${sizeBytes} B`
     }
 
     getDocLibraryDocumentRows(): ProjectDocLibraryFileRecord[] {
@@ -348,14 +433,14 @@ export class SalesProjectPage {
     isDocLibraryDisplayableImage(file: ProjectDocLibraryFileRecord): boolean {
         const version = this.getLatestDocLibraryVersion(file)
         const mimeType = String(version?.mimeType || '').toLowerCase()
-        return mimeType.startsWith('image/') && Number(version?.sizeBytes || 0) <= this.docLibraryImageTileMaxBytes && !!version?.dataUrl
+        return mimeType.startsWith('image/') && Number(version?.sizeBytes || 0) <= this.docLibraryImageTileMaxBytes && !!(version?.dataUrl || version?.contentUrl)
     }
 
     canEditDocLibraryMarkup(file: ProjectDocLibraryFileRecord): boolean {
         const version = this.getLatestDocLibraryVersion(file)
-        return file.folderId === 'drawings'
+        return this.projectDocLibraryStorage.isDrawing(file)
             && String(version?.mimeType || '').toLowerCase().startsWith('image/')
-            && !!version?.dataUrl
+            && !!(version?.dataUrl || version?.contentUrl)
             && !!this.getDocLibraryStorageKey()
     }
 
@@ -365,7 +450,7 @@ export class SalesProjectPage {
 
     getDocLibraryMarkupQueryParams(file: ProjectDocLibraryFileRecord): Record<string, string> {
         return {
-            projectKey: this.getDocLibraryStorageKey(),
+            projectKey: file.storageKey || this.getDocLibraryStorageKey(),
             bomProjectKey: this.projectId || this.project?.uuid || this.getDocLibraryStorageKey(),
             fileId: file.id,
             returnTo: `/sales/${this.projectId || this.project?.uuid || ''}`
@@ -384,7 +469,10 @@ export class SalesProjectPage {
     }
 
     getDocLibraryFolderLabel(folderId: string): string {
-        return this.docLibraryFolders.find((folder) => folder.id === folderId)?.label || 'Unfiled'
+        if (folderId === 'all') {
+            return 'All Documents'
+        }
+        return this.projectDocLibraryStorage.getFolderPathLabel(folderId)
     }
 
     getBomRowExtCost(row: SalesBomRow): number {
@@ -603,7 +691,7 @@ export class SalesProjectPage {
         row.description = String(part.LongDescription || '').trim()
         row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
         row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = this.getInstallationLaborCost(Number(category?.defaultLabor || 0))
+        row.labor = this.getDefaultLaborCost(category?.defaultLabor)
         this.closeBomPartLookup()
         this.saveMessage = category
             ? `Loaded ${row.partNbr} from vendor parts.`
@@ -618,7 +706,7 @@ export class SalesProjectPage {
         row.description = String(device.name || device.shortName || '').trim()
         row.cost = Number(device.cost || 0)
         row.type = includeOnFloorplan ? String(device.categoryName || '').trim() : ''
-        row.labor = this.getInstallationLaborCost(Number(device.defaultLabor || 0))
+        row.labor = this.getDefaultLaborCost(device.defaultLabor)
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
     }
@@ -726,7 +814,9 @@ export class SalesProjectPage {
             return
         }
 
-        const blob = this.dataUrlToBlob(version.dataUrl)
+        const blob = version.dataUrl
+            ? this.dataUrlToBlob(version.dataUrl)
+            : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -785,6 +875,80 @@ export class SalesProjectPage {
         }
     }
 
+    async onFloorplanFileSelected(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement | null
+        if (!input?.files?.length) {
+            return
+        }
+
+        this.floorplanUploadBusy = true
+        this.floorplanStatusMessage = ''
+
+        try {
+            const files = Array.from(input.files)
+            let uploadedCount = 0
+            let skippedCount = 0
+
+            for (const file of files) {
+                if (!this.isFloorplanUploadFile(file)) {
+                    skippedCount += 1
+                    continue
+                }
+
+                await this.uploadFileToDocLibraryFolder(file, this.floorplansFolderId, false, await this.createPdfThumbnailIfNeeded(file))
+                uploadedCount += 1
+            }
+
+            await this.persistDocLibraryWorkspace()
+
+            const parts: string[] = []
+            if (uploadedCount > 0) {
+                parts.push(`${uploadedCount} uploaded`)
+            }
+            if (skippedCount > 0) {
+                parts.push(`${skippedCount} skipped`)
+            }
+            this.floorplanStatusMessage = parts.length > 0
+                ? `Floorplans updated: ${parts.join(', ')}.`
+                : 'No floorplan changes were made.'
+        } catch (err: any) {
+            this.floorplanStatusMessage = err?.message || 'Floorplan upload failed.'
+        } finally {
+            this.floorplanUploadBusy = false
+            input.value = ''
+        }
+    }
+
+    async renameFloorplanFile(file: ProjectDocLibraryFileRecord): Promise<void> {
+        const normalizedName = String(file.name || '').trim() || 'Floorplan'
+        file.name = normalizedName
+        file.extension = this.getDocLibraryExtension(normalizedName) || file.extension
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        this.floorplanStatusMessage = `Renamed ${file.name}.`
+    }
+
+    async openFloorplanDesigner(file: ProjectDocLibraryFileRecord): Promise<void> {
+        const result = await firstValueFrom(this.dialog.open(FloorplanDesignerDialog, {
+            panelClass: 'fw-fullscreen-dialog-pane',
+            maxWidth: '100vw',
+            width: '100vw',
+            data: {
+                file,
+                imageUrl: this.getFloorplanPreviewContent(file)
+            }
+        }).afterClosed()) as FloorplanDesignerDialogResult | undefined
+
+        if (!result?.design) {
+            return
+        }
+
+        file.floorplanDesign = result.design
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+    }
+
     private async loadProjectSettings(): Promise<void> {
         try {
             this.projectSettings = await firstValueFrom(this.projectSettingsApi.getCatalog())
@@ -801,6 +965,7 @@ export class SalesProjectPage {
         }
         const workspace = await this.projectDocLibraryStorage.loadWorkspace(key)
         this.docLibraryFiles = [...(workspace.files || [])]
+        await this.ensureFloorplanPdfThumbnails()
     }
 
     private async persistDocLibraryWorkspace(): Promise<void> {
@@ -830,7 +995,7 @@ export class SalesProjectPage {
                 description: String(device.name || '').trim(),
                 qty: 0,
                 cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0)),
-                labor: this.getInstallationLaborCost(Number(device.defaultLabor || 0)),
+                labor: this.getDefaultLaborCost(device.defaultLabor),
                 type: typeValue
             }]
         }
@@ -843,14 +1008,18 @@ export class SalesProjectPage {
                 description: String(material.materialName || material.deviceName || device.name || '').trim(),
                 qty: 0,
                 cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0)),
-                labor: index === 0 ? this.getInstallationLaborCost(Number(device.defaultLabor || material.materialDefaultLabor || 0)) : 0,
+                labor: index === 0 ? this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor) : 0,
                 type: typeValue
             }
         })
     }
 
-    private getInstallationLaborCost(hours: number): number {
-        return Number(hours || 0) * this.getInstallationLaborRate()
+    private getDefaultLaborCost(value: unknown): number {
+        const baselineLaborCost = value === null || typeof value === 'undefined' || value === ''
+            ? this.defaultLaborCost
+            : Number(value)
+        const normalizedBaseline = Number.isFinite(baselineLaborCost) ? baselineLaborCost : this.defaultLaborCost
+        return (normalizedBaseline / this.defaultLaborHourlyRate) * this.getInstallationLaborRate()
     }
 
     private getInstallationLaborRate(): number {
@@ -858,7 +1027,7 @@ export class SalesProjectPage {
             ? this.project?.worksheetData?.laborRates
             : []
         const installationRate = rates.find((row: any) => String(row?.label || '').trim().toLowerCase() === 'installation')
-        return Number(installationRate?.effectiveRate || installationRate?.payRate || 56)
+        return Number(installationRate?.effectiveRate || installationRate?.payRate || this.defaultLaborHourlyRate)
     }
 
     private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwEddyPricelist> | undefined, fallbackCost: number): number {
@@ -890,52 +1059,96 @@ export class SalesProjectPage {
             throw new Error('Choose a document category before uploading.')
         }
 
+        return this.uploadFileToDocLibraryFolder(file, folderId)
+    }
+
+    private async uploadFileToDocLibraryFolder(file: File, folderId: string, confirmVersion = false, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
             item.folderId === folderId && item.name.toLowerCase() === file.name.toLowerCase())
         const now = new Date().toISOString()
-        const dataUrl = await this.readFileAsDataUrl(file)
+        const projectKey = this.getDocLibraryStorageKey()
 
         if (duplicate) {
-            duplicate.versions.push({
-                id: this.createClientId(),
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+                fileId: duplicate.id,
+                versionId: this.createClientId(),
+                folderId,
                 versionNumber: duplicate.versions.length + 1,
-                uploadedAt: now,
-                uploadedBy: 'Current User',
-                sourceFileName: file.name,
-                sizeBytes: file.size,
-                mimeType: file.type || 'application/octet-stream',
-                lastModified: file.lastModified,
-                dataUrl
+                lastModified: file.lastModified
             })
+            version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+            duplicate.versions.push(version)
             duplicate.updatedAt = now
             return 'versioned'
         }
 
+        const fileId = this.createClientId()
+        const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+            fileId,
+            versionId: this.createClientId(),
+            folderId,
+            versionNumber: 1,
+            lastModified: file.lastModified
+        })
+        version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+
         this.docLibraryFiles = [
             {
-                id: this.createClientId(),
+                id: fileId,
                 folderId,
+                storageKey: projectKey,
+                documentKind: this.projectDocLibraryStorage.getDocumentKindForFolder(folderId),
                 name: file.name,
                 extension: this.getDocLibraryExtension(file.name),
                 createdAt: now,
                 updatedAt: now,
-                versions: [
-                    {
-                        id: this.createClientId(),
-                        versionNumber: 1,
-                        uploadedAt: now,
-                        uploadedBy: 'Current User',
-                        sourceFileName: file.name,
-                        sizeBytes: file.size,
-                        mimeType: file.type || 'application/octet-stream',
-                        lastModified: file.lastModified,
-                        dataUrl
-                    }
-                ]
+                versions: [version]
             },
             ...this.docLibraryFiles
         ]
         return 'uploaded'
+    }
+
+    private getDocLibraryFilesOnly(): ProjectDocLibraryFileRecord[] {
+        return this.docLibraryFiles.filter((file) => file.folderId !== this.floorplansFolderId)
+    }
+
+    private isFloorplanUploadFile(file: File): boolean {
+        const mimeType = String(file.type || '').toLowerCase()
+        const extension = this.getDocLibraryExtension(file.name)
+        return mimeType.startsWith('image/')
+            || mimeType === 'application/pdf'
+            || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'pdf'].includes(extension)
+    }
+
+    private async createPdfThumbnailIfNeeded(file: File): Promise<string> {
+        const mimeType = String(file.type || '').toLowerCase()
+        const extension = this.getDocLibraryExtension(file.name)
+        if (mimeType !== 'application/pdf' && extension !== 'pdf') {
+            return ''
+        }
+
+        return this.pdfThumbnailService.createThumbnail(file)
+    }
+
+    private async ensureFloorplanPdfThumbnails(): Promise<void> {
+        let changed = false
+        for (const file of this.getFloorplanFiles()) {
+            const version = this.getLatestDocLibraryVersion(file)
+            if (!version || version.thumbnailDataUrl || !this.isFloorplanPdf(file)) {
+                continue
+            }
+
+            const blob = version.dataUrl
+                ? this.dataUrlToBlob(version.dataUrl)
+                : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
+            version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            changed = true
+        }
+
+        if (changed) {
+            await this.persistDocLibraryWorkspace()
+        }
     }
 
     private buildForm(project: FirewireProjectSchema): SalesProjectForm {
@@ -1152,5 +1365,51 @@ export class SalesProjectPage {
             return cryptoApi.randomUUID()
         }
         return `sales-doc-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
+    }
+
+    getDocLibraryVersionContent(file: ProjectDocLibraryFileRecord): string {
+        const version = this.getLatestDocLibraryVersion(file)
+        return version?.dataUrl || version?.contentUrl || ''
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'sales-doc-library-category-dialog',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MatButtonModule,
+        MatFormFieldModule,
+        MatSelectModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose
+    ],
+    template: `
+        <h2 mat-dialog-title>{{data.title}}</h2>
+        <mat-dialog-content class="project-doc-library-category-dialog">
+            <div class="project-doc-library-category-dialog__hint">Choose the document category for this upload.</div>
+            <mat-form-field>
+                <mat-label>Category</mat-label>
+                <mat-select [(ngModel)]="selectedFolderId">
+                    <mat-option *ngFor="let folder of data.folders" [value]="folder.id">{{folder.label}}</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
+        </mat-dialog-actions>
+    `
+})
+export class SalesDocLibraryCategoryDialog {
+    readonly data = inject<SalesDocLibraryCategoryDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<SalesDocLibraryCategoryDialog>)
+    selectedFolderId = this.data.selectedFolderId
+
+    confirmSelection(): void {
+        this.dialogRef.close(this.selectedFolderId)
     }
 }

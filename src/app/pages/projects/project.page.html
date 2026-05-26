@@ -11,6 +11,7 @@
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
         <button *ngIf="project && shouldShowChangeOrdersNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/change-orders'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">CHANGE ORDERS</button>
         <input #projectDocumentUploadInput type="file" multiple hidden (change)="onProjectDocumentFileSelected($event)" />
+        <input #projectFloorplanUploadInput type="file" multiple hidden accept="image/*,application/pdf,.pdf" (change)="onProjectFloorplanFileSelected($event)" />
     </div>
 
 </page-toolbar>
@@ -81,7 +82,7 @@
                 {{getProjectLockChipLabel()}}
             </span>
             <span class="tabstrip-spacer"></span>
-            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && activeFirewireWorkspaceTab !== 'FIELDWIRE VIEW' && activeFirewireWorkspaceTab !== 'DOC LIBRARY' && activeFirewireWorkspaceTab !== 'SYSTEM' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && activeFirewireWorkspaceTab !== 'FLOORPLANS' && activeFirewireWorkspaceTab !== 'FIELDWIRE VIEW' && activeFirewireWorkspaceTab !== 'DOC LIBRARY' && activeFirewireWorkspaceTab !== 'SYSTEM' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
                 <button
                     mat-flat-button
                     type="button"
@@ -92,7 +93,13 @@
                     SAVE CHANGES
                 </button>
             </div>
-            <div *ngIf="firewireProject" class="tabstrip-actions tabstrip-actions--menu">
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab === 'FLOORPLANS'" class="tabstrip-actions tabstrip-actions--menu">
+                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectFloorplansClick(projectFloorplanUploadInput)" [disabled]="floorplanUploadBusy || !hasFieldwireProject()">
+                    <mat-icon fontIcon="add_photo_alternate"></mat-icon>
+                    {{floorplanUploadBusy ? 'UPLOADING...' : 'UPLOAD FLOORPLANS'}}
+                </button>
+            </div>
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'FLOORPLANS'" class="tabstrip-actions tabstrip-actions--menu">
                 <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">
                     <mat-icon fontIcon="upload_file"></mat-icon>
                     {{projectDocumentUploadBusy ? 'UPLOADING...' : 'UPLOAD DOCS'}}
@@ -1719,7 +1726,7 @@
                                     </ng-template>
 
                                     <ng-template #firewireWorkspaceSsTechOrSummary>
-                                    <div *ngIf="activeFirewireWorkspaceTab === 'SS TECH'; else firewireWorkspaceSummaryOrPlaceholder" class="ss-pm-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'SS TECH'; else firewireWorkspaceFloorplansOrSummary" class="ss-pm-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
                                         <div class="ss-pm-toolbar">
                                             <div class="ss-pm-toolbar__meta">
                                                 <div class="firewire-workspace-placeholder__eyebrow">Technical</div>
@@ -1833,6 +1840,64 @@
                                                         </tr>
                                                     </tbody>
                                                 </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </ng-template>
+
+                                    <ng-template #firewireWorkspaceFloorplansOrSummary>
+                                    <div *ngIf="activeFirewireWorkspaceTab === 'FLOORPLANS'; else firewireWorkspaceSummaryOrPlaceholder" class="doc-library-panel floorplans-panel">
+                                        <div class="doc-library-toolbar">
+                                            <div>
+                                                <div class="firewire-workspace-placeholder__eyebrow">Floorplans</div>
+                                                <h4>Project Floorplans <span class="doc-library-project-nbr">{{getDocLibraryProjectKey()}}</span></h4>
+                                            </div>
+                                        </div>
+
+                                        <div class="doc-library-summary">
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Floorplans</span>
+                                                <strong>{{getFloorplanFiles().length}}</strong>
+                                            </div>
+                                            <div class="doc-library-stat">
+                                                <span class="doc-library-stat__label">Storage</span>
+                                                <strong>{{formatDocLibraryBytes(getFloorplanTotalBytes())}}</strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="doc-library-browser">
+                                            <div class="doc-library-browser__header">
+                                                <div>
+                                                    <div class="firewire-workspace-placeholder__eyebrow">Plan Set</div>
+                                                    <h5>/Projects/{{getDocLibraryProjectKey()}}/Floorplans</h5>
+                                                </div>
+                                                <div *ngIf="floorplanStatusMessage" class="doc-library-browser__status">{{floorplanStatusMessage}}</div>
+                                            </div>
+
+                                            <div *ngIf="getFloorplanFiles().length === 0" class="doc-library-empty">No floorplans have been uploaded yet.</div>
+
+                                            <div *ngIf="getFloorplanFiles().length > 0" class="floorplans-grid">
+                                                <div *ngFor="let file of getFloorplanFiles()" class="floorplan-tile">
+                                                    <div class="floorplan-tile__preview">
+                                                        <img [src]="getFloorplanPreviewContent(file)" [alt]="file.name" loading="lazy" />
+                                                    </div>
+                                                    <input
+                                                        class="floorplan-tile__name"
+                                                        [(ngModel)]="file.name"
+                                                        (change)="renameFloorplanFile(file)"
+                                                        aria-label="Floorplan name" />
+                                                    <div class="floorplan-tile__meta">
+                                                        {{formatDocLibraryBytes(getLatestDocLibraryVersion(file)?.sizeBytes || 0)}} / {{file.floorplanDesign?.annotations?.length || 0}} mark{{(file.floorplanDesign?.annotations?.length || 0) === 1 ? '' : 's'}}
+                                                    </div>
+                                                    <button mat-stroked-button type="button" (click)="openFloorplanDesigner(file)">
+                                                        <mat-icon fontIcon="architecture"></mat-icon>
+                                                        Design
+                                                    </button>
+                                                    <button mat-stroked-button type="button" (click)="downloadDocLibraryFile(file.id)">
+                                                        <mat-icon fontIcon="download"></mat-icon>
+                                                        Download
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

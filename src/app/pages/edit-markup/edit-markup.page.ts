@@ -125,13 +125,13 @@ export class EditMarkupPage implements OnInit {
             ])
             this.sourceFile = workspace.files.find((file) => file.id === this.fileId)
             const latest = this.sourceFile?.versions?.[this.sourceFile.versions.length - 1]
-            if (!this.sourceFile || !latest?.dataUrl || !String(latest.mimeType || '').toLowerCase().startsWith('image/')) {
+            if (!this.sourceFile || !(latest?.dataUrl || latest?.contentUrl) || !String(latest.mimeType || '').toLowerCase().startsWith('image/')) {
                 this.statusText = 'The selected drawing is not a displayable image.'
                 this.pageWorking = false
                 return
             }
 
-            this.imageDataUrl = latest.dataUrl
+            this.imageDataUrl = latest.dataUrl || latest.contentUrl || ''
             this.paletteItems = this.buildPaletteItems(bomSections)
             this.activeItemId = this.paletteItems[0]?.id || ''
             const markupDocument = markupWorkspace.documents.find((doc) => doc.fileId === this.fileId)

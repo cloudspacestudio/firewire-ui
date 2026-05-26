@@ -146,7 +146,9 @@ export class ChangeOrdersPage implements OnChanges {
             return
         }
 
-        const blob = this.dataUrlToBlob(latestVersion.dataUrl)
+        const blob = latestVersion.dataUrl
+            ? this.dataUrlToBlob(latestVersion.dataUrl)
+            : await this.projectDocLibraryStorage.downloadVersion(this.getStorageKey(), file.id, latestVersion)
         const objectUrl = URL.createObjectURL(blob)
         const anchor = document.createElement('a')
         anchor.href = objectUrl
@@ -158,7 +160,7 @@ export class ChangeOrdersPage implements OnChanges {
     private async loadChangeOrders(): Promise<void> {
         const workspace = await this.loadWorkspace()
         this.changeOrders = workspace.files
-            .filter((file) => file.folderId === 'change-orders')
+            .filter((file) => file.folderId === 'proj-mgmt/change-orders')
             .map((file) => {
                 const latestVersion = file.versions[file.versions.length - 1]
                 return {
@@ -177,45 +179,38 @@ export class ChangeOrdersPage implements OnChanges {
         const workspace = await this.loadWorkspace()
         const normalizedFileName = this.ensureHtmlFileName(fileName)
         const now = new Date().toISOString()
-        const dataUrl = this.textToDataUrl(html, 'text/html')
+        const generatedFile = new File([html], normalizedFileName, { type: 'text/html', lastModified: Date.now() })
         const existing = workspace.files.find((file) =>
-            file.folderId === 'change-orders'
+            file.folderId === 'proj-mgmt/change-orders'
             && file.name.toLowerCase() === normalizedFileName.toLowerCase())
 
         if (existing) {
-            existing.versions.push({
-                id: this.createId(),
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getStorageKey(), generatedFile, {
+                fileId: existing.id,
+                versionId: this.createId(),
+                folderId: existing.folderId,
                 versionNumber: existing.versions.length + 1,
-                uploadedAt: now,
-                uploadedBy: 'Current User',
-                sourceFileName: normalizedFileName,
-                sizeBytes: new Blob([html], { type: 'text/html' }).size,
-                mimeType: 'text/html',
-                lastModified: Date.now(),
-                dataUrl
+                lastModified: generatedFile.lastModified
             })
+            existing.versions.push(version)
             existing.updatedAt = now
         } else {
+            const fileId = this.createId()
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getStorageKey(), generatedFile, {
+                fileId,
+                versionId: this.createId(),
+                folderId: 'proj-mgmt/change-orders',
+                versionNumber: 1,
+                lastModified: generatedFile.lastModified
+            })
             workspace.files.push({
-                id: this.createId(),
-                folderId: 'change-orders',
+                id: fileId,
+                folderId: 'proj-mgmt/change-orders',
                 name: normalizedFileName,
                 extension: 'html',
                 createdAt: now,
                 updatedAt: now,
-                versions: [
-                    {
-                        id: this.createId(),
-                        versionNumber: 1,
-                        uploadedAt: now,
-                        uploadedBy: 'Current User',
-                        sourceFileName: normalizedFileName,
-                        sizeBytes: new Blob([html], { type: 'text/html' }).size,
-                        mimeType: 'text/html',
-                        lastModified: Date.now(),
-                        dataUrl
-                    }
-                ]
+                versions: [version]
             })
         }
 

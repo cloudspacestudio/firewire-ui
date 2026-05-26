@@ -86,6 +86,11 @@ export const ABOUT_METADATA: AboutMetadata = {
                 "license": "MIT"
             },
             {
+                "name": "pdfjs-dist",
+                "version": "5.6.205",
+                "license": "Apache-2.0"
+            },
+            {
                 "name": "rxjs",
                 "version": "7.8.1",
                 "license": "Apache-2.0"

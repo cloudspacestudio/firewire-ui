@@ -71,7 +71,7 @@ export class DeviceDetailComponent implements OnChanges {
     private readonly speakerFalseValue = 'false'
     private readonly strobeFalseValue = 'false'
     private readonly vendorPartLookupMinChars = 3
-    private readonly defaultLaborRate = 50
+    private readonly defaultLaborRate = 56
 
     @Input() deviceId?: string
     @Output() deviceLoaded: EventEmitter<VwDevice> = new EventEmitter()
