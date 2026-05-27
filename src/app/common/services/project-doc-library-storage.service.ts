@@ -41,15 +41,38 @@ export interface ProjectDocLibraryFileRecord {
     versions: ProjectDocLibraryFileVersionRecord[]
 }
 
+export interface ProjectDocLibraryDirectoryRecord {
+    id: string
+    name: string
+    parentId?: string
+    createdAt: string
+    updatedAt: string
+}
+
 export interface ProjectFloorplanDesignAnnotation {
     id: string
     kind: 'symbol' | 'note' | 'sticky'
     xRatio: number
     yRatio: number
+    symbolId?: string
+    categoryKey?: string
+    categoryName?: string
+    partNumber?: string
+    deviceName?: string
+    materialCost?: number
+    laborHours?: number
+    customAttributes?: ProjectFloorplanSymbolAttribute[]
     symbol?: string
     label?: string
     text?: string
     color?: string
+}
+
+export interface ProjectFloorplanSymbolAttribute {
+    name: string
+    value?: string
+    defaultValue?: string
+    valueType?: string
 }
 
 export interface ProjectFloorplanDesignState {
@@ -59,6 +82,7 @@ export interface ProjectFloorplanDesignState {
 
 export interface ProjectDocLibraryWorkspaceState {
     files: ProjectDocLibraryFileRecord[]
+    directories?: ProjectDocLibraryDirectoryRecord[]
     editMarkupDocuments?: any[]
 }
 
@@ -149,9 +173,21 @@ export class ProjectDocLibraryStorageService {
         }
     }
 
+    async deleteFile(projectKey: string, fileId: string): Promise<ProjectDocLibraryWorkspaceState> {
+        try {
+            const response = await firstValueFrom(this.http.delete<{ data?: { payload?: any } }>(
+                `/api/firewire/storage/project-doc-library/${encodeURIComponent(projectKey)}/files/${encodeURIComponent(fileId)}`
+            ))
+            return this.normalizeWorkspace(response?.data?.payload, projectKey)
+        } catch (error) {
+            throw new Error(this.getHttpErrorMessage(error, 'Document delete failed.'))
+        }
+    }
+
     createDefaultWorkspace(): ProjectDocLibraryWorkspaceState {
         return {
             files: [],
+            directories: [],
             editMarkupDocuments: []
         }
     }
@@ -228,6 +264,13 @@ export class ProjectDocLibraryStorageService {
                 storageKey: file.storageKey || projectKey,
                 versions: (file.versions || []).map((version) => this.withContentUrl(projectKey, file.id, version))
             })) : [],
+            directories: Array.isArray(input?.directories) ? input.directories.map((directory: ProjectDocLibraryDirectoryRecord) => ({
+                id: String(directory?.id || '').trim(),
+                name: String(directory?.name || 'New Folder').trim() || 'New Folder',
+                parentId: String(directory?.parentId || '').trim() || undefined,
+                createdAt: String(directory?.createdAt || new Date().toISOString()),
+                updatedAt: String(directory?.updatedAt || directory?.createdAt || new Date().toISOString())
+            })).filter((directory: ProjectDocLibraryDirectoryRecord) => !!directory.id) : [],
             editMarkupDocuments: Array.isArray(input?.editMarkupDocuments) ? input.editMarkupDocuments : []
         }
     }

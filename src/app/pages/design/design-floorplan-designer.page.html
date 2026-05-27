@@ -1,0 +1,57 @@
+<page-toolbar title="DESIGN">
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'design-floorplan-designer'"></nav-toolbar>
+</page-toolbar>
+
+<div class="design-floorplan-page" *ngIf="!pageWorking; else loadingTpl">
+    <aside class="design-floorplan-rail">
+        <div class="design-floorplan-rail__header">
+            <div>
+                <div class="design-floorplan-rail__eyebrow">Floorplans</div>
+                <strong>{{files.length}} file{{files.length === 1 ? '' : 's'}}</strong>
+            </div>
+            <button mat-flat-button type="button" (click)="triggerUpload(fileInput)">
+                <mat-icon fontIcon="upload_file"></mat-icon>
+                <span>Upload</span>
+            </button>
+            <input #fileInput type="file" multiple hidden accept="image/*,application/pdf,.pdf" (change)="onFileInputChanged($event)" />
+        </div>
+
+        <div *ngIf="statusText" class="design-floorplan-status">{{statusText}}</div>
+
+        <div class="design-floorplan-list">
+            <button
+                *ngFor="let file of files"
+                type="button"
+                class="design-floorplan-file"
+                [class.is-selected]="selectedFileId === file.id"
+                [disabled]="!canUseFile(file)"
+                (click)="selectFile(file)">
+                <mat-icon [fontIcon]="(file.extension || '').toLowerCase() === 'pdf' ? 'picture_as_pdf' : 'image'"></mat-icon>
+                <span>{{file.name}}</span>
+                <small>{{file.floorplanDesign?.annotations?.length || 0}} mark{{(file.floorplanDesign?.annotations?.length || 0) === 1 ? '' : 's'}}</small>
+            </button>
+
+            <div *ngIf="files.length <= 0" class="design-floorplan-empty">
+                Upload a floorplan image or PDF to start designing.
+            </div>
+        </div>
+    </aside>
+
+    <main class="design-floorplan-workspace">
+        <floorplan-designer
+            [showHeader]="false"
+            [showActions]="true"
+            closeLabel="Clear Selection"
+            [title]="selectedFile?.name || 'Floorplan Designer'"
+            [sourceUrl]="selectedSourceUrl"
+            [mimeType]="selectedMimeType"
+            [design]="selectedFile?.floorplanDesign"
+            (closeDesigner)="selectedFileId = ''"
+            (saveDesign)="saveDesign($event)">
+        </floorplan-designer>
+    </main>
+</div>
+
+<ng-template #loadingTpl>
+    <div class="design-floorplan-loading">Loading floorplan designer...</div>
+</ng-template>

@@ -1,0 +1,45 @@
+<section class="fw-takeoff-matrix-card">
+    <div class="fw-takeoff-matrix-card__header">
+        <h4>{{matrix.title}}</h4>
+        <span>Total {{matrixTotal}}</span>
+    </div>
+
+    <div *ngIf="!matrix.rows.length" class="fw-takeoff-empty">{{emptyMessage}}</div>
+
+    <div *ngIf="matrix.rows.length" class="fw-takeoff-grid">
+        <table>
+            <colgroup>
+                <col class="fw-takeoff-col-area" />
+                <col *ngFor="let column of columns" class="fw-takeoff-col-count" />
+                <col class="fw-takeoff-col-total" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="fw-takeoff-area-cell">Area</th>
+                    <th *ngFor="let column of columns" class="fw-takeoff-count-cell">
+                        <span class="fw-takeoff-column-header">{{column.label}}</span>
+                    </th>
+                    <th class="fw-takeoff-total-cell">Row Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let row of matrix.rows">
+                    <td class="fw-takeoff-area-cell fw-takeoff-row-label">{{row}}</td>
+                    <td *ngFor="let column of columns" class="fw-takeoff-count-cell">
+                        <span class="fw-takeoff-cell-value" [class.is-empty]="!getCellValue(row, column.key)">
+                            {{getCellValue(row, column.key)}}
+                        </span>
+                    </td>
+                    <td class="fw-takeoff-total-cell fw-takeoff-row-total">{{getRowTotal(row)}}</td>
+                </tr>
+                <tr class="fw-takeoff-total-row">
+                    <td class="fw-takeoff-area-cell">Total</td>
+                    <td *ngFor="let column of columns" class="fw-takeoff-count-cell">
+                        <span class="fw-takeoff-cell-value">{{getColumnTotal(column.key)}}</span>
+                    </td>
+                    <td class="fw-takeoff-total-cell fw-takeoff-row-total">{{matrixTotal}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>

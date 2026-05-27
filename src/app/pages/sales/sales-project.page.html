@@ -182,214 +182,11 @@
                                 </div>
                                 <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
                             </div>
-
-                            <div *ngIf="activeTab === 'BOM'" class="firewire-bom-panel sales-project-bom-panel">
-                                <div *ngIf="saveWorking" class="firewire-save-overlay" role="status" aria-live="polite">
-                                    <div class="firewire-save-overlay__panel">
-                                        <div class="firewire-save-overlay__spinner" aria-hidden="true"></div>
-                                        <div>
-                                            <div class="firewire-save-overlay__title">Saving changes</div>
-                                            <div class="firewire-save-overlay__message">{{saveMessage || 'Updating the BOM worksheet...'}}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="firewire-bom-toolbar">
-                                    <div class="firewire-bom-toolbar__meta">
-                                        <div class="sales-project-placeholder__eyebrow">Project BOM</div>
-                                        <h4>Material Worksheet</h4>
-                                        <label class="firewire-bom-filter">
-                                            <span>Filter</span>
-                                            <input [(ngModel)]="bomFilter" aria-label="Filter BOM rows" placeholder="device, component, cost" />
-                                        </label>
-                                    </div>
-                                    <div class="firewire-bom-toolbar__actions">
-                                        <mat-form-field class="sales-project-bom-device-set-field">
-                                            <mat-label>Device Set</mat-label>
-                                            <mat-select [(ngModel)]="selectedDeviceSetId">
-                                                <mat-option [value]="''">Choose Device Set</mat-option>
-                                                <mat-option *ngFor="let deviceSet of deviceSets" [value]="deviceSet.deviceSetId">
-                                                    {{deviceSet.name}} ({{deviceSet.deviceCount}})
-                                                </mat-option>
-                                            </mat-select>
-                                        </mat-form-field>
-                                        <button mat-stroked-button type="button" (click)="addSelectedDeviceSetToBom()" [disabled]="saveWorking || !selectedDeviceSetId">
-                                            ADD TO BOM
-                                        </button>
-                                        <div class="firewire-bom-grand-total">
-                                            {{getBomGrandTotal() | currency}}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div *ngIf="saveMessage" class="sales-project-form-message sales-project-bom-message">{{saveMessage}}</div>
-
-                                <div *ngIf="bomSections.length <= 0" class="sales-project-doc-library__empty">
-                                    Add a Device Set to start building the project BOM.
-                                </div>
-
-                                <div *ngFor="let section of bomSections; let sectionIndex = index" class="firewire-bom-section">
-                                    <div class="firewire-bom-section__header">
-                                        <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" aria-label="BOM section title" />
-                                        <div class="firewire-bom-section__actions">
-                                            <span>{{getBomSectionGrandTotal(section) | currency}}</span>
-                                            <button mat-stroked-button type="button" (click)="addBomRow(section)">ADD ROW</button>
-                                            <button mat-stroked-button type="button" color="warn" (click)="removeBomSection(sectionIndex)">REMOVE SECTION</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="firewire-bom-grid" (scroll)="positionBomPartLookup()">
-                                        <table>
-                                            <colgroup>
-                                                <col class="bom-col-part-nbr" />
-                                                <col class="bom-col-description" />
-                                                <col class="bom-col-qty" />
-                                                <col class="bom-col-cost" />
-                                                <col class="bom-col-ext-cost" />
-                                                <col class="bom-col-labor" />
-                                                <col class="bom-col-ext-labor" />
-                                                <col class="bom-col-type" />
-                                                <col class="bom-col-actions" />
-                                            </colgroup>
-                                            <thead>
-                                                <tr>
-                                                    <th>
-                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('partNbr')" (click)="setBomSort('partNbr')">
-                                                            Part Nbr
-                                                            <span>{{isBomSortActive('partNbr') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th>
-                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('description')" (click)="setBomSort('description')">
-                                                            Description
-                                                            <span>{{isBomSortActive('description') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="right-align">
-                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('qty')" (click)="setBomSort('qty')">
-                                                            Qty
-                                                            <span>{{isBomSortActive('qty') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="right-align">
-                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('cost')" (click)="setBomSort('cost')">
-                                                            Cost
-                                                            <span>{{isBomSortActive('cost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="right-align">
-                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extCost')" (click)="setBomSort('extCost')">
-                                                            Ext Cost
-                                                            <span>{{isBomSortActive('extCost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="right-align">
-                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('labor')" (click)="setBomSort('labor')">
-                                                            Labor
-                                                            <span>{{isBomSortActive('labor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="right-align">
-                                                        <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extLabor')" (click)="setBomSort('extLabor')">
-                                                            Ext Labor
-                                                            <span>{{isBomSortActive('extLabor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th>
-                                                        <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('type')" (click)="setBomSort('type')">
-                                                            Type
-                                                            <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                        </button>
-                                                    </th>
-                                                    <th class="bom-actions-heading">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr *ngFor="let row of getFilteredBomRows(section); let idx = index">
-                                                    <td>
-                                                        <div class="sales-bom-part-lookup">
-                                                            <input
-                                                                [(ngModel)]="row.lookupQuery"
-                                                                (focus)="onBomPartLookupFocus(section, row, $event)"
-                                                                (blur)="onBomPartLookupBlur(section, row)"
-                                                                (input)="positionBomPartLookup($event)"
-                                                                (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
-                                                                [attr.aria-label]="'BOM part number ' + (idx + 1)" />
-                                                            <div
-                                                                *ngIf="isBomLookupActive(section, row) && hasBomLookupResults(section, row)"
-                                                                class="sales-bom-part-lookup__menu"
-                                                                [ngStyle]="bomLookupMenuStyle">
-                                                                <div *ngIf="getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
-                                                                <button
-                                                                    *ngFor="let option of getBomDeviceLookupResults(section, row)"
-                                                                    type="button"
-                                                                    class="sales-bom-part-lookup__option"
-                                                                    (mousedown)="selectBomDevice(section, row, option)">
-                                                                    <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
-                                                                    <span class="sales-bom-part-lookup__description">{{option.name}}</span>
-                                                                    <span class="sales-bom-part-lookup__cost">{{option.cost | currency}}</span>
-                                                                    <span class="sales-bom-part-lookup__category">{{option.categoryName}}</span>
-                                                                </button>
-                                                                <div *ngIf="getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Vendor Parts</div>
-                                                                <button
-                                                                    *ngFor="let option of getBomPartLookupResults(section, row)"
-                                                                    type="button"
-                                                                    class="sales-bom-part-lookup__option"
-                                                                    (mousedown)="selectBomPart(section, row, option)">
-                                                                    <span class="sales-bom-part-lookup__part">{{option.PartNumber}}</span>
-                                                                    <span class="sales-bom-part-lookup__description">{{option.LongDescription}}</span>
-                                                                    <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency}}</span>
-                                                                    <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <textarea
-                                                            fwAutosizeTextarea
-                                                            rows="2"
-                                                            [(ngModel)]="row.description"
-                                                            [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
-                                                    </td>
-                                                    <td class="right-align">
-                                                        <input type="number" min="0" step="1" [(ngModel)]="row.qty" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
-                                                    </td>
-                                                    <td class="right-align">
-                                                        <div class="bom-currency-input">
-                                                            <span>$</span>
-                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
-                                                        </div>
-                                                    </td>
-                                                    <td class="right-align bom-total-cell">
-                                                        {{getBomRowExtCost(row) | currency}}
-                                                    </td>
-                                                    <td class="right-align">
-                                                        <div class="bom-currency-input">
-                                                            <span>$</span>
-                                                            <input type="number" min="0" step="0.01" [(ngModel)]="row.labor" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
-                                                        </div>
-                                                    </td>
-                                                    <td class="right-align bom-total-cell">
-                                                        {{getBomRowExtLabor(row) | currency}}
-                                                    </td>
-                                                    <td>
-                                                        <input [(ngModel)]="row.type" [attr.aria-label]="'BOM type ' + (idx + 1)" />
-                                                    </td>
-                                                    <td class="bom-actions-cell">
-                                                        <button
-                                                            mat-icon-button
-                                                            type="button"
-                                                            class="bom-delete-row-button"
-                                                            (click)="removeBomRow(section, row)"
-                                                            [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
-                                                            <mat-icon fontIcon="delete"></mat-icon>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+                            <firewire-bom-worksheet
+                                *ngIf="activeTab === 'BOM'"
+                                [host]="bomWorksheetHost"
+                                context="sales">
+                            </firewire-bom-worksheet>
 
                             <div *ngIf="activeTab === 'FLOORPLANS'" class="sales-project-doc-library sales-project-floorplans">
                                 <input
@@ -400,64 +197,16 @@
                                     accept="image/*,application/pdf,.pdf"
                                     (change)="onFloorplanFileSelected($event)" />
 
-                                <div class="sales-project-doc-library__summary">
-                                    <div class="sales-project-doc-library__stat">
-                                        <span class="sales-project-doc-library__stat-label">Floorplans</span>
-                                        <strong>{{getFloorplanFiles().length}}</strong>
-                                    </div>
-                                    <div class="sales-project-doc-library__stat">
-                                        <span class="sales-project-doc-library__stat-label">Storage</span>
-                                        <strong>{{formatFloorplanBytes(getFloorplanTotalBytes())}}</strong>
-                                    </div>
-                                </div>
-
-                                <div *ngIf="floorplanStatusMessage" class="sales-project-doc-library__status">
-                                    {{floorplanStatusMessage}}
-                                </div>
-
-                                <div class="sales-project-doc-library__panel">
-                                    <div class="sales-project-doc-library__header">
-                                        <div>
-                                            <div class="sales-project-placeholder__eyebrow">Floorplans</div>
-                                            <h4>/Projects/{{project.uuid}}/Floorplans</h4>
-                                        </div>
-                                    </div>
-
-                                    <div *ngIf="getFloorplanFiles().length <= 0" class="sales-project-doc-library__empty">
-                                        No floorplans have been uploaded yet.
-                                    </div>
-
-                                    <div *ngIf="getFloorplanFiles().length > 0" class="sales-project-doc-library__image-grid">
-                                        <div
-                                            *ngFor="let file of getFloorplanFiles()"
-                                            class="sales-project-doc-library__image-tile sales-project-floorplans__tile"
-                                            role="group">
-                                            <img [src]="getFloorplanPreviewContent(file)" [alt]="file.name" loading="lazy" />
-                                            <input
-                                                class="sales-project-floorplans__name"
-                                                [(ngModel)]="file.name"
-                                                (change)="renameFloorplanFile(file)"
-                                                aria-label="Floorplan name" />
-                                            <span class="sales-project-doc-library__image-meta">
-                                                {{getReadableDocLibraryFileSize(file)}} / {{file.floorplanDesign?.annotations?.length || 0}} mark{{(file.floorplanDesign?.annotations?.length || 0) === 1 ? '' : 's'}}
-                                            </span>
-                                            <button
-                                                mat-stroked-button
-                                                type="button"
-                                                class="sales-project-doc-library__markup-link"
-                                                (click)="openFloorplanDesigner(file)">
-                                                Design
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="sales-project-doc-library__image-download"
-                                                [attr.aria-label]="'Download ' + file.name"
-                                                (click)="downloadDocLibraryFile(file.id)">
-                                                <mat-icon fontIcon="download"></mat-icon>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <firewire-floorplans
+                                    [projectKey]="project.uuid"
+                                    [files]="getFloorplanFiles()"
+                                    [statusMessage]="floorplanStatusMessage"
+                                    [getPreviewContent]="getFloorplanPreview"
+                                    (renameFile)="renameFloorplanFile($event)"
+                                    (designFile)="openFloorplanDesigner($event)"
+                                    (downloadFile)="downloadDocLibraryFile($event)"
+                                    (deleteFile)="deleteFloorplanFile($event)">
+                                </firewire-floorplans>
                             </div>
 
                             <div *ngIf="activeTab === 'DOC LIBRARY'" class="sales-project-doc-library">
@@ -468,85 +217,21 @@
                                     multiple
                                     (change)="onDocLibraryFileSelected($event)" />
 
-                                <div class="sales-project-doc-library__summary">
-                                    <div class="sales-project-doc-library__stat">
-                                        <span class="sales-project-doc-library__stat-label">Active Folder</span>
-                                        <strong>{{getDocLibraryFolderLabel(selectedDocLibraryFolder)}}</strong>
-                                    </div>
-                                    <div class="sales-project-doc-library__stat">
-                                        <span class="sales-project-doc-library__stat-label">Files</span>
-                                        <strong>{{getDocLibraryVisibleFiles().length}}</strong>
-                                    </div>
-                                </div>
-
-                                <div *ngIf="docLibraryStatusMessage" class="sales-project-doc-library__status">
-                                    {{docLibraryStatusMessage}}
-                                </div>
-
-                                <div class="sales-project-doc-library__folder-strip">
-                                    <button
-                                        *ngFor="let folder of getDocLibraryFoldersWithAll()"
-                                        type="button"
-                                        class="sales-project-doc-library__folder-chip"
-                                        [class.is-active]="selectedDocLibraryFolder === folder.id"
-                                        (click)="selectedDocLibraryFolder = folder.id">
-                                        <span>{{folder.label}}</span>
-                                        <span class="sales-project-doc-library__folder-count">{{folder.itemCount}}</span>
-                                    </button>
-                                </div>
-
-                                <div class="sales-project-doc-library__panel">
-                                    <div class="sales-project-doc-library__header">
-                                        <div>
-                                            <div class="sales-project-placeholder__eyebrow">Project Files</div>
-                                            <h4>/Projects/{{project.uuid}}/{{getDocLibraryFolderLabel(selectedDocLibraryFolder)}}</h4>
-                                        </div>
-                                    </div>
-                                    <div *ngIf="getDocLibraryVisibleFiles().length <= 0" class="sales-project-doc-library__empty">
-                                        No documents in this section yet.
-                                    </div>
-                                    <div *ngIf="getDocLibraryVisibleFiles().length > 0" class="sales-project-doc-library__content">
-                                        <div *ngIf="getDocLibraryDocumentRows().length > 0" class="sales-project-doc-library__list">
-                                        <button
-                                            *ngFor="let file of getDocLibraryDocumentRows()"
-                                            type="button"
-                                            class="sales-project-doc-library__row"
-                                            (click)="downloadDocLibraryFile(file.id)">
-                                            <div>
-                                                <div class="sales-project-doc-library__name">{{file.name}}</div>
-                                                <div class="sales-project-doc-library__meta">{{getDocLibraryFolderLabel(file.folderId)}} · {{file.versions.length}} version{{file.versions.length === 1 ? '' : 's'}}</div>
-                                            </div>
-                                            <mat-icon fontIcon="download"></mat-icon>
-                                        </button>
-                                        </div>
-                                        <div *ngIf="getDocLibraryImageTiles().length > 0" class="sales-project-doc-library__image-grid">
-                                            <div
-                                                *ngFor="let file of getDocLibraryImageTiles()"
-                                                class="sales-project-doc-library__image-tile"
-                                                role="group">
-                                                <img [src]="getDocLibraryVersionContent(file)" [alt]="file.name" loading="lazy" />
-                                                <button
-                                                    type="button"
-                                                    class="sales-project-doc-library__image-download"
-                                                    [attr.aria-label]="'Download ' + file.name"
-                                                    (click)="downloadDocLibraryFile(file.id)">
-                                                    <mat-icon fontIcon="download"></mat-icon>
-                                                </button>
-                                                <span class="sales-project-doc-library__image-meta">
-                                                    {{getDocLibraryFolderLabel(file.folderId)}} / {{getReadableDocLibraryFileSize(file)}}
-                                                </span>
-                                                <a
-                                                    *ngIf="canEditDocLibraryMarkup(file)"
-                                                    mat-stroked-button
-                                                    class="sales-project-doc-library__markup-link"
-                                                    [routerLink]="getDocLibraryMarkupLink(file)"
-                                                    [queryParams]="getDocLibraryMarkupQueryParams(file)">
-                                                    Edit Markup
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <firewire-doc-library-explorer
+                                    [projectKey]="project.uuid"
+                                    [files]="docLibraryFiles"
+                                    [directories]="docLibraryDirectories"
+                                    [selectedFolder]="selectedDocLibraryFolder"
+                                    [statusMessage]="docLibraryStatusMessage"
+                                    [allowMarkup]="true"
+                                    [markupQueryParams]="getDocLibraryRecordMarkupQueryParams"
+                                    (selectedFolderChange)="selectedDocLibraryFolder = $event"
+                                    (downloadFile)="downloadDocLibraryFile($event)"
+                                    (deleteFile)="deleteDocLibraryFile($event)"
+                                    (createDirectory)="createDocLibraryDirectory($event)"
+                                    (renameDirectory)="renameDocLibraryDirectory($event)"
+                                    (deleteDirectory)="deleteDocLibraryDirectory($event)">
+                                </firewire-doc-library-explorer>
                             </div>
                         </div>
                     </div>

@@ -119,7 +119,7 @@ export class NavToolbar {
 
     static DesignNavItems = [
         {id: 'design-projects', caption: 'PROJECTS', route: `/design`},
-        {id: 'design-train-ai', caption: 'TRAIN AI', route: `/design/train-ai`}
+        {id: 'design-floorplan-designer', caption: 'FLOORPLAN DESIGNER', route: `/design/floorplan-designer`}
     ]
 
     static SettingsNavItems = [

@@ -3,7 +3,7 @@
 
 @use './assets/variables';
 @use './assets/sci-fi-theme' as sci-fi;
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap');
 
 // https://github.com/angular/components/blob/main/src/material/schematics/ng-generate/theme-color/README.md
 // ng generate @angular/material:theme-color - use same colors as _variables to create palette properly
@@ -21,7 +21,7 @@ html {
             tertiary: my-theme.$tertiary-palette,
             theme-type: dark,
         ),
-        typography: Rajdhani,
+        typography: 'Exo 2',
         density: 0
     ));
 }
@@ -451,6 +451,27 @@ button.success {
 
 :root .cdk-overlay-pane.fw-compact-dialog-pane .mat-mdc-dialog-container,
 :root .cdk-overlay-pane.fw-compact-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+:root .cdk-overlay-pane.fw-fieldwire-import-dialog-pane {
+    --mdc-dialog-container-min-width: 0px;
+    --mdc-dialog-container-max-width: min(1040px, calc(100vw - 48px));
+    max-width: min(1040px, calc(100vw - 48px)) !important;
+    min-width: 0 !important;
+    width: min(1040px, calc(100vw - 48px)) !important;
+}
+
+:root .cdk-overlay-pane.fw-fieldwire-import-dialog-pane .mdc-dialog__container {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+:root .cdk-overlay-pane.fw-fieldwire-import-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-fieldwire-import-dialog-pane .mat-mdc-dialog-surface {
     min-width: 0 !important;
     width: 100% !important;
     max-width: 100% !important;

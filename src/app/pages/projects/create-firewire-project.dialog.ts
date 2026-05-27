@@ -84,10 +84,6 @@ export class CreateFirewireProjectDialog {
             this.saveError = 'Name is required.'
             return
         }
-        if (this.model.projectStatus === 'Install' && !this.model.projectNbr.trim()) {
-            this.saveError = 'Project Number is required when project status is Install.'
-            return
-        }
         this.saveWorking = true
         this.dialogRef.close({
             ...this.model,

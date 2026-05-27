@@ -1,0 +1,150 @@
+<div class="floorplan-designer-root">
+    <div *ngIf="showHeader" class="floorplan-designer__titlebar">
+        <div>
+            <div class="floorplan-designer__kicker">Floorplan Designer</div>
+            <div class="floorplan-designer__title">{{title}}</div>
+        </div>
+        <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
+            <mat-icon fontIcon="close"></mat-icon>
+        </button>
+    </div>
+
+    <div class="floorplan-designer">
+        <aside class="floorplan-designer__sidebar">
+            <div class="floorplan-designer__section">
+                <div class="floorplan-designer__label">Tools</div>
+                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'select'" (click)="setTool('select')">
+                    <mat-icon fontIcon="near_me"></mat-icon>
+                    Select
+                </button>
+                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'pan'" (click)="setTool('pan')">
+                    <mat-icon fontIcon="pan_tool"></mat-icon>
+                    Pan
+                </button>
+                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'symbol'" (click)="setTool('symbol')">
+                    <mat-icon fontIcon="add_location_alt"></mat-icon>
+                    Symbol
+                </button>
+                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'note'" (click)="setTool('note')">
+                    <mat-icon fontIcon="notes"></mat-icon>
+                    Note
+                </button>
+                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'sticky'" (click)="setTool('sticky')">
+                    <mat-icon fontIcon="sticky_note_2"></mat-icon>
+                    Sticky
+                </button>
+            </div>
+
+            <div class="floorplan-designer__section" *ngIf="tool === 'symbol'">
+                <div class="floorplan-designer__label">Symbol</div>
+                <div *ngIf="symbols.length <= 0" class="floorplan-designer__empty-panel">
+                    Add category-assigned devices to the BOM to place symbols.
+                </div>
+                <button
+                    *ngFor="let symbol of symbols"
+                    type="button"
+                    class="floorplan-designer__symbol-option"
+                    [class.is-active]="selectedSymbol?.id === symbol.id"
+                    [class.is-depleted]="getSymbolRemaining(symbol) <= 0"
+                    (click)="selectSymbol(symbol)">
+                    <span [style.background]="symbol.color">{{symbol.code}}</span>
+                    <strong>{{symbol.label}}</strong>
+                    <small>{{getSymbolRemaining(symbol)}} left · {{getSymbolPlacedText(symbol)}} placed</small>
+                </button>
+            </div>
+
+            <div class="floorplan-designer__section">
+                <div class="floorplan-designer__label">View</div>
+                <div class="floorplan-designer__zoom-row">
+                    <button mat-stroked-button type="button" (click)="zoomOut()"><mat-icon fontIcon="remove"></mat-icon></button>
+                    <strong>{{zoomLevel.toFixed(2)}}x</strong>
+                    <button mat-stroked-button type="button" (click)="zoomIn()"><mat-icon fontIcon="add"></mat-icon></button>
+                </div>
+                <button mat-stroked-button type="button" (click)="resetView()">Reset View</button>
+            </div>
+
+            <div class="floorplan-designer__section" *ngIf="selectedAnnotation">
+                <div class="floorplan-designer__label">Selected</div>
+                <input class="floorplan-designer__input" [(ngModel)]="selectedAnnotation.label" placeholder="Label" />
+                <div *ngIf="selectedAnnotation.kind === 'symbol'" class="floorplan-designer__selected-meta">
+                    <span>{{selectedAnnotation.categoryName || 'BOM Symbol'}}</span>
+                    <strong>{{selectedAnnotation.partNumber || selectedAnnotation.deviceName || selectedAnnotation.label}}</strong>
+                </div>
+                <textarea
+                    *ngIf="selectedAnnotation.kind !== 'symbol'"
+                    class="floorplan-designer__textarea"
+                    rows="4"
+                    [(ngModel)]="selectedAnnotation.text"
+                    placeholder="Text"></textarea>
+                <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
+            </div>
+        </aside>
+
+        <section
+            #stage
+            class="floorplan-designer__stage"
+            [class.is-pan-mode]="tool === 'pan'"
+            [class.is-panning]="isPanning"
+            (mousedown)="beginPan($event)"
+            (mousemove)="continuePan($event)"
+            (mouseup)="endPan()"
+            (mouseleave)="endPan()">
+            <div
+                class="floorplan-designer__surface"
+                [style.width]="getSurfaceWidth()"
+                [style.height]="getSurfaceHeight()"
+                (click)="onSurfaceClick($event)">
+                <ng-container *ngIf="sourceUrl; else emptySource">
+                    <canvas
+                        *ngIf="isPdfSource(); else imageSource"
+                        #pdfCanvas
+                        class="floorplan-designer__pdf"
+                        [style.width]="getPdfCanvasWidth()"
+                        [style.height]="getPdfCanvasHeight()"></canvas>
+                    <ng-template #imageSource>
+                        <img
+                            class="floorplan-designer__image"
+                            [src]="imageDisplayUrl"
+                            [alt]="title"
+                            draggable="false"
+                            (load)="onImageLoad($event)" />
+                    </ng-template>
+                </ng-container>
+
+                <button
+                    *ngFor="let annotation of annotations"
+                    type="button"
+                    class="floorplan-designer__annotation"
+                    [class.is-selected]="selectedAnnotation?.id === annotation.id"
+                    [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
+                    [class.floorplan-designer__annotation--sticky]="annotation.kind === 'sticky'"
+                    [style.left.%]="annotation.xRatio * 100"
+                    [style.top.%]="annotation.yRatio * 100"
+                    (click)="selectAnnotation(annotation, $event)">
+                    <span
+                        *ngIf="annotation.kind === 'symbol'"
+                        class="floorplan-designer__symbol"
+                        [style.background]="annotation.color">
+                        {{annotation.symbol}}
+                    </span>
+                    <span *ngIf="annotation.kind !== 'symbol'" class="floorplan-designer__note-card">
+                        <strong>{{annotation.label || (annotation.kind === 'sticky' ? 'Sticky' : 'Note')}}</strong>
+                        <span>{{annotation.text || 'Add text...'}}</span>
+                    </span>
+                </button>
+            </div>
+
+            <div *ngIf="pdfRenderWorking" class="floorplan-designer__overlay">Rendering PDF...</div>
+            <div *ngIf="renderError" class="floorplan-designer__overlay floorplan-designer__overlay--error">{{renderError}}</div>
+            <ng-template #emptySource>
+                <div class="floorplan-designer__empty">Select or upload a floorplan to begin.</div>
+            </ng-template>
+        </section>
+    </div>
+
+    <div *ngIf="showActions" class="floorplan-designer__actions">
+        <span class="floorplan-designer__status">{{statusText}}</span>
+        <button mat-button type="button" (click)="close()">{{closeLabel}}</button>
+        <button mat-flat-button type="button" [disabled]="!sourceUrl" (click)="save()">Save Design</button>
+    </div>
+</div>

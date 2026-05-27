@@ -1,7 +1,7 @@
 import { Component, ElementRef, Input, ViewChild, OnChanges, AfterViewInit, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
-import { ActivatedRoute, RouterLink } from "@angular/router"
+import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { FormsModule } from "@angular/forms"
 import { firstValueFrom } from "rxjs"
 
@@ -31,10 +31,16 @@ import {
 interface ChangeOrderListItem {
     id: string
     name: string
-    amount: number
+    projectNbr: string
     status: string
     createdAt: string
-    fileId: string
+    route: string
+    fileId?: string
+}
+
+interface ChangeOrderProjectResponse {
+    rootProject: any
+    changeOrders: any[]
 }
 
 interface ChangeOrderDialogData {
@@ -69,6 +75,7 @@ export class ChangeOrdersPage implements OnChanges {
     @Input() projectId?: string
 
     private readonly route = inject(ActivatedRoute)
+    private readonly router = inject(Router)
     private readonly dialog = inject(MatDialog)
     private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
     private readonly auth = inject(AuthService)
@@ -80,6 +87,7 @@ export class ChangeOrdersPage implements OnChanges {
     project?: AccountProjectSchema
     firewireProjectNbr = ''
     changeOrders: ChangeOrderListItem[] = []
+    creatingChangeOrder = false
 
     constructor(private http: HttpClient) {}
 
@@ -105,36 +113,37 @@ export class ChangeOrdersPage implements OnChanges {
                 await this.loadChangeOrders()
                 this.pageWorking = false
             },
-            error: (err: any) => {
-                this.pageMessage = err?.error?.message || err?.message || 'Unable to load project.'
-                this.pageWorking = false
+            error: async() => {
+                try {
+                    await this.loadChangeOrders()
+                    this.pageWorking = false
+                } catch (err: any) {
+                    this.pageMessage = err?.error?.message || err?.message || 'Unable to load project.'
+                    this.pageWorking = false
+                }
             }
         })
     }
 
     async createChangeOrder(): Promise<void> {
-        const profile = this.auth.getUserProfile()
-        const dialogRef = this.dialog.open(ChangeOrderDialog, {
-            width: '1080px',
-            maxWidth: '96vw',
-            minWidth: '0',
-            panelClass: 'job-cost-sheet-dialog-pane',
-            data: {
-                defaultFileName: this.buildChangeOrderFileName(),
-                projectName: this.project?.name || '',
-                contractorName: '',
-                contractNumber: '',
-                projectNumber: this.firewireProjectNbr || this.project?.code || '',
-                firetrolJobNumber: this.project?.code || '',
-                firetrolAcceptanceDate: this.formatToday(),
-                createdBy: profile?.name || 'Current User',
-                createSheet: (fileName: string, html: string) => this.saveChangeOrderSheet(fileName, html)
-            } as ChangeOrderDialogData
-        })
+        if (!this.projectId || this.creatingChangeOrder) {
+            return
+        }
 
-        const result = await firstValueFrom(dialogRef.afterClosed())
-        if (result === 'created') {
+        this.creatingChangeOrder = true
+        this.pageMessage = ''
+        try {
+            const response = await firstValueFrom(this.http.post<{ data: { project: { uuid: string }, route: string } }>(`/api/firewire/projects/${encodeURIComponent(this.projectId)}/change-orders`, {}))
+            const route = response?.data?.route || (response?.data?.project?.uuid ? `/sales/${response.data.project.uuid}` : '')
+            if (route) {
+                await this.router.navigateByUrl(route)
+                return
+            }
             await this.loadChangeOrders()
+        } catch (err: any) {
+            this.pageMessage = err?.error?.message || err?.message || 'Unable to create change order.'
+        } finally {
+            this.creatingChangeOrder = false
         }
     }
 
@@ -158,21 +167,32 @@ export class ChangeOrdersPage implements OnChanges {
     }
 
     private async loadChangeOrders(): Promise<void> {
-        const workspace = await this.loadWorkspace()
-        this.changeOrders = workspace.files
-            .filter((file) => file.folderId === 'proj-mgmt/change-orders')
-            .map((file) => {
-                const latestVersion = file.versions[file.versions.length - 1]
-                return {
-                    id: file.id,
-                    fileId: file.id,
-                    name: file.name.replace(/\.html$/i, ''),
-                    amount: this.extractChangeOrderAmount(latestVersion?.dataUrl || ''),
-                    status: file.versions.length > 1 ? `Version ${file.versions.length}` : 'Created',
-                    createdAt: latestVersion?.uploadedAt || file.createdAt
-                }
-            })
-            .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+        if (!this.projectId) {
+            this.changeOrders = []
+            return
+        }
+
+        const response = await firstValueFrom(this.http.get<{ data: ChangeOrderProjectResponse }>(`/api/firewire/projects/${encodeURIComponent(this.projectId)}/change-orders`))
+        const rootProject = response?.data?.rootProject
+        if (rootProject?.projectNbr) {
+            this.firewireProjectNbr = String(rootProject.projectNbr || '').trim()
+        }
+        if (rootProject?.name) {
+            this.project = {
+                ...(this.project || {}),
+                name: rootProject.name,
+                code: rootProject.projectNbr || this.project?.code || '',
+                id: rootProject.fieldwireId || rootProject.uuid
+            } as AccountProjectSchema
+        }
+        this.changeOrders = (response?.data?.changeOrders || []).map((project: any) => ({
+            id: project.uuid,
+            name: project.name || 'Change Order',
+            projectNbr: project.projectNbr || '',
+            status: project.projectStatus || 'Estimation',
+            createdAt: project.createdAt || '',
+            route: `/sales/${project.uuid}`
+        }))
     }
 
     private async saveChangeOrderSheet(fileName: string, html: string): Promise<void> {

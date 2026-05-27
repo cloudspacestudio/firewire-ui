@@ -803,6 +803,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     width: 100%;
     padding: 14px 16px;
     border: 1px solid rgba(77, 214, 255, 0.14);
@@ -810,6 +811,30 @@
     background: rgba(9, 17, 28, 0.9);
     color: #eaf6ff;
     text-align: left;
+}
+
+.sales-project-doc-library__row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.sales-project-doc-library__row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(77, 214, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(4, 9, 16, 0.78);
+    color: #eaf6ff;
+    cursor: pointer;
+}
+
+.sales-project-doc-library__row-action--danger {
+    color: #ffb3b3;
 }
 
 .sales-project-doc-library__name {
@@ -856,10 +881,10 @@
     background: rgba(3, 7, 12, 0.7);
 }
 
-.sales-project-doc-library__image-download {
+.sales-project-doc-library__image-download,
+.sales-project-doc-library__image-delete {
     position: absolute;
     top: 12px;
-    right: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -870,6 +895,15 @@
     background: rgba(4, 9, 16, 0.78);
     color: #eaf6ff;
     cursor: pointer;
+}
+
+.sales-project-doc-library__image-download {
+    right: 12px;
+}
+
+.sales-project-doc-library__image-delete {
+    right: 48px;
+    color: #ffb3b3;
 }
 
 .sales-project-doc-library__image-meta {

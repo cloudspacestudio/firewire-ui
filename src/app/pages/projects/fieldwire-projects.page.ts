@@ -166,6 +166,11 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
         return `No data matching the filter "${filterValue}"`
     }
 
+    getFieldwireProjectUrl(row: ProjectListItemSchema): string | null {
+        const fieldwireProjectId = row.fieldwireProjectId || row.fieldwireId
+        return fieldwireProjectId ? `https://app.fieldwire.com/projects/${fieldwireProjectId}` : null
+    }
+
     createFirewireFromFieldwire(row: ProjectListItemSchema) {
         const fieldwireProjectId = row.fieldwireProjectId
         if (!fieldwireProjectId) {

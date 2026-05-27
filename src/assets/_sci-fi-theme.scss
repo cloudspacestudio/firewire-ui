@@ -19,8 +19,8 @@ $fw-surface-radius: 12px !default;
     --fw-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 12px 40px rgba(0,0,0,0.34);
     --fw-control-radius: #{$fw-control-radius};
     --fw-surface-radius: #{$fw-surface-radius};
-    --fw-font-ui: 'Rajdhani', 'Segoe UI', sans-serif;
-    --fw-font-display: 'Orbitron', 'Rajdhani', 'Segoe UI', sans-serif;
+    --fw-font-ui: 'Exo 2', 'Segoe UI', sans-serif;
+    --fw-font-display: 'Orbitron', 'Exo 2', 'Segoe UI', sans-serif;
 }
 
 @mixin panel-surface($padding: 12px, $radius: var(--fw-surface-radius)) {

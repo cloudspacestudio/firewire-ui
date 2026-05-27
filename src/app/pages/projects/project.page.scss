@@ -412,11 +412,22 @@
     pointer-events: none;
 }
 
+.workspace-locked .project-locked-editable,
+.workspace-locked .project-locked-editable input,
+.workspace-locked .project-locked-editable button,
+.workspace-locked .project-locked-editable .mat-mdc-select {
+    pointer-events: auto;
+}
+
 .workspace-locked input,
 .workspace-locked .bom-currency-input,
 .workspace-locked .labor-rates-percent-input,
 .workspace-locked mat-form-field {
     opacity: 0.78;
+}
+
+.workspace-locked .project-locked-editable {
+    opacity: 1;
 }
 
 .firewire-workspace-placeholder {

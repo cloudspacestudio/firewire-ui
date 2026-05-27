@@ -26,16 +26,22 @@ import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectUp
 import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
-import { AutosizeTextareaDirective } from "../../common/directives/autosize-textarea.directive"
+import { FirewireBomWorksheetComponent } from "../../common/components/firewire-bom-worksheet.component"
+import { FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
+import { FirewireFloorplansComponent } from "../../common/components/firewire-floorplans.component"
+import { FirewireTakeoffMatrixComponent } from "../../common/components/firewire-takeoff-matrix.component"
+import { FieldwireImportComponent, FieldwireImportDialogData } from "../../common/components/fieldwire-import.component"
 import { AzureMapsService } from "../../common/services/azure-maps.service"
 import {
+    ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
-    ProjectDocLibraryFolderDefinition,
+    ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from "../../common/services/project-doc-library-storage.service"
 import { PdfThumbnailService } from "../../common/services/pdf-thumbnail.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
+import { DevicePartPriceSyncService } from "../../common/services/device-part-price-sync.service"
 import { BookingFaceSheetDialog } from "./booking-face-sheet.dialog"
 import { ConfirmFirewireNavigationDialog } from "./confirm-firewire-navigation.dialog"
 import { ContractSetupDialog } from "./contract-setup.dialog"
@@ -54,7 +60,10 @@ import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 import { Category } from "../../schemas/category.schema"
 import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
 import { VwDevice } from "../../schemas/vwdevice.schema"
-import { FloorplanDesignerDialog, FloorplanDesignerDialogResult } from "../design/floorplan-designer.dialog"
+import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
+import { DeviceSetDetail, DeviceSetSummary } from "../../schemas/device-set.schema"
+import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from "../design/floorplan-designer.dialog"
+import { FloorplanDesignerSymbolOption } from "../design/floorplan-designer.component"
 
 interface ProjectBomRow {
     partNbr: string
@@ -269,7 +278,7 @@ interface FirewireProjectWorksheetState {
     wageScaleEffectiveRate: number
     laborRates: LaborRateRow[]
     installationOvertime: InstallationOvertimeForm
-    takeoffMatrices: TakeoffMatrix[]
+    takeoffMatrices?: TakeoffMatrix[]
     wireTakeoffSpecs: WireTakeoffSpecs
     wireWiringStyles: Record<WireCategory, 'Class A' | 'Class B'>
     wireSelections: WireSelection[]
@@ -316,7 +325,10 @@ declare const atlas: any
     standalone: true,
     selector: 'project-page',
     imports: [NgFor, NgIf, CommonModule, FormsModule,
-        RouterLink, PageToolbar, AutosizeTextareaDirective,
+        RouterLink, PageToolbar,
+        FirewireBomWorksheetComponent,
+        FirewireDocLibraryExplorerComponent, FirewireFloorplansComponent,
+        FirewireTakeoffMatrixComponent,
         MatButtonModule, MatFormFieldModule,
         MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule,
         MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
@@ -335,6 +347,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     private readonly projectDocLibraryStorage = inject(ProjectDocLibraryStorageService)
     private readonly pdfThumbnailService = inject(PdfThumbnailService)
     private readonly userPreferences = inject(UserPreferencesService)
+    private readonly devicePartPriceSync = inject(DevicePartPriceSyncService)
     private readonly recentProjectsStorageKey = 'firewire.recentProjects'
     private readonly recentProjectsLimit = 6
     private readonly favoriteProjectsStorageKey = 'firewire.favoriteProjects'
@@ -342,6 +355,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
     private readonly lockedProjectStatuses = ['Design', 'Install', 'Service', 'Closed']
     private readonly projectIdentityVisibleStatuses = ['Booking', 'Design', 'Install', 'Service', 'Closed']
     readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
+
+    get bomWorksheetHost(): ProjectPage {
+        return this
+    }
     private readonly systemMapDefaultPreferences: ProjectMapPreferences = {
         version: 1,
         style: 'night',
@@ -487,56 +504,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
         supervisionFactorPercent: 5,
         mobilizationFactorPercent: 5
     }
-    private readonly docLibraryFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getRootFolderDefinitions()
-    private readonly docLibrarySelectableFolderDefinitions: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getSelectableFolderDefinitions()
     selectedDocLibraryFolder = 'all'
     docLibraryFiles: ProjectDocLibraryFileRecord[] = []
+    docLibraryDirectories: ProjectDocLibraryDirectoryRecord[] = []
     docLibraryStatusMessage = ''
     floorplanStatusMessage = ''
     floorplanUploadBusy = false
-    readonly takeoffColumns = [
-        'FACP',
-        'Annunciator',
-        'Smoke Det',
-        'MR101/C Relay',
-        'Duct Det',
-        'AHU Shut Down Relay',
-        'Remote Test Switch (Key)',
-        'Heat Det',
-        'Pull Station',
-        'CT1',
-        'CT2',
-        'CR',
-        'CC1',
-        'Horn/Strobe - Ceiling',
-        'Strobe - Ceiling',
-        'WP Horn/Strobe - Wall',
-        'Horn',
-        'BPS',
-        'Elevator Relays',
-        'Shunt (CC1 + MR101)',
-        'Sprinkler Bell',
-        'BPS'
-    ]
     takeoffMatrices: TakeoffMatrix[] = [
-        this.createTakeoffMatrix('Matrix 1', [
-            'A-101',
-            'A-102',
-            'A-103',
-            'A-104',
-            'M-201',
-            'M-202',
-            'M-203',
-            'M-204',
-            'M-205',
-            'Nothing in Garage'
-        ]),
-        this.createTakeoffMatrix('Matrix 2', [
-            'Level 1',
-            'Level 2',
-            'Level 3',
-            'Roof'
-        ])
+        this.createTakeoffMatrix('Matrix 1', [])
     ]
     readonly wireCategories: WireCategory[] = ['SLC', 'Notification', 'Audio', '24V', 'Style 6 or 7']
     readonly wireDiagramZones = [
@@ -650,6 +625,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
     bomFilter = ''
     bomSortKey: ProjectBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
+    selectedDeviceSetId = ''
+    deviceSets: DeviceSetSummary[] = []
     categories: Category[] = []
     deviceRows: VwDevice[] = []
     deviceLookupLoaded = false
@@ -883,6 +860,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         this.loadProjectSettings()
         this.loadFieldwireProjects()
         this.loadProjectTemplates()
+        this.loadDeviceSets()
 
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
@@ -1020,12 +998,20 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return !!this.project && !!this.fieldwireProjectId
     }
 
+    hasDocLibraryWorkspace(): boolean {
+        return this.getDocLibraryStorageKey() !== 'UNASSIGNED'
+    }
+
     getPageTitle(): string {
         return this.firewireProject?.name || this.project?.name || 'Project'
     }
 
     getProjectStatusLabel(): string {
         return this.firewireForm.projectStatus || this.firewireProject?.projectStatus || ''
+    }
+
+    getPersistedProjectStatusLabel(): string {
+        return this.firewireProject?.projectStatus || ''
     }
 
     isProposalProject(): boolean {
@@ -1040,9 +1026,33 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return this.getProjectStatusLabel() === 'Booking'
     }
 
+    isInstallProject(): boolean {
+        return this.getPersistedProjectStatusLabel() === 'Install'
+    }
+
+    isDesignProject(): boolean {
+        return this.getPersistedProjectStatusLabel() === 'Design'
+    }
+
     shouldShowExecutionNav(): boolean {
         const status = this.getProjectStatusLabel()
         return status === 'Install' || status === 'Service'
+    }
+
+    openFieldwireImportDialog(): void {
+        if (!this.firewireProject) {
+            return
+        }
+        this.dialog.open(FieldwireImportComponent, {
+            width: '1040px',
+            maxWidth: '94vw',
+            panelClass: 'fw-fieldwire-import-dialog-pane',
+            data: {
+                projectId: this.firewireProject.uuid,
+                projectName: this.firewireProject.name,
+                fieldwireProjectId: this.fieldwireProjectId || null
+            } as FieldwireImportDialogData
+        })
     }
 
     shouldShowChangeOrdersNav(): boolean {
@@ -1051,7 +1061,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     isProjectStatusLocked(): boolean {
-        return this.lockedProjectStatuses.includes(this.getProjectStatusLabel())
+        return this.lockedProjectStatuses.includes(this.getPersistedProjectStatusLabel())
     }
 
     shouldShowProjectIdentityFields(): boolean {
@@ -1070,9 +1080,45 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return this.isProjectStatusLocked() || this.isProjectManuallyLocked()
     }
 
+    canEditProjectStatus(): boolean {
+        if (this.isProjectManuallyLocked()) {
+            return false
+        }
+        return !this.isProjectStatusLocked() || this.isDesignProject()
+    }
+
+    canEditProjectNbr(): boolean {
+        if (this.isProjectManuallyLocked() && !this.canBackfillLockedProjectNbr()) {
+            return false
+        }
+        return !this.isProjectStatusLocked() || this.isDesignProject() || this.canBackfillLockedProjectNbr()
+    }
+
+    canSaveProjectDetails(): boolean {
+        return !this.isFirewireProjectLocked() || this.isLockedProjectIdentityDirty()
+    }
+
+    private isLockedProjectIdentityDirty(): boolean {
+        if (!this.firewireProject || !this.isFirewireFormDirty) {
+            return false
+        }
+        const projectNbrChanged = String(this.firewireForm.projectNbr || '') !== String(this.firewireProject.projectNbr || '')
+        const projectStatusChanged = String(this.firewireForm.projectStatus || '') !== String(this.firewireProject.projectStatus || '')
+        return (projectNbrChanged && this.canEditProjectNbr()) || (projectStatusChanged && this.canEditProjectStatus())
+    }
+
+    private canBackfillLockedProjectNbr(): boolean {
+        if (!this.firewireProject || !this.isFirewireProjectLocked()) {
+            return false
+        }
+        const persistedStatus = this.getPersistedProjectStatusLabel()
+        return (persistedStatus === 'Design' || persistedStatus === 'Install')
+            && !String(this.firewireProject.projectNbr || '').trim()
+    }
+
     getProjectLockChipLabel(): string {
         if (this.isProjectStatusLocked()) {
-            return `${this.getProjectStatusLabel()} locked`
+            return `${this.getPersistedProjectStatusLabel()} locked`
         }
         return this.firewireProject?.manualLockedBy
             ? `Locked by ${this.firewireProject.manualLockedBy}`
@@ -1184,17 +1230,22 @@ export class ProjectPage implements OnChanges, OnDestroy {
         const visibleFiles = this.getDocLibraryFilesOnly()
         const allCount = visibleFiles.length
         return [
-            { id: 'all', label: 'All Documents', itemCount: allCount, badge: allCount > 0 ? 'LIVE' : undefined },
-            ...this.docLibraryFolderDefinitions.map((folder) => ({
+            { id: 'all', label: 'Project Files', itemCount: allCount, badge: allCount > 0 ? 'LIVE' : undefined },
+            ...this.docLibraryDirectories.map((folder) => ({
                 id: folder.id,
-                label: folder.label,
-                itemCount: visibleFiles.filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, folder.id)).length
+                label: folder.name,
+                itemCount: visibleFiles.filter((file) => file.folderId === folder.id).length
             }))
         ]
     }
 
     getDocLibraryProjectKey(): string {
-        return this.firewireProject?.projectNbr?.trim() || this.firewireForm.projectNbr?.trim() || 'UNASSIGNED'
+        return this.firewireProject?.projectNbr?.trim()
+            || this.firewireForm.projectNbr?.trim()
+            || this.firewireProject?.uuid?.trim()
+            || (this.projectSource === 'firewire' ? String(this.projectId || '').trim() : '')
+            || this.project?.id?.trim()
+            || 'UNASSIGNED'
     }
 
     getDocLibraryStorageKey(): string {
@@ -1243,7 +1294,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
     getFloorplanFiles(): ProjectDocLibraryFileRecord[] {
         return this.docLibraryFiles
             .filter((file) => file.folderId === this.floorplansFolderId)
-            .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+            .sort((left, right) => this.compareFloorplanFilesByName(left, right))
+    }
+
+    private compareFloorplanFilesByName(left: ProjectDocLibraryFileRecord, right: ProjectDocLibraryFileRecord): number {
+        const nameComparison = String(left.name || '').localeCompare(String(right.name || ''), undefined, { numeric: true, sensitivity: 'base' })
+        if (nameComparison !== 0) {
+            return nameComparison
+        }
+        return String(left.id || '').localeCompare(String(right.id || ''))
     }
 
     isFloorplanPdf(file: ProjectDocLibraryFileRecord): boolean {
@@ -1259,7 +1318,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     getFloorplanPreviewContent(file: ProjectDocLibraryFileRecord): string {
         const version = this.getLatestDocLibraryVersion(file)
-        return version?.thumbnailDataUrl || version?.dataUrl || version?.contentUrl || ''
+        return version?.thumbnailDataUrl || version?.dataUrl || ''
     }
 
     getFloorplanTotalBytes(): number {
@@ -1283,8 +1342,21 @@ export class ProjectPage implements OnChanges, OnDestroy {
         }
     }
 
+    readonly getDocLibraryRecordMarkupQueryParams = (file: ProjectDocLibraryFileRecord): Record<string, string> => {
+        return {
+            projectKey: file.storageKey || this.getDocLibraryStorageKey(),
+            bomProjectKey: this.firewireProject?.uuid || (this.projectSource === 'firewire' ? String(this.projectId || '') : ''),
+            fileId: file.id,
+            returnTo: this.router.url || `/projects/${this.projectSource}/${this.projectId}/doc-library`
+        }
+    }
+
+    readonly getFloorplanPreview = (file: ProjectDocLibraryFileRecord): string => {
+        return this.getFloorplanPreviewContent(file)
+    }
+
     getSelectedDocLibraryFolderLabel(): string {
-        return this.docLibraryFolders.find((folder) => folder.id === this.selectedDocLibraryFolder)?.label || 'All Documents'
+        return this.docLibraryFolders.find((folder) => folder.id === this.selectedDocLibraryFolder)?.label || 'Project Files'
     }
 
     getDocLibraryVersionCount(): number {
@@ -1758,10 +1830,66 @@ export class ProjectPage implements OnChanges, OnDestroy {
         this.refreshTakeoffColumnDefinitions()
     }
 
+    removeBomSection(sectionIndex: number): void {
+        this.bomSections = this.bomSections.filter((_, idx) => idx !== sectionIndex)
+        this.refreshTakeoffColumnDefinitions()
+    }
+
     addBomRow(section: ProjectBomSection) {
         section.rows = [...section.rows, this.createEmptyBomRow()]
         this.bomSections = [...this.bomSections]
         this.refreshTakeoffColumnDefinitions()
+    }
+
+    async addSelectedDeviceSetToBom(): Promise<void> {
+        const deviceSetId = String(this.selectedDeviceSetId || '').trim()
+        if (!deviceSetId) {
+            this.firewireSaveMessage = 'Choose a device set first.'
+            return
+        }
+
+        this.firewireSaveWorking = true
+        this.firewireSaveMessage = 'Refreshing device set prices and loading BOM...'
+
+        try {
+            const detailResponse = await firstValueFrom(this.http.get<{ data?: DeviceSetDetail }>(`/api/firewire/device-sets/${deviceSetId}`))
+            const detail = detailResponse?.data
+            if (!detail) {
+                throw new Error('Unable to load device set.')
+            }
+
+            await Promise.all(detail.devices.map((device) => this.devicePartPriceSync.syncDevice(device.deviceId)))
+            const vendorParts = await this.devicePartPriceSync.getVendorPartRows()
+            const vendorPartMap = this.devicePartPriceSync.createVendorPartMap(vendorParts)
+            const materialResults = await Promise.all(detail.devices.map(async(device) => {
+                const response = await firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+                return {
+                    device,
+                    materials: Array.isArray(response?.rows) ? response.rows : []
+                }
+            }))
+
+            const nextSection: ProjectBomSection = {
+                title: this.createUniqueBomSectionTitle(detail.name),
+                sectionKey: this.createClientId(),
+                vendorIds: Array.from(new Set(detail.devices.map((device) => String(device.vendorId || '').trim()).filter(Boolean))),
+                vendorNames: Array.from(new Set(detail.devices.map((device) => String(device.vendorName || '').trim()).filter(Boolean))),
+                rows: materialResults.flatMap(({ device, materials }) => this.createBomRowsFromDevice(device, materials, vendorPartMap))
+            }
+
+            if (nextSection.rows.length <= 0) {
+                nextSection.rows.push(this.createEmptyBomRow())
+            }
+
+            this.bomSections = [...this.bomSections, nextSection]
+            this.selectedDeviceSetId = ''
+            this.refreshTakeoffColumnDefinitions()
+            this.firewireSaveMessage = `Added ${detail.name} to BOM.`
+        } catch (err: any) {
+            this.firewireSaveMessage = err?.error?.message || err?.message || 'Unable to add device set to BOM.'
+        } finally {
+            this.firewireSaveWorking = false
+        }
     }
 
     removeBomRow(section: ProjectBomSection, row: ProjectBomRow) {
@@ -1929,6 +2057,56 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.labor = this.getDefaultLaborCost(device.defaultLabor)
         this.refreshTakeoffColumnDefinitions()
         this.closeBomPartLookup()
+    }
+
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwEddyPricelist>): ProjectBomRow[] {
+        const category = this.getBomCategoryByName(String(device.categoryName || '').trim())
+        const typeValue = category?.includeOnFloorplan ? String(device.categoryName || '').trim() : ''
+
+        if (!materials.length) {
+            const partNumber = String(device.partNumber || '').trim()
+            return [{
+                partNbr: partNumber,
+                lookupQuery: partNumber,
+                description: String(device.name || '').trim(),
+                qty: 0,
+                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0)),
+                labor: this.getDefaultLaborCost(device.defaultLabor),
+                type: typeValue
+            }]
+        }
+
+        return materials.map((material, index) => {
+            const partNumber = String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim()
+            return {
+                partNbr: partNumber,
+                lookupQuery: partNumber,
+                description: String(material.materialName || material.deviceName || device.name || '').trim(),
+                qty: 0,
+                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0)),
+                labor: index === 0 ? this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor) : 0,
+                type: typeValue
+            }
+        })
+    }
+
+    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwEddyPricelist> | undefined, fallbackCost: number): number {
+        const vendorPart = vendorPartMap?.get(this.devicePartPriceSync.normalizePartNumber(partNumber))
+        return vendorPart ? this.devicePartPriceSync.getVendorPartPrice(vendorPart) : Number(fallbackCost || 0)
+    }
+
+    private createUniqueBomSectionTitle(baseTitle: string): string {
+        const normalizedBase = String(baseTitle || 'DEVICE SET').trim() || 'DEVICE SET'
+        const existingTitles = new Set(this.bomSections.map((section) => String(section.title || '').trim().toLowerCase()))
+        if (!existingTitles.has(normalizedBase.toLowerCase())) {
+            return normalizedBase
+        }
+
+        let counter = 2
+        while (existingTitles.has(`${normalizedBase} ${counter}`.toLowerCase())) {
+            counter += 1
+        }
+        return `${normalizedBase} ${counter}`
     }
 
     positionBomPartLookup(event?: Event): void {
@@ -2467,34 +2645,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
         this.installationOvertime.overtimeRate = installationRate?.payRate || 0
     }
 
-    getTakeoffCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): string {
-        const seededValue = this.getTakeoffSeededCellValue(matrix, rowKey, columnKey)
-        if (seededValue !== null) {
-            return `${seededValue}`
-        }
-        const value = matrix.values[rowKey]?.[columnKey]
-        return value === null || typeof value === 'undefined' ? '' : `${value}`
-    }
-
-    setTakeoffCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string, rawValue: string | number | null) {
-        const normalizedValue =
-            rawValue === null || typeof rawValue === 'undefined'
-                ? ''
-                : typeof rawValue === 'number'
-                    ? `${rawValue}`
-                    : `${rawValue}`
-
-        const trimmed = normalizedValue.trim()
-        const nextValue = !trimmed
-            ? null
-            : Number.isNaN(Number(trimmed))
-                ? matrix.values[rowKey]?.[columnKey] ?? null
-                : Math.max(0, Math.min(99, Math.trunc(Number(trimmed))))
-
-        if (!matrix.values[rowKey]) {
-            matrix.values[rowKey] = {}
-        }
-        matrix.values[rowKey][columnKey] = nextValue
+    getPrimaryTakeoffMatrix(): TakeoffMatrix {
+        this.syncTakeoffMatrixShape()
+        return this.takeoffMatrices[0]
     }
 
     getTakeoffRowTotal(matrix: TakeoffMatrix, rowKey: string): number {
@@ -2513,12 +2666,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return matrix.rows.reduce((sum, rowKey) => sum + this.getTakeoffRowTotal(matrix, rowKey), 0)
     }
 
-    getTakeoffCombinedColumnTotal(columnKey: string): number {
-        return this.takeoffMatrices.reduce((sum, matrix) => sum + this.getTakeoffColumnTotal(matrix, columnKey), 0)
-    }
-
     getTakeoffGrandTotal(): number {
-        return this.takeoffMatrices.reduce((sum, matrix) => sum + this.getTakeoffMatrixTotal(matrix), 0)
+        return this.getTakeoffMatrixTotal(this.getPrimaryTakeoffMatrix())
     }
 
     getTakeoffColumnDefinitions(): TakeoffColumnDefinition[] {
@@ -2530,54 +2679,214 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     refreshTakeoffColumnDefinitions(): void {
-        const maxColumns = this.takeoffColumns.length
-        const bomColumns = this.getBomTakeoffColumnDefinitions().slice(0, maxColumns)
-        const placeholders = Array.from({ length: Math.max(0, maxColumns - bomColumns.length) }, (_, index) => ({
-            key: `placeholder-${index}`,
-            label: ''
-        }))
-        this.takeoffColumnDefinitionCache = [...bomColumns, ...placeholders]
-    }
-
-    isTakeoffBomSeedCell(matrix: TakeoffMatrix, rowKey: string, columnKey: string): boolean {
-        return this.getTakeoffSeededCellValue(matrix, rowKey, columnKey) !== null
+        this.takeoffColumnDefinitionCache = this.getBomTakeoffColumnDefinitions()
+        this.syncTakeoffMatrixShape()
     }
 
     private getBomTakeoffColumnDefinitions(): TakeoffColumnDefinition[] {
-        return this.bomSections.flatMap((section, sectionIndex) => {
-            return (section.rows || [])
-                .map((row, rowIndex) => ({
-                    row,
-                    sectionIndex,
-                    rowIndex
-                }))
-                .filter(({ row }) => Number(row.qty || 0) > 1 && String(row.type || '').trim().length > 0)
-                .map(({ row, sectionIndex, rowIndex }) => ({
-                    key: `bom-${sectionIndex}-${rowIndex}-${this.normalizeTakeoffColumnKey(row.partNbr || row.description || row.type)}`,
-                    label: String(row.type || '').trim(),
-                    sourceQty: Number(row.qty || 0)
-                }))
-        })
-    }
-
-    private getTakeoffSeededCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): number | null {
-        if (matrix !== this.takeoffMatrices[0] || rowKey !== matrix.rows[0]) {
-            return null
+        const byCategory = new Map<string, TakeoffColumnDefinition>()
+        for (const section of this.bomSections) {
+            for (const row of section.rows || []) {
+                const label = String(row.type || '').trim()
+                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                if (!label || qty <= 0) {
+                    continue
+                }
+                const key = `category-${this.normalizeTakeoffColumnKey(label)}`
+                const existing = byCategory.get(key)
+                if (existing) {
+                    existing.sourceQty = Number(existing.sourceQty || 0) + qty
+                } else {
+                    byCategory.set(key, { key, label, sourceQty: qty })
+                }
+            }
         }
-        const column = this.getTakeoffColumnDefinitions().find((item) => item.key === columnKey)
-        return typeof column?.sourceQty === 'number' ? column.sourceQty : null
+        return [...byCategory.values()]
     }
 
     private getTakeoffNumericCellValue(matrix: TakeoffMatrix, rowKey: string, columnKey: string): number {
-        const seededValue = this.getTakeoffSeededCellValue(matrix, rowKey, columnKey)
-        if (seededValue !== null) {
-            return seededValue
-        }
         return Number(matrix.values[rowKey]?.[columnKey] || 0)
+    }
+
+    private syncTakeoffMatrixShape(): void {
+        const columns = this.takeoffColumnDefinitionCache.length > 0 ? this.takeoffColumnDefinitionCache : this.getBomTakeoffColumnDefinitions()
+        const matrix = this.takeoffMatrices[0] || this.createTakeoffMatrix('Matrix 1', [])
+        matrix.title = 'Matrix 1'
+
+        const rowEntries = this.getTakeoffFloorplanRowEntries()
+        const rows = rowEntries.map((entry) => entry.rowKey)
+        const placementCounts = this.getFloorplanCategoryPlacementCounts()
+        const hasSymbolPlacements = placementCounts.size > 0
+        const nextValues: Record<string, Record<string, TakeoffValue>> = {}
+        rowEntries.forEach((entry, rowIndex) => {
+            nextValues[entry.rowKey] = {}
+            const rowCounts = placementCounts.get(entry.file.id)
+            for (const column of columns) {
+                nextValues[entry.rowKey][column.key] = hasSymbolPlacements
+                    ? (rowCounts?.get(column.key) || 0)
+                    : rowIndex === 0 && typeof column.sourceQty === 'number'
+                        ? column.sourceQty
+                        : null
+            }
+        })
+
+        matrix.rows = rows
+        matrix.values = nextValues
+        this.takeoffMatrices = [matrix]
+        this.takeoffColumnDefinitionCache = columns
+    }
+
+    private getTakeoffFloorplanRows(): string[] {
+        return this.getTakeoffFloorplanRowEntries().map((entry) => entry.rowKey)
+    }
+
+    private getTakeoffFloorplanRowEntries(): Array<{ file: ProjectDocLibraryFileRecord; rowKey: string }> {
+        const counts = new Map<string, number>()
+        return this.getFloorplanFiles().map((file) => {
+            const baseName = String(file.name || 'Floorplan').replace(/\.[^/.]+$/, '').trim() || 'Floorplan'
+            const count = (counts.get(baseName.toLowerCase()) || 0) + 1
+            counts.set(baseName.toLowerCase(), count)
+            return {
+                file,
+                rowKey: count === 1 ? baseName : `${baseName} ${count}`
+            }
+        })
+    }
+
+    private getFloorplanCategoryPlacementCounts(): Map<string, Map<string, number>> {
+        const counts = new Map<string, Map<string, number>>()
+        for (const file of this.getFloorplanFiles()) {
+            const annotations = file.floorplanDesign?.annotations || []
+            for (const annotation of annotations) {
+                if (annotation.kind !== 'symbol' || !annotation.categoryKey) {
+                    continue
+                }
+                const rowCounts = counts.get(file.id) || new Map<string, number>()
+                rowCounts.set(annotation.categoryKey, (rowCounts.get(annotation.categoryKey) || 0) + 1)
+                counts.set(file.id, rowCounts)
+            }
+        }
+        return counts
     }
 
     private normalizeTakeoffColumnKey(value: string): string {
         return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item'
+    }
+
+    private getFloorplanDesignerSymbols(): FloorplanDesignerSymbolOption[] {
+        const inventory = this.getFloorplanSymbolInventory()
+        const placedCounts = this.getFloorplanSymbolPlacementCounts()
+        return inventory.map((symbol) => {
+            const placedQty = placedCounts.get(symbol.id) || 0
+            return {
+                ...symbol,
+                placedQty,
+                remainingQty: Math.max(0, symbol.totalQty - placedQty)
+            }
+        })
+    }
+
+    private getFloorplanSymbolInventory(): FloorplanDesignerSymbolOption[] {
+        const bySymbol = new Map<string, FloorplanDesignerSymbolOption>()
+        for (const section of this.bomSections) {
+            for (const row of section.rows || []) {
+                const categoryName = String(row.type || '').trim()
+                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                if (!categoryName || qty <= 0) {
+                    continue
+                }
+
+                const categoryKey = `category-${this.normalizeTakeoffColumnKey(categoryName)}`
+                const partNumber = String(row.partNbr || '').trim()
+                const deviceName = String(row.description || row.partNbr || categoryName).trim()
+                const id = `${categoryKey}::${this.normalizeTakeoffColumnKey(partNumber || deviceName)}`
+                const existing = bySymbol.get(id)
+                if (existing) {
+                    existing.totalQty += qty
+                    continue
+                }
+
+                bySymbol.set(id, {
+                    id,
+                    code: this.createFloorplanSymbolCode(categoryName, deviceName),
+                    label: deviceName,
+                    color: this.getFloorplanSymbolColor(categoryKey),
+                    totalQty: qty,
+                    placedQty: 0,
+                    remainingQty: qty,
+                    categoryKey,
+                    categoryName,
+                    partNumber,
+                    deviceName,
+                    materialCost: Number(row.cost || 0),
+                    laborHours: Number(row.labor || 0),
+                    customAttributes: []
+                })
+            }
+        }
+        return [...bySymbol.values()]
+    }
+
+    private getFloorplanSymbolPlacementCounts(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): Map<string, number> {
+        const counts = new Map<string, number>()
+        for (const file of this.getFloorplanFiles()) {
+            const design = overrideFileId && file.id === overrideFileId ? overrideDesign : file.floorplanDesign
+            for (const annotation of design?.annotations || []) {
+                if (annotation.kind !== 'symbol' || !annotation.symbolId) {
+                    continue
+                }
+                counts.set(annotation.symbolId, (counts.get(annotation.symbolId) || 0) + 1)
+            }
+        }
+        return counts
+    }
+
+    private getFloorplanSymbolBalanceErrors(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): string[] {
+        const inventory = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
+        const placedCounts = this.getFloorplanSymbolPlacementCounts(overrideFileId, overrideDesign)
+        const errors: string[] = []
+        for (const [symbolId, placedQty] of placedCounts) {
+            const symbol = inventory.get(symbolId)
+            if (!symbol) {
+                errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
+                continue
+            }
+            if (placedQty > symbol.totalQty) {
+                errors.push(`${symbol.label} (${symbol.partNumber || symbol.categoryName}) has ${placedQty} symbols placed across floorplans, but the BOM quantity is ${symbol.totalQty}. Remove ${placedQty - symbol.totalQty} placement${placedQty - symbol.totalQty === 1 ? '' : 's'} or increase the BOM quantity.`)
+            }
+        }
+        return errors
+    }
+
+    private showFloorplanSymbolBalanceErrors(errors: string[]): void {
+        if (errors.length <= 0) {
+            return
+        }
+        this.dialog.open(FloorplanSymbolBalanceDialog, {
+            width: '520px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: { errors } as FloorplanSymbolBalanceDialogData
+        })
+    }
+
+    private createFloorplanSymbolCode(categoryName: string, deviceName: string): string {
+        const source = String(categoryName || deviceName || 'SY').trim()
+        const words = source.split(/[^a-z0-9]+/i).filter(Boolean)
+        const code = words.length > 1
+            ? words.map((word) => word[0]).join('')
+            : source.slice(0, 3)
+        return code.slice(0, 3).toUpperCase() || 'SY'
+    }
+
+    private getFloorplanSymbolColor(key: string): string {
+        const palette = ['#77d7ff', '#ffcf7a', '#ff8d8d', '#9effb6', '#d49bff', '#8dd7ff', '#ffd07f', '#a5f3fc']
+        let hash = 0
+        for (const char of key) {
+            hash = ((hash << 5) - hash) + char.charCodeAt(0)
+            hash |= 0
+        }
+        return palette[Math.abs(hash) % palette.length]
     }
 
     onTakeoffCellKeydown(event: KeyboardEvent) {
@@ -2635,7 +2944,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     saveFirewireProject() {
-        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
+        if (!this.projectId || !this.firewireProject || !this.canSaveProjectDetails()) {
+            return
+        }
+        const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
+        if (symbolBalanceErrors.length > 0) {
+            this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
+            this.firewireSaveMessage = 'Project save blocked by floorplan symbol counts.'
             return
         }
 
@@ -2650,6 +2965,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
         const previousStatus = this.firewireForm.projectStatus
         this.firewireForm.projectStatus = 'Proposal'
         this.firewireSaveMessage = 'Generating proposal...'
+        const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
+        if (symbolBalanceErrors.length > 0) {
+            this.firewireForm.projectStatus = previousStatus
+            this.firewireSaveMessage = 'Proposal blocked by floorplan symbol counts.'
+            this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
+            return
+        }
 
         this.saveFirewireProjectRequest().subscribe((saved) => {
             if (!saved) {
@@ -2661,7 +2983,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     private saveFirewireProjectRequest(options?: { silent?: boolean }): Observable<boolean> {
-        if (!this.projectId || !this.firewireProject || this.isFirewireProjectLocked()) {
+        if (!this.projectId || !this.firewireProject || !this.canSaveProjectDetails()) {
             return of(false)
         }
 
@@ -3288,7 +3610,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     resetFirewireForm() {
-        if (!this.firewireProject || this.isFirewireProjectLocked()) {
+        if (!this.firewireProject || !this.canSaveProjectDetails()) {
             return
         }
         this.applyFirewireProject(this.firewireProject)
@@ -3299,7 +3621,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     onUploadProjectDocumentsClick(fileInput: HTMLInputElement) {
         this.clearProjectUploadErrorToast()
-        void this.chooseDocLibraryFolderForUpload(fileInput)
+        this.docLibraryStatusMessage = ''
+        fileInput.click()
     }
 
     onUploadProjectFloorplansClick(fileInput: HTMLInputElement) {
@@ -3320,7 +3643,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             data: {
                 title: 'Leave Project Detail?',
                 message: 'You have unsaved Firewire project changes.',
-                canSave: !this.isFirewireProjectLocked()
+                canSave: this.canSaveProjectDetails()
             }
         }).afterClosed().pipe(
             map((result) => result || 'stay'),
@@ -3442,6 +3765,67 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.docLibraryStatusMessage = `Moved ${file.name} to ${this.getDocLibraryFolderLabel(targetFolderId)}.`
     }
 
+    async createDocLibraryDirectory(parentId: string): Promise<void> {
+        const name = window.prompt('New directory name', 'New Folder')
+        const normalizedName = String(name || '').trim()
+        if (!normalizedName) {
+            return
+        }
+
+        const now = new Date().toISOString()
+        const directory: ProjectDocLibraryDirectoryRecord = {
+            id: this.createClientId(),
+            name: normalizedName,
+            parentId: parentId && parentId !== 'all' ? parentId : undefined,
+            createdAt: now,
+            updatedAt: now
+        }
+        this.docLibraryDirectories = [...this.docLibraryDirectories, directory]
+        this.selectedDocLibraryFolder = directory.id
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Created ${normalizedName}.`
+    }
+
+    async renameDocLibraryDirectory(directoryId: string): Promise<void> {
+        const directory = this.docLibraryDirectories.find((item) => item.id === directoryId)
+        if (!directory) {
+            return
+        }
+        const name = window.prompt('Directory name', directory.name)
+        const normalizedName = String(name || '').trim()
+        if (!normalizedName || normalizedName === directory.name) {
+            return
+        }
+        directory.name = normalizedName
+        directory.updatedAt = new Date().toISOString()
+        this.docLibraryDirectories = [...this.docLibraryDirectories]
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Renamed directory to ${normalizedName}.`
+    }
+
+    async deleteDocLibraryDirectory(directoryId: string): Promise<void> {
+        const directory = this.docLibraryDirectories.find((item) => item.id === directoryId)
+        if (!directory) {
+            return
+        }
+        const descendantIds = this.getDocLibraryDirectoryDescendantIds(directoryId)
+        const fileCount = this.docLibraryFiles.filter((file) => descendantIds.has(file.folderId)).length
+        const confirmed = window.confirm(fileCount > 0
+            ? `Delete ${directory.name} and ${fileCount} file${fileCount === 1 ? '' : 's'} inside it?`
+            : `Delete ${directory.name}?`)
+        if (!confirmed) {
+            return
+        }
+
+        this.docLibraryDirectories = this.docLibraryDirectories.filter((item) => !descendantIds.has(item.id))
+        this.docLibraryFiles = this.docLibraryFiles.filter((file) => !descendantIds.has(file.folderId))
+        if (descendantIds.has(this.selectedDocLibraryFolder)) {
+            this.selectedDocLibraryFolder = directory.parentId || 'all'
+        }
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Deleted ${directory.name}.`
+    }
+
     async deleteDocLibraryFile(fileId: string): Promise<void> {
         const file = this.docLibraryFiles.find((item) => item.id === fileId)
         if (!file) {
@@ -3461,17 +3845,42 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
 
-        this.docLibraryFiles = this.docLibraryFiles.filter((item) => item.id !== fileId)
-        await this.persistDocLibraryWorkspace()
+        const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
+        this.docLibraryFiles = this.mergeDocLibraryFiles(workspace.files || [])
         this.docLibraryStatusMessage = `Deleted ${file.name}.`
+    }
+
+    async deleteFloorplanFile(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        const confirmed = await firstValueFrom(this.dialog.open(ProjectDocLibraryDeleteDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                fileName: file.name
+            } as ProjectDocLibraryDeleteDialogData
+        }).afterClosed())
+
+        if (!confirmed) {
+            return
+        }
+
+        const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
+        this.docLibraryFiles = this.mergeDocLibraryFiles(workspace.files || [])
+        this.floorplanStatusMessage = `Deleted ${file.name}.`
     }
 
     async saveGeneratedEstimatingSheet(fileName: string, html: string): Promise<void> {
         const normalizedFileName = this.ensureHtmlFileName(fileName)
         const now = new Date().toISOString()
+        const targetFolderId = 'all'
         const generatedFile = new File([html], normalizedFileName, { type: 'text/html', lastModified: Date.now() })
         const duplicate = this.docLibraryFiles.find((item) =>
-            item.folderId === 'sales/booking'
+            item.folderId === targetFolderId
             && item.name.toLowerCase() === normalizedFileName.toLowerCase())
 
         if (duplicate) {
@@ -3489,13 +3898,13 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getDocLibraryStorageKey(), generatedFile, {
                 fileId,
                 versionId: this.createClientId(),
-                folderId: 'sales/booking',
+                folderId: targetFolderId,
                 versionNumber: 1,
                 lastModified: generatedFile.lastModified
             })
             this.docLibraryFiles.push({
                 id: fileId,
-                folderId: 'sales/booking',
+                folderId: targetFolderId,
                 storageKey: this.getDocLibraryStorageKey(),
                 name: normalizedFileName,
                 extension: 'html',
@@ -3506,35 +3915,24 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
 
         await this.persistDocLibraryWorkspace()
-        this.docLibraryStatusMessage = `Saved ${normalizedFileName} to ${this.getDocLibraryFolderLabel('sales/booking')}.`
+        this.docLibraryStatusMessage = `Saved ${normalizedFileName} to Project Files.`
     }
 
     private getDocLibraryVisibleRecords(): ProjectDocLibraryFileRecord[] {
         if (this.selectedDocLibraryFolder === 'all') {
             return this.getDocLibraryFilesOnly()
         }
-        return this.getDocLibraryFilesOnly().filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, this.selectedDocLibraryFolder))
+        return this.getDocLibraryFilesOnly().filter((file) => file.folderId === this.selectedDocLibraryFolder)
     }
 
     private getDocLibraryFolderLabel(folderId: string): string {
         if (folderId === 'all') {
-            return 'All Documents'
+            return 'Project Files'
         }
-        return this.projectDocLibraryStorage.getFolderPathLabel(folderId)
+        return this.docLibraryDirectories.find((directory) => directory.id === folderId)?.name || 'Unfiled'
     }
 
     private async chooseDocLibraryFolderForUpload(fileInput: HTMLInputElement): Promise<void> {
-        if (this.selectedDocLibraryFolder !== 'all') {
-            fileInput.click()
-            return
-        }
-
-        const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'sales')
-        if (!selectedFolderId) {
-            return
-        }
-
-        this.selectedDocLibraryFolder = selectedFolderId
         fileInput.click()
     }
 
@@ -3547,9 +3945,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 title,
                 confirmLabel,
                 selectedFolderId,
-                folders: this.docLibrarySelectableFolderDefinitions.map((folder) => ({
+                folders: this.docLibraryDirectories.map((folder) => ({
                     id: folder.id,
-                    label: this.projectDocLibraryStorage.getFolderPathLabel(folder.id)
+                    label: folder.name
                 }))
             } as ProjectDocLibraryCategoryDialogData
         }).afterClosed())
@@ -3563,11 +3961,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     private async uploadDocLibraryFile(file: File): Promise<'uploaded' | 'versioned' | 'skipped'> {
-        if (this.selectedDocLibraryFolder === 'all') {
-            throw new Error('Select a document library section before uploading.')
-        }
-
-        return this.uploadDocLibraryFileToFolder(file, this.selectedDocLibraryFolder, true)
+        return this.uploadDocLibraryFileToFolder(file, this.selectedDocLibraryFolder || 'all', true)
     }
 
     private async uploadDocLibraryFileToFolder(file: File, folderId: string, confirmVersion: boolean, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
@@ -3641,28 +4035,34 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'pdf'].includes(extension)
     }
 
-    private async createPdfThumbnailIfNeeded(file: File): Promise<string> {
+    private async createFloorplanThumbnailIfNeeded(file: File): Promise<string> {
         const mimeType = String(file.type || '').toLowerCase()
         const extension = this.getDocLibraryExtension(file.name)
-        if (mimeType !== 'application/pdf' && extension !== 'pdf') {
-            return ''
+        if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) {
+            return this.readFileAsDataUrl(file)
         }
-
-        return this.pdfThumbnailService.createThumbnail(file)
+        if (mimeType === 'application/pdf' || extension === 'pdf') {
+            return this.pdfThumbnailService.createThumbnail(file)
+        }
+        return ''
     }
 
     private async ensureFloorplanPdfThumbnails(): Promise<void> {
         let changed = false
         for (const file of this.getFloorplanFiles()) {
             const version = this.getLatestDocLibraryVersion(file)
-            if (!version || version.thumbnailDataUrl || !this.isFloorplanPdf(file)) {
+            if (!version || version.thumbnailDataUrl) {
                 continue
             }
 
             const blob = version.dataUrl
                 ? this.dataUrlToBlob(version.dataUrl)
                 : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
-            version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            if (this.isFloorplanPdf(file)) {
+                version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            } else if (String(version.mimeType || '').toLowerCase().startsWith('image/')) {
+                version.thumbnailDataUrl = await this.blobToDataUrl(blob)
+            }
             changed = true
         }
 
@@ -3673,7 +4073,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private async persistDocLibraryWorkspace(): Promise<void> {
         await this.projectDocLibraryStorage.saveWorkspace(this.getDocLibraryStorageKey(), {
-            files: this.docLibraryFiles
+            files: this.docLibraryFiles,
+            directories: this.docLibraryDirectories
         })
     }
 
@@ -3687,7 +4088,34 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
         this.docLibraryFiles = this.mergeDocLibraryFiles(workspaces.flatMap((workspace) => workspace.files || []))
+        this.docLibraryDirectories = this.mergeDocLibraryDirectories(workspaces.flatMap((workspace) => workspace.directories || []))
         await this.ensureFloorplanPdfThumbnails()
+    }
+
+    private mergeDocLibraryDirectories(directories: ProjectDocLibraryDirectoryRecord[]): ProjectDocLibraryDirectoryRecord[] {
+        const byId = new Map<string, ProjectDocLibraryDirectoryRecord>()
+        for (const directory of directories) {
+            if (!directory?.id || byId.has(directory.id)) {
+                continue
+            }
+            byId.set(directory.id, { ...directory })
+        }
+        return [...byId.values()].sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
+    }
+
+    private getDocLibraryDirectoryDescendantIds(directoryId: string): Set<string> {
+        const ids = new Set([directoryId])
+        let changed = true
+        while (changed) {
+            changed = false
+            for (const directory of this.docLibraryDirectories) {
+                if (!ids.has(directory.id) && directory.parentId && ids.has(directory.parentId)) {
+                    ids.add(directory.id)
+                    changed = true
+                }
+            }
+        }
+        return ids
     }
 
     private mergeDocLibraryFiles(files: ProjectDocLibraryFileRecord[]): ProjectDocLibraryFileRecord[] {
@@ -3753,6 +4181,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             reader.onload = () => resolve(String(reader.result || ''))
             reader.onerror = () => reject(reader.error)
             reader.readAsDataURL(file)
+        })
+    }
+
+    private blobToDataUrl(blob: Blob): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result || ''))
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(blob)
         })
     }
 
@@ -3853,6 +4290,20 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             },
             error: (err) => {
                 console.error(err)
+            }
+        })
+    }
+
+    private loadDeviceSets(): void {
+        this.http.get<{ rows?: DeviceSetSummary[] }>('/api/firewire/device-sets').subscribe({
+            next: (response) => {
+                this.deviceSets = Array.isArray(response?.rows)
+                    ? [...response.rows].sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
+                    : []
+            },
+            error: (err) => {
+                console.error(err)
+                this.deviceSets = []
             }
         })
     }
@@ -4380,7 +4831,6 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             wageScaleEffectiveRate: Number(this.wageScaleEffectiveRate || 0),
             laborRates: this.laborRates,
             installationOvertime: this.installationOvertime,
-            takeoffMatrices: this.takeoffMatrices,
             wireTakeoffSpecs: this.wireTakeoffSpecs,
             wireWiringStyles: this.wireWiringStyles,
             wireSelections: this.wireSelections,
@@ -4429,7 +4879,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.wageScaleEffectiveRate = Number(worksheet.wageScaleEffectiveRate ?? this.worksheetDefaults.wageScaleEffectiveRate)
         this.laborRates = this.cloneJson(worksheet.laborRates || this.worksheetDefaults.laborRates)
         this.installationOvertime = this.cloneJson(worksheet.installationOvertime || this.worksheetDefaults.installationOvertime)
-        this.takeoffMatrices = this.cloneJson(worksheet.takeoffMatrices || this.worksheetDefaults.takeoffMatrices)
+        this.takeoffMatrices = this.cloneJson(worksheet.takeoffMatrices || this.worksheetDefaults.takeoffMatrices || [this.createTakeoffMatrix('Matrix 1', [])])
         this.wireTakeoffSpecs = this.cloneJson(worksheet.wireTakeoffSpecs || this.worksheetDefaults.wireTakeoffSpecs)
         this.wireWiringStyles = this.cloneJson(worksheet.wireWiringStyles || this.worksheetDefaults.wireWiringStyles)
         this.wireSelections = this.cloneJson(worksheet.wireSelections || this.worksheetDefaults.wireSelections)
@@ -4504,7 +4954,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                     skippedCount += 1
                     continue
                 }
-                await this.uploadDocLibraryFileToFolder(file, this.floorplansFolderId, false, await this.createPdfThumbnailIfNeeded(file))
+                await this.uploadDocLibraryFileToFolder(file, this.floorplansFolderId, false, await this.createFloorplanThumbnailIfNeeded(file))
                 uploadedCount += 1
             }
 
@@ -4545,7 +4995,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             width: '100vw',
             data: {
                 file,
-                imageUrl: this.getFloorplanPreviewContent(file)
+                imageUrl: this.getFloorplanVersionContent(file),
+                symbols: this.getFloorplanDesignerSymbols(),
+                validateDesign: (design: ProjectFloorplanDesignState) => this.getFloorplanSymbolBalanceErrors(file.id, design)
             }
         }).afterClosed()) as FloorplanDesignerDialogResult | undefined
 
@@ -4555,6 +5007,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         file.floorplanDesign = result.design
         file.updatedAt = new Date().toISOString()
+        this.refreshTakeoffColumnDefinitions()
         await this.persistDocLibraryWorkspace()
         this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
     }
@@ -4731,9 +5184,6 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         const values: Record<string, Record<string, TakeoffValue>> = {}
         for (const row of rows) {
             values[row] = {}
-            for (const column of this.takeoffColumns) {
-                values[row][column] = null
-            }
         }
         return { title, rows, values }
     }
@@ -5122,9 +5572,9 @@ export class ProjectDocLibraryCategoryDialog {
     selector: 'project-doc-library-delete-dialog',
     imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
     template: `
-        <h2 mat-dialog-title>Delete Document</h2>
+        <h2 mat-dialog-title>Delete File</h2>
         <mat-dialog-content>
-            Delete <strong>{{data.fileName}}</strong> from the project library?
+            Delete <strong>{{data.fileName}}</strong>? This removes it from this workspace.
         </mat-dialog-content>
         <mat-dialog-actions align="end">
             <button mat-button mat-dialog-close type="button">Cancel</button>

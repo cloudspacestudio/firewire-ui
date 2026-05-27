@@ -1,0 +1,114 @@
+:host {
+    display: block;
+    height: calc(100vh - 64px);
+    min-height: 0;
+}
+
+.design-floorplan-page {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    background: #050b13;
+    color: #eaf6ff;
+}
+
+.design-floorplan-rail {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 12px;
+    min-height: 0;
+    padding: 14px;
+    border-right: 1px solid rgba(72, 221, 255, 0.14);
+    background: #08111d;
+}
+
+.design-floorplan-rail__header {
+    display: grid;
+    gap: 10px;
+}
+
+.design-floorplan-rail__header button {
+    justify-content: center;
+}
+
+.design-floorplan-rail__eyebrow {
+    color: #55d8ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.design-floorplan-status {
+    color: rgba(167, 228, 255, 0.8);
+    font-size: 0.84rem;
+}
+
+.design-floorplan-list {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    overflow: auto;
+}
+
+.design-floorplan-file {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-areas:
+        "icon name"
+        "icon meta";
+    gap: 2px 10px;
+    align-items: center;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 6px;
+    padding: 10px;
+    background: rgba(7, 15, 26, 0.86);
+    color: #eaf6ff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.design-floorplan-file.is-selected {
+    border-color: rgba(255, 164, 61, 0.58);
+    background: rgba(255, 164, 61, 0.1);
+}
+
+.design-floorplan-file mat-icon {
+    grid-area: icon;
+}
+
+.design-floorplan-file span {
+    grid-area: name;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.design-floorplan-file small {
+    grid-area: meta;
+    color: rgba(167, 228, 255, 0.7);
+}
+
+.design-floorplan-empty,
+.design-floorplan-loading {
+    display: grid;
+    place-items: center;
+    min-height: 180px;
+    color: rgba(167, 228, 255, 0.72);
+}
+
+.design-floorplan-workspace {
+    min-width: 0;
+    min-height: 0;
+}
+
+@media (max-width: 980px) {
+    :host {
+        height: auto;
+    }
+
+    .design-floorplan-page {
+        grid-template-columns: 1fr;
+        min-height: calc(100vh - 64px);
+    }
+}

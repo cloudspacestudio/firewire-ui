@@ -1,0 +1,52 @@
+<section class="fw-floorplans">
+    <div class="fw-floorplans__summary">
+        <div class="fw-floorplans__stat">
+            <span>Floorplans</span>
+            <strong>{{files.length}}</strong>
+        </div>
+        <div class="fw-floorplans__stat">
+            <span>Storage</span>
+            <strong>{{formatBytes(totalBytes)}}</strong>
+        </div>
+    </div>
+
+    <div class="fw-floorplans__panel">
+        <header class="fw-floorplans__header">
+            <div>
+                <div class="fw-floorplans__eyebrow">Floorplans</div>
+                <h4>/Projects/{{projectKey}}/Floorplans</h4>
+            </div>
+            <div *ngIf="statusMessage" class="fw-floorplans__status">{{statusMessage}}</div>
+        </header>
+
+        <div *ngIf="files.length <= 0" class="fw-floorplans__empty">No floorplans have been uploaded yet.</div>
+
+        <div *ngIf="files.length > 0" class="fw-floorplans__grid">
+            <article *ngFor="let file of sortedFiles" class="fw-floorplans__tile">
+                <div class="fw-floorplans__preview">
+                    <img [src]="getPreviewContent(file)" [alt]="file.name" loading="lazy" />
+                </div>
+                <input
+                    class="fw-floorplans__name"
+                    [(ngModel)]="file.name"
+                    (change)="renameFile.emit(file)"
+                    aria-label="Floorplan name" />
+                <div class="fw-floorplans__meta">
+                    {{formatBytes(latestVersion(file)?.sizeBytes || 0)}} / {{annotationCount(file)}} mark{{annotationCount(file) === 1 ? '' : 's'}}
+                </div>
+                <div class="fw-floorplans__actions">
+                    <button mat-stroked-button type="button" (click)="designFile.emit(file)">
+                        <mat-icon fontIcon="architecture"></mat-icon>
+                        Design
+                    </button>
+                    <button mat-icon-button type="button" [attr.aria-label]="'Download ' + file.name" (click)="downloadFile.emit(file.id)">
+                        <mat-icon fontIcon="download"></mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" class="fw-floorplans__danger" [attr.aria-label]="'Delete ' + file.name" (click)="deleteFile.emit(file.id)">
+                        <mat-icon fontIcon="delete"></mat-icon>
+                    </button>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>

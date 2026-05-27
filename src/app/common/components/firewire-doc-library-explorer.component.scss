@@ -1,0 +1,402 @@
+:host {
+    display: block;
+    min-width: 0;
+}
+
+.fw-doc-explorer {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.fw-doc-explorer__summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.fw-doc-explorer__stat {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(84, 201, 255, 0.18);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(13, 43, 61, 0.68), rgba(7, 16, 28, 0.82));
+}
+
+.fw-doc-explorer__stat span,
+.fw-doc-explorer__eyebrow {
+    color: #70d9ff;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.fw-doc-explorer__stat strong {
+    display: block;
+    min-width: 0;
+    margin-top: 6px;
+    overflow: hidden;
+    color: #eef7ff;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-doc-explorer__shell {
+    display: grid;
+    grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+    min-height: 520px;
+    border: 1px solid rgba(84, 201, 255, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(2, 10, 18, 0.72);
+}
+
+.fw-doc-explorer__tree {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 10px;
+    border-right: 1px solid rgba(84, 201, 255, 0.16);
+    background: linear-gradient(180deg, rgba(9, 32, 48, 0.8), rgba(3, 12, 21, 0.92));
+}
+
+.fw-doc-explorer__tree-item {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #cbd8e7;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.fw-doc-explorer__tree-item:hover,
+.fw-doc-explorer__tree-item.is-active {
+    border-color: rgba(84, 201, 255, 0.38);
+    background: rgba(34, 124, 166, 0.18);
+    color: #7edcff;
+}
+
+.fw-doc-explorer__tree-item span,
+.fw-doc-explorer__item-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-doc-explorer__tree-item strong {
+    min-width: 28px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #a9c3d4;
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.fw-doc-explorer__content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.fw-doc-explorer__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(84, 201, 255, 0.16);
+}
+
+.fw-doc-explorer__header-main {
+    min-width: 0;
+}
+
+.fw-doc-explorer__header h4 {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: #eef7ff;
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-doc-explorer__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-top: 8px;
+    color: #83aabe;
+}
+
+.fw-doc-explorer__breadcrumb button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #dce8f4;
+    cursor: pointer;
+    font: inherit;
+}
+
+.fw-doc-explorer__breadcrumb button:disabled {
+    color: #7edcff;
+    cursor: default;
+}
+
+.fw-doc-explorer__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.fw-doc-explorer__status {
+    min-width: 0;
+    color: #99c7d8;
+    text-align: right;
+}
+
+.fw-doc-explorer__view-switch {
+    display: inline-flex;
+    border: 1px solid rgba(84, 201, 255, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.fw-doc-explorer__view-switch button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 34px;
+    border: 0;
+    border-left: 1px solid rgba(84, 201, 255, 0.14);
+    background: rgba(3, 12, 21, 0.86);
+    color: #cbd8e7;
+    cursor: pointer;
+}
+
+.fw-doc-explorer__view-switch button:first-child {
+    border-left: 0;
+}
+
+.fw-doc-explorer__view-switch button.is-active {
+    background: rgba(34, 124, 166, 0.28);
+    color: #7edcff;
+}
+
+.fw-doc-explorer__empty {
+    padding: 22px;
+    color: #91a7b6;
+}
+
+.fw-doc-explorer__items {
+    min-width: 0;
+    padding: 16px;
+    overflow: auto;
+}
+
+.fw-doc-explorer__items--tiles,
+.fw-doc-explorer__items--icons {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+}
+
+.fw-doc-explorer__items--tiles {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.fw-doc-explorer__items--icons {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.fw-doc-explorer__items--list,
+.fw-doc-explorer__items--details {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+}
+
+.fw-doc-explorer__item {
+    min-width: 0;
+    border: 1px solid rgba(84, 201, 255, 0.14);
+    background: rgba(6, 20, 34, 0.68);
+    color: #dce8f4;
+}
+
+button.fw-doc-explorer__item {
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.fw-doc-explorer__items--tiles .fw-doc-explorer__item,
+.fw-doc-explorer__items--icons .fw-doc-explorer__item {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 14px;
+    border-radius: 8px;
+}
+
+.fw-doc-explorer__items--icons .fw-doc-explorer__item {
+    justify-items: center;
+    text-align: center;
+}
+
+.fw-doc-explorer__items--list .fw-doc-explorer__item,
+.fw-doc-explorer__items--details .fw-doc-explorer__item {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+}
+
+.fw-doc-explorer__items--details .fw-doc-explorer__item {
+    grid-template-columns: 46px minmax(260px, 1fr) minmax(150px, 0.7fr) minmax(120px, 0.6fr) auto;
+    min-width: 820px;
+}
+
+.fw-doc-explorer__item:hover {
+    border-color: rgba(84, 201, 255, 0.36);
+    background: rgba(34, 124, 166, 0.16);
+}
+
+.fw-doc-explorer__item mat-icon {
+    color: #bcd7e8;
+}
+
+.fw-doc-explorer__item--folder mat-icon {
+    color: #7edcff;
+}
+
+.fw-doc-explorer__item-meta,
+.fw-doc-explorer__file-text span,
+.fw-doc-explorer__details-cell {
+    overflow: hidden;
+    color: #8298a8;
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-doc-explorer__ext {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 32px;
+    border: 1px solid rgba(84, 201, 255, 0.25);
+    border-radius: 5px;
+    background: rgba(11, 32, 48, 0.8);
+    color: #dce8f4;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.fw-doc-explorer__file-text {
+    min-width: 0;
+}
+
+.fw-doc-explorer__file-name {
+    display: block;
+    max-width: 100%;
+    border: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    color: #dce8f4;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-doc-explorer__file-name:hover {
+    color: #75d9ff;
+    text-decoration: underline;
+}
+
+.fw-doc-explorer__actions {
+    display: inline-flex;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.fw-doc-explorer__markup-link {
+    color: #75d9ff;
+    font-size: 0.78rem;
+}
+
+.fw-doc-explorer__context-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 190px;
+    padding: 6px;
+    border: 1px solid rgba(84, 201, 255, 0.26);
+    border-radius: 8px;
+    background: rgba(5, 14, 24, 0.98);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+}
+
+.fw-doc-explorer__context-menu button {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    border-radius: 5px;
+    padding: 9px 10px;
+    background: transparent;
+    color: #dce8f4;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.fw-doc-explorer__context-menu button:hover:not(:disabled) {
+    background: rgba(84, 201, 255, 0.12);
+}
+
+.fw-doc-explorer__context-menu button:disabled {
+    cursor: default;
+    opacity: 0.42;
+}
+
+.fw-doc-explorer__context-menu button.is-danger {
+    color: #ffb9b9;
+}
+
+@media (max-width: 900px) {
+    .fw-doc-explorer__summary,
+    .fw-doc-explorer__shell {
+        grid-template-columns: 1fr;
+    }
+
+    .fw-doc-explorer__tree {
+        border-right: 0;
+        border-bottom: 1px solid rgba(84, 201, 255, 0.16);
+    }
+
+    .fw-doc-explorer__header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

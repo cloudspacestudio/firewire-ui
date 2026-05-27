@@ -7,6 +7,7 @@
 
     <div class="project-toolbar-nav">
         <button mat-flat-button type="button" class="active">DETAILS</button>
+        <button *ngIf="firewireProject && isInstallProject()" mat-raised-button type="button" class="inactive" (click)="openFieldwireImportDialog()">FIELDWIRE IMPORT</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
         <button *ngIf="project && shouldShowChangeOrdersNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/change-orders'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">CHANGE ORDERS</button>
@@ -82,7 +83,7 @@
                 {{getProjectLockChipLabel()}}
             </span>
             <span class="tabstrip-spacer"></span>
-            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'SUMMARY' && activeFirewireWorkspaceTab !== 'FLOORPLANS' && activeFirewireWorkspaceTab !== 'FIELDWIRE VIEW' && activeFirewireWorkspaceTab !== 'DOC LIBRARY' && activeFirewireWorkspaceTab !== 'SYSTEM' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'PROJECT DETAILS' && activeFirewireWorkspaceTab !== 'TAKE OFF' && activeFirewireWorkspaceTab !== 'SUMMARY' && activeFirewireWorkspaceTab !== 'FLOORPLANS' && activeFirewireWorkspaceTab !== 'FIELDWIRE VIEW' && activeFirewireWorkspaceTab !== 'DOC LIBRARY' && activeFirewireWorkspaceTab !== 'SYSTEM' && !isFirewireProjectLocked()" class="tabstrip-actions tabstrip-actions--save">
                 <button
                     mat-flat-button
                     type="button"
@@ -94,13 +95,13 @@
                 </button>
             </div>
             <div *ngIf="firewireProject && activeFirewireWorkspaceTab === 'FLOORPLANS'" class="tabstrip-actions tabstrip-actions--menu">
-                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectFloorplansClick(projectFloorplanUploadInput)" [disabled]="floorplanUploadBusy || !hasFieldwireProject()">
+                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectFloorplansClick(projectFloorplanUploadInput)" [disabled]="floorplanUploadBusy || !hasDocLibraryWorkspace()">
                     <mat-icon fontIcon="add_photo_alternate"></mat-icon>
                     {{floorplanUploadBusy ? 'UPLOADING...' : 'UPLOAD FLOORPLANS'}}
                 </button>
             </div>
-            <div *ngIf="firewireProject && activeFirewireWorkspaceTab !== 'FLOORPLANS'" class="tabstrip-actions tabstrip-actions--menu">
-                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasFieldwireProject()">
+            <div *ngIf="firewireProject && activeFirewireWorkspaceTab === 'DOC LIBRARY'" class="tabstrip-actions tabstrip-actions--menu">
+                <button mat-stroked-button type="button" class="project-upload-docs-button" (click)="onUploadProjectDocumentsClick(projectDocumentUploadInput)" [disabled]="projectDocumentUploadBusy || !hasDocLibraryWorkspace()">
                     <mat-icon fontIcon="upload_file"></mat-icon>
                     {{projectDocumentUploadBusy ? 'UPLOADING...' : 'UPLOAD DOCS'}}
                 </button>
@@ -165,9 +166,9 @@
                                             <mat-label>Name</mat-label>
                                             <input matInput [(ngModel)]="firewireForm.name" [readonly]="isFirewireProjectLocked()" />
                                         </mat-form-field>
-                                        <mat-form-field *ngIf="shouldShowProjectIdentityFields()">
+                                        <mat-form-field *ngIf="shouldShowProjectIdentityFields()" [class.project-locked-editable]="canEditProjectNbr()">
                                             <mat-label>Project Number</mat-label>
-                                            <input matInput [(ngModel)]="firewireForm.projectNbr" [readonly]="isFirewireProjectLocked()" />
+                                            <input matInput [(ngModel)]="firewireForm.projectNbr" [readonly]="!canEditProjectNbr()" />
                                         </mat-form-field>
                                         <mat-form-field *ngIf="shouldShowProjectIdentityFields()" class="firewire-project-span-2">
                                             <mat-label>Fieldwire Project Link</mat-label>
@@ -197,9 +198,9 @@
                                             <mat-datepicker-toggle matIconSuffix [for]="bidDueDatePicker" [disabled]="isFirewireProjectLocked()"></mat-datepicker-toggle>
                                             <mat-datepicker #bidDueDatePicker [disabled]="isFirewireProjectLocked()"></mat-datepicker>
                                         </mat-form-field>
-                                        <mat-form-field>
+                                        <mat-form-field [class.project-locked-editable]="canEditProjectStatus()">
                                             <mat-label>Project Status</mat-label>
-                                            <mat-select [(ngModel)]="firewireForm.projectStatus" [disabled]="isFirewireProjectLocked()">
+                                            <mat-select [(ngModel)]="firewireForm.projectStatus" [disabled]="!canEditProjectStatus()">
                                                 <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
@@ -254,7 +255,7 @@
                                         </mat-form-field>
                                     </div>
 
-                                    <div *ngIf="!isFirewireProjectLocked() && isProjectDirty" class="firewire-project-actions">
+                                    <div *ngIf="canSaveProjectDetails() && isProjectDirty" class="firewire-project-actions" [class.project-locked-editable]="isFirewireProjectLocked() && canSaveProjectDetails()">
                                         <button
                                             mat-stroked-button
                                             type="button"
@@ -665,216 +666,39 @@
                                                 <div>
                                                     <div class="firewire-workspace-placeholder__eyebrow">Take Off Totals</div>
                                                     <div class="takeoff-summary__badges">
-                                                        <span class="takeoff-total-badge" *ngFor="let matrix of takeoffMatrices">
-                                                            {{matrix.title}}: {{getTakeoffMatrixTotal(matrix)}}
-                                                        </span>
-                                                        <span class="takeoff-total-badge is-grand">Combined: {{getTakeoffGrandTotal()}}</span>
+                                                        <span class="takeoff-total-badge is-grand">Matrix 1: {{getTakeoffGrandTotal()}}</span>
                                                     </div>
                                                 </div>
-                                                <mat-form-field class="takeoff-drawing-date-field">
-                                                    <mat-label>Drawing Date</mat-label>
-                                                    <input matInput [matDatepicker]="takeoffDrawingDatePicker" [(ngModel)]="takeoffDrawingDate" />
-                                                    <mat-datepicker-toggle matIconSuffix [for]="takeoffDrawingDatePicker"></mat-datepicker-toggle>
-                                                    <mat-datepicker #takeoffDrawingDatePicker></mat-datepicker>
-                                                </mat-form-field>
                                             </div>
                                         </div>
 
-                                        <div class="takeoff-matrix-card" *ngFor="let matrix of takeoffMatrices; let matrixIndex = index">
-                                            <div class="takeoff-matrix-card__header">
-                                                <h4>{{matrix.title}}</h4>
-                                                <span>Total {{getTakeoffMatrixTotal(matrix)}}</span>
-                                            </div>
-                                            <div class="takeoff-grid">
-                                                <table>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Area</th>
-                                                            <th *ngFor="let column of getTakeoffColumnDefinitions()">
-                                                                <span class="takeoff-column-header">{{column.label}}</span>
-                                                            </th>
-                                                            <th class="right-align">Row Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr *ngFor="let row of matrix.rows; let rowIndex = index">
-                                                            <td class="takeoff-row-label">{{row}}</td>
-                                                            <td *ngFor="let column of getTakeoffColumnDefinitions(); let columnIndex = index">
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="99"
-                                                                    step="1"
-                                                                    [attr.data-takeoff-cell]="matrixIndex + '-' + rowIndex + '-' + columnIndex"
-                                                                    [ngModel]="getTakeoffCellValue(matrix, row, column.key)"
-                                                                    (ngModelChange)="setTakeoffCellValue(matrix, row, column.key, $event)"
-                                                                    (keydown)="onTakeoffCellKeydown($event)"
-                                                                    [disabled]="isTakeoffBomSeedCell(matrix, row, column.key)"
-                                                                    [attr.aria-label]="matrix.title + ' ' + row + ' ' + column.label" />
-                                                            </td>
-                                                            <td class="right-align takeoff-row-total">{{getTakeoffRowTotal(matrix, row)}}</td>
-                                                        </tr>
-                                                        <tr class="takeoff-total-row">
-                                                            <td>Total</td>
-                                                            <td *ngFor="let column of getTakeoffColumnDefinitions()">{{getTakeoffColumnTotal(matrix, column.key)}}</td>
-                                                            <td class="right-align takeoff-row-total">{{getTakeoffMatrixTotal(matrix)}}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                        <div class="takeoff-matrix-card takeoff-matrix-card--summary">
-                                            <div class="takeoff-matrix-card__header">
-                                                <h4>Combined Totals</h4>
-                                                <span>Total {{getTakeoffGrandTotal()}}</span>
-                                            </div>
-                                            <div class="takeoff-grid">
-                                                <table>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Summary</th>
-                                                            <th *ngFor="let column of getTakeoffColumnDefinitions()">
-                                                                <span class="takeoff-column-header">{{column.label}}</span>
-                                                            </th>
-                                                            <th class="right-align">Grand Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr class="takeoff-total-row">
-                                                            <td>All Areas</td>
-                                                            <td *ngFor="let column of getTakeoffColumnDefinitions()">{{getTakeoffCombinedColumnTotal(column.key)}}</td>
-                                                            <td class="right-align takeoff-row-total">{{getTakeoffGrandTotal()}}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
+                                        <firewire-takeoff-matrix
+                                            [matrix]="getPrimaryTakeoffMatrix()"
+                                            [columns]="getTakeoffColumnDefinitions()">
+                                        </firewire-takeoff-matrix>
                                     </div>
 
                                     <ng-template #firewireWorkspaceDocLibraryOrFieldwire>
                                     <div *ngIf="activeFirewireWorkspaceTab === 'DOC LIBRARY'; else firewireWorkspaceFieldwireOrSystem" class="doc-library-panel">
-                                        <div class="doc-library-toolbar">
-                                            <div>
-                                                <div class="firewire-workspace-placeholder__eyebrow">Document Library</div>
-                                                <h4>Project Files <span class="doc-library-project-nbr">{{getDocLibraryProjectKey()}}</span></h4>
-                                            </div>
-                                        </div>
-
-                                        <div class="doc-library-summary">
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Active Folder</span>
-                                                <strong>{{getSelectedDocLibraryFolderLabel()}}</strong>
-                                            </div>
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Files</span>
-                                                <strong>{{getDocLibraryVisibleFiles().length}}</strong>
-                                            </div>
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Storage</span>
-                                                <strong>{{formatDocLibraryBytes(getDocLibraryTotalBytes())}}</strong>
-                                            </div>
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Versions</span>
-                                                <strong>{{getDocLibraryVersionCount()}}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div class="doc-library-shell">
-                                            <aside class="doc-library-nav">
-                                                <button
-                                                    *ngFor="let folder of docLibraryFolders"
-                                                    type="button"
-                                                    class="doc-library-nav__item"
-                                                    [class.is-active]="selectedDocLibraryFolder === folder.id"
-                                                    (click)="selectDocLibraryFolder(folder.id)">
-                                                    <span class="doc-library-nav__meta">
-                                                        <span class="doc-library-nav__label">{{folder.label}}</span>
-                                                        <span class="doc-library-nav__badge" *ngIf="folder.badge">{{folder.badge}}</span>
-                                                    </span>
-                                                    <span class="doc-library-nav__count">{{folder.itemCount}}</span>
-                                                </button>
-                                            </aside>
-
-                                            <div class="doc-library-browser">
-                                                <div class="doc-library-browser__header">
-                                                    <div>
-                                                        <div class="firewire-workspace-placeholder__eyebrow">Project Explorer</div>
-                                                        <h5>/Projects/{{getDocLibraryProjectKey()}}/{{getSelectedDocLibraryFolderLabel()}}</h5>
-                                                    </div>
-                                                    <div *ngIf="docLibraryStatusMessage" class="doc-library-browser__status">{{docLibraryStatusMessage}}</div>
-                                                </div>
-
-                                                <div class="doc-library-table-shell">
-                                                    <table class="doc-library-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Name</th>
-                                                                <th *ngIf="selectedDocLibraryFolder === 'all'">Category</th>
-                                                                <th>Size</th>
-                                                                <th>Modified</th>
-                                                                <th>Owner</th>
-                                                                <th>Versions</th>
-                                                                <th></th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <tr *ngFor="let file of getDocLibraryVisibleFiles()">
-                                                                <td>
-                                                                    <div class="doc-library-file">
-                                                                        <span class="doc-library-file__ext">{{file.extension}}</span>
-                                                                        <div>
-                                                                            <button type="button" class="doc-library-file__name" (click)="downloadDocLibraryFile(file.id)">{{file.name}}</button>
-                                                                            <div class="doc-library-file__path">/{{file.folderId}}/{{file.name}}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td *ngIf="selectedDocLibraryFolder === 'all'">{{file.category}}</td>
-                                                                <td>{{formatDocLibraryBytes(file.sizeBytes)}}</td>
-                                                                <td>{{toLocalDateTimeString(file.modifiedAt)}}</td>
-                                                                <td>{{file.modifiedBy}}</td>
-                                                                <td>{{file.versionCount}}</td>
-                                                                <td>
-                                                                    <div class="doc-library-row-actions">
-                                                                        <button mat-icon-button type="button" aria-label="Download document" (click)="downloadDocLibraryFile(file.id)">
-                                                                            <mat-icon fontIcon="download"></mat-icon>
-                                                                        </button>
-                                                                        <button mat-icon-button type="button" aria-label="More document actions" [mat-menu-trigger-for]="docLibraryRowMenu">
-                                                                            <mat-icon fontIcon="more_vert"></mat-icon>
-                                                                        </button>
-                                                                        <mat-menu #docLibraryRowMenu="matMenu" xPosition="before">
-                                                                            <a
-                                                                                *ngIf="canEditDocLibraryMarkup(file)"
-                                                                mat-menu-item
-                                                                [routerLink]="['/edit-markup']"
-                                                                [queryParams]="getDocLibraryMarkupQueryParams(file)">
-                                                                <mat-icon fontIcon="edit_location_alt"></mat-icon>
-                                                                <span>Edit Markup</span>
-                                                            </a>
-                                                                            <button mat-menu-item type="button" (click)="openDocLibraryVersions(file.id)">
-                                                                                <mat-icon fontIcon="history"></mat-icon>
-                                                                                <span>Versions</span>
-                                                                            </button>
-                                                                            <button mat-menu-item type="button" (click)="moveDocLibraryFile(file.id)">
-                                                                                <mat-icon fontIcon="drive_file_move"></mat-icon>
-                                                                                <span>Move</span>
-                                                                            </button>
-                                                                            <button mat-menu-item type="button" (click)="deleteDocLibraryFile(file.id)">
-                                                                                <mat-icon fontIcon="delete"></mat-icon>
-                                                                                <span>Delete</span>
-                                                                            </button>
-                                                                        </mat-menu>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                            <tr *ngIf="getDocLibraryVisibleFiles().length === 0">
-                                                                <td [attr.colspan]="selectedDocLibraryFolder === 'all' ? 7 : 6" class="doc-library-empty">No documents in this section yet.</td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <firewire-doc-library-explorer
+                                            [projectKey]="getDocLibraryProjectKey()"
+                                            [files]="docLibraryFiles"
+                                            [directories]="docLibraryDirectories"
+                                            [selectedFolder]="selectedDocLibraryFolder"
+                                            [statusMessage]="docLibraryStatusMessage"
+                                            [allowMarkup]="true"
+                                            [allowVersions]="true"
+                                            [allowMove]="true"
+                                            [markupQueryParams]="getDocLibraryRecordMarkupQueryParams"
+                                            (selectedFolderChange)="selectDocLibraryFolder($event)"
+                                            (downloadFile)="downloadDocLibraryFile($event)"
+                                            (deleteFile)="deleteDocLibraryFile($event)"
+                                            (openVersions)="openDocLibraryVersions($event)"
+                                            (moveFile)="moveDocLibraryFile($event)"
+                                            (createDirectory)="createDocLibraryDirectory($event)"
+                                            (renameDirectory)="renameDocLibraryDirectory($event)"
+                                            (deleteDirectory)="deleteDocLibraryDirectory($event)">
+                                        </firewire-doc-library-explorer>
                                     </div>
 
                                     <ng-template #firewireWorkspaceFieldwireOrSystem>
@@ -962,197 +786,11 @@
                                     </ng-template>
 
                                     <ng-template #firewireWorkspaceBomOrPlaceholder>
-                                    <div *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspaceWireTakeoffOrPlaceholder" class="firewire-bom-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
-                                        <div *ngIf="firewireSaveWorking" class="firewire-save-overlay" role="status" aria-live="polite">
-                                            <div class="firewire-save-overlay__panel">
-                                                <div class="firewire-save-overlay__spinner" aria-hidden="true"></div>
-                                                <div>
-                                                    <div class="firewire-save-overlay__title">Saving changes</div>
-                                                    <div class="firewire-save-overlay__message">{{firewireSaveMessage || 'Updating the BOM worksheet...'}}</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="firewire-bom-toolbar">
-                                            <div class="firewire-bom-toolbar__meta">
-                                                <div class="firewire-workspace-placeholder__eyebrow">Project BOM</div>
-                                                <h4>Material Worksheet</h4>
-                                                <label class="firewire-bom-filter">
-                                                    <span>Filter</span>
-                                                    <input [(ngModel)]="bomFilter" aria-label="Filter BOM rows" placeholder="device, component, cost" />
-                                                </label>
-                                            </div>
-                                            <div class="firewire-bom-toolbar__actions">
-                                                <div class="firewire-bom-grand-total">
-                                                    {{getBomGrandTotal() | currency}}
-                                                </div>
-                                                <button mat-stroked-button type="button" (click)="addBomSection()" [disabled]="isActiveFirewireWorkspaceLocked()">ADD NEW SECTION</button>
-                                                <button mat-stroked-button type="button" (click)="exportBomCsv()">EXPORT CSV</button>
-                                            </div>
-                                        </div>
-
-                                        <div *ngFor="let section of bomSections" class="firewire-bom-section">
-                                            <div class="firewire-bom-section__header">
-                                                <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" [readonly]="isActiveFirewireWorkspaceLocked()" aria-label="BOM section title" />
-                                                <div class="firewire-bom-section__actions">
-                                                    <span>{{getBomSectionGrandTotal(section) | currency}}</span>
-                                                    <button mat-stroked-button type="button" (click)="addBomRow(section)" [disabled]="isActiveFirewireWorkspaceLocked()">ADD ROW</button>
-                                                </div>
-                                            </div>
-
-                                                    <div class="firewire-bom-grid" (scroll)="positionBomPartLookup()">
-                                                <table>
-                                                    <colgroup>
-                                                        <col class="bom-col-part-nbr" />
-                                                        <col class="bom-col-description" />
-                                                        <col class="bom-col-qty" />
-                                                        <col class="bom-col-cost" />
-                                                        <col class="bom-col-ext-cost" />
-                                                        <col class="bom-col-labor" />
-                                                        <col class="bom-col-ext-labor" />
-                                                        <col class="bom-col-type" />
-                                                        <col class="bom-col-actions" />
-                                                    </colgroup>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>
-                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('partNbr')" (click)="setBomSort('partNbr')">
-                                                                    Part Nbr
-                                                                    <span>{{isBomSortActive('partNbr') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th>
-                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('description')" (click)="setBomSort('description')">
-                                                                    Description
-                                                                    <span>{{isBomSortActive('description') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="right-align">
-                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('qty')" (click)="setBomSort('qty')">
-                                                                    Qty
-                                                                    <span>{{isBomSortActive('qty') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="right-align">
-                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('cost')" (click)="setBomSort('cost')">
-                                                                    Cost
-                                                                    <span>{{isBomSortActive('cost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="right-align">
-                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extCost')" (click)="setBomSort('extCost')">
-                                                                    Ext Cost
-                                                                    <span>{{isBomSortActive('extCost') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="right-align">
-                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('labor')" (click)="setBomSort('labor')">
-                                                                    Labor
-                                                                    <span>{{isBomSortActive('labor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="right-align">
-                                                                <button type="button" class="bom-sort-button bom-sort-button--right" [class.is-active]="isBomSortActive('extLabor')" (click)="setBomSort('extLabor')">
-                                                                    Ext Labor
-                                                                    <span>{{isBomSortActive('extLabor') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th>
-                                                                <button type="button" class="bom-sort-button" [class.is-active]="isBomSortActive('type')" (click)="setBomSort('type')">
-                                                                    Type
-                                                                    <span>{{isBomSortActive('type') ? (bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
-                                                                </button>
-                                                            </th>
-                                                            <th class="bom-actions-heading">Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr *ngFor="let row of getFilteredBomRows(section); let idx = index">
-                                                            <td>
-                                                                <div class="sales-bom-part-lookup">
-                                                                    <input
-                                                                        [(ngModel)]="row.lookupQuery"
-                                                                        (focus)="onBomPartLookupFocus(section, row, $event)"
-                                                                        (blur)="onBomPartLookupBlur(section, row)"
-                                                                        (input)="positionBomPartLookup($event)"
-                                                                        (ngModelChange)="onBomPartLookupChanged(section, row, $event)"
-                                                                        [attr.aria-label]="'BOM part number ' + (idx + 1)" />
-                                                                    <div
-                                                                        *ngIf="isBomLookupActive(section, row) && hasBomLookupResults(section, row)"
-                                                                        class="sales-bom-part-lookup__menu"
-                                                                        [ngStyle]="bomLookupMenuStyle">
-                                                                        <div *ngIf="getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
-                                                                        <button
-                                                                            *ngFor="let option of getBomDeviceLookupResults(section, row)"
-                                                                            type="button"
-                                                                            class="sales-bom-part-lookup__option"
-                                                                            (mousedown)="selectBomDevice(section, row, option)">
-                                                                            <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
-                                                                            <span class="sales-bom-part-lookup__description">{{option.name}}</span>
-                                                                            <span class="sales-bom-part-lookup__cost">{{option.cost | currency}}</span>
-                                                                            <span class="sales-bom-part-lookup__category">{{option.categoryName}}</span>
-                                                                        </button>
-                                                                        <div *ngIf="getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Vendor Parts</div>
-                                                                        <button
-                                                                            *ngFor="let option of getBomPartLookupResults(section, row)"
-                                                                            type="button"
-                                                                            class="sales-bom-part-lookup__option"
-                                                                            (mousedown)="selectBomPart(section, row, option)">
-                                                                            <span class="sales-bom-part-lookup__part">{{option.PartNumber}}</span>
-                                                                            <span class="sales-bom-part-lookup__description">{{option.LongDescription}}</span>
-                                                                            <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency}}</span>
-                                                                            <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td>
-                                                                <textarea
-                                                                    fwAutosizeTextarea
-                                                                    rows="2"
-                                                                    [(ngModel)]="row.description"
-                                                                    [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
-                                                            </td>
-                                                            <td class="right-align">
-                                                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
-                                                            </td>
-                                                            <td class="right-align">
-                                                                <div class="bom-currency-input">
-                                                                    <span>$</span>
-                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
-                                                                </div>
-                                                            </td>
-                                                            <td class="right-align bom-total-cell">
-                                                                {{getBomRowExtCost(row) | currency}}
-                                                            </td>
-                                                            <td class="right-align">
-                                                                <div class="bom-currency-input">
-                                                                    <span>$</span>
-                                                                    <input type="number" min="0" step="0.01" [(ngModel)]="row.labor" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
-                                                                </div>
-                                                            </td>
-                                                            <td class="right-align bom-total-cell">
-                                                                {{getBomRowExtLabor(row) | currency}}
-                                                            </td>
-                                                            <td>
-                                                                <input [(ngModel)]="row.type" (ngModelChange)="refreshTakeoffColumnDefinitions()" [attr.aria-label]="'BOM type ' + (idx + 1)" />
-                                                            </td>
-                                                            <td class="bom-actions-cell">
-                                                                <button
-                                                                    mat-icon-button
-                                                                    type="button"
-                                                                    class="bom-delete-row-button"
-                                                                    (click)="removeBomRow(section, row)"
-                                                                    [disabled]="isActiveFirewireWorkspaceLocked()"
-                                                                    [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
-                                                                    <mat-icon fontIcon="delete"></mat-icon>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <firewire-bom-worksheet
+                                        *ngIf="activeFirewireWorkspaceTab === 'BOM'; else firewireWorkspaceWireTakeoffOrPlaceholder"
+                                        [host]="bomWorksheetHost"
+                                        context="project">
+                                    </firewire-bom-worksheet>
                                     </ng-template>
 
                                     <ng-template #firewireWorkspaceWireTakeoffOrPlaceholder>
@@ -1847,59 +1485,16 @@
 
                                     <ng-template #firewireWorkspaceFloorplansOrSummary>
                                     <div *ngIf="activeFirewireWorkspaceTab === 'FLOORPLANS'; else firewireWorkspaceSummaryOrPlaceholder" class="doc-library-panel floorplans-panel">
-                                        <div class="doc-library-toolbar">
-                                            <div>
-                                                <div class="firewire-workspace-placeholder__eyebrow">Floorplans</div>
-                                                <h4>Project Floorplans <span class="doc-library-project-nbr">{{getDocLibraryProjectKey()}}</span></h4>
-                                            </div>
-                                        </div>
-
-                                        <div class="doc-library-summary">
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Floorplans</span>
-                                                <strong>{{getFloorplanFiles().length}}</strong>
-                                            </div>
-                                            <div class="doc-library-stat">
-                                                <span class="doc-library-stat__label">Storage</span>
-                                                <strong>{{formatDocLibraryBytes(getFloorplanTotalBytes())}}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div class="doc-library-browser">
-                                            <div class="doc-library-browser__header">
-                                                <div>
-                                                    <div class="firewire-workspace-placeholder__eyebrow">Plan Set</div>
-                                                    <h5>/Projects/{{getDocLibraryProjectKey()}}/Floorplans</h5>
-                                                </div>
-                                                <div *ngIf="floorplanStatusMessage" class="doc-library-browser__status">{{floorplanStatusMessage}}</div>
-                                            </div>
-
-                                            <div *ngIf="getFloorplanFiles().length === 0" class="doc-library-empty">No floorplans have been uploaded yet.</div>
-
-                                            <div *ngIf="getFloorplanFiles().length > 0" class="floorplans-grid">
-                                                <div *ngFor="let file of getFloorplanFiles()" class="floorplan-tile">
-                                                    <div class="floorplan-tile__preview">
-                                                        <img [src]="getFloorplanPreviewContent(file)" [alt]="file.name" loading="lazy" />
-                                                    </div>
-                                                    <input
-                                                        class="floorplan-tile__name"
-                                                        [(ngModel)]="file.name"
-                                                        (change)="renameFloorplanFile(file)"
-                                                        aria-label="Floorplan name" />
-                                                    <div class="floorplan-tile__meta">
-                                                        {{formatDocLibraryBytes(getLatestDocLibraryVersion(file)?.sizeBytes || 0)}} / {{file.floorplanDesign?.annotations?.length || 0}} mark{{(file.floorplanDesign?.annotations?.length || 0) === 1 ? '' : 's'}}
-                                                    </div>
-                                                    <button mat-stroked-button type="button" (click)="openFloorplanDesigner(file)">
-                                                        <mat-icon fontIcon="architecture"></mat-icon>
-                                                        Design
-                                                    </button>
-                                                    <button mat-stroked-button type="button" (click)="downloadDocLibraryFile(file.id)">
-                                                        <mat-icon fontIcon="download"></mat-icon>
-                                                        Download
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <firewire-floorplans
+                                            [projectKey]="getDocLibraryProjectKey()"
+                                            [files]="getFloorplanFiles()"
+                                            [statusMessage]="floorplanStatusMessage"
+                                            [getPreviewContent]="getFloorplanPreview"
+                                            (renameFile)="renameFloorplanFile($event)"
+                                            (designFile)="openFloorplanDesigner($event)"
+                                            (downloadFile)="downloadDocLibraryFile($event)"
+                                            (deleteFile)="deleteFloorplanFile($event)">
+                                        </firewire-floorplans>
                                     </div>
                                     </ng-template>
 

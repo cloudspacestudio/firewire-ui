@@ -14,14 +14,17 @@ import { MatInputModule } from '@angular/material/input'
 import { MatSelectModule } from '@angular/material/select'
 
 import { PageToolbar } from '../../common/components/page-toolbar'
-import { AutosizeTextareaDirective } from '../../common/directives/autosize-textarea.directive'
+import { FirewireBomWorksheetComponent } from '../../common/components/firewire-bom-worksheet.component'
+import { FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
+import { FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
 import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectType } from '../../schemas/firewire-project.schema'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
 import {
+    ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
-    ProjectDocLibraryFolderDefinition,
+    ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from '../../common/services/project-doc-library-storage.service'
 import { PdfThumbnailService } from '../../common/services/pdf-thumbnail.service'
@@ -31,7 +34,8 @@ import { Category } from '../../schemas/category.schema'
 import { VwDeviceMaterial } from '../../schemas/vwdevicematerial.schema'
 import { VwDevice } from '../../schemas/vwdevice.schema'
 import { VwEddyPricelist } from '../../schemas/vwEddyPricelist'
-import { FloorplanDesignerDialog, FloorplanDesignerDialogResult } from '../design/floorplan-designer.dialog'
+import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from '../design/floorplan-designer.dialog'
+import { FloorplanDesignerSymbolOption } from '../design/floorplan-designer.component'
 
 type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'FLOORPLANS' | 'DOC LIBRARY'
 type SalesBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'type'
@@ -83,6 +87,10 @@ interface SalesDocLibraryCategoryDialogData {
     folders: Array<{ id: string, label: string }>
 }
 
+interface SalesFloorplanDeleteDialogData {
+    fileName: string
+}
+
 @Component({
     standalone: true,
     selector: 'sales-project-page',
@@ -97,7 +105,9 @@ interface SalesDocLibraryCategoryDialogData {
         MatInputModule,
         MatSelectModule,
         PageToolbar,
-        AutosizeTextareaDirective
+        FirewireBomWorksheetComponent,
+        FirewireDocLibraryExplorerComponent,
+        FirewireFloorplansComponent,
     ],
     providers: [HttpClient],
     templateUrl: './sales-project.page.html',
@@ -121,9 +131,11 @@ export class SalesProjectPage {
     private readonly dialog = inject(MatDialog)
     readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
     readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'FLOORPLANS', 'DOC LIBRARY']
-    readonly docLibraryFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getRootFolderDefinitions()
-    readonly docLibrarySelectableFolders: ProjectDocLibraryFolderDefinition[] = this.projectDocLibraryStorage.getSelectableFolderDefinitions()
     readonly docLibraryImageTileMaxBytes = 4 * 1024 * 1024
+
+    get bomWorksheetHost(): SalesProjectPage {
+        return this
+    }
 
     pageWorking = true
     saveWorking = false
@@ -150,6 +162,7 @@ export class SalesProjectPage {
         projectStatus: []
     }
     docLibraryFiles: ProjectDocLibraryFileRecord[] = []
+    docLibraryDirectories: ProjectDocLibraryDirectoryRecord[] = []
     deviceSets: DeviceSetSummary[] = []
     categories: Category[] = []
     bomSections: SalesBomSection[] = []
@@ -243,37 +256,17 @@ export class SalesProjectPage {
 
         this.activeTab = 'DOC LIBRARY'
         this.docLibraryStatusMessage = ''
-
-        if (this.selectedDocLibraryFolder === 'all') {
-            const selectedFolderId = await this.openDocLibraryCategoryDialog('Upload Documents', 'Choose Category', 'sales')
-            if (!selectedFolderId) {
-                return
-            }
-            this.selectedDocLibraryFolder = selectedFolderId
-        }
-
         this.docLibraryUploadInput.nativeElement.click()
-    }
-
-    private async openDocLibraryCategoryDialog(title: string, confirmLabel: string, selectedFolderId: string): Promise<string | undefined> {
-        return firstValueFrom(this.dialog.open(SalesDocLibraryCategoryDialog, {
-            width: '420px',
-            maxWidth: '92vw',
-            panelClass: 'fw-compact-dialog-pane',
-            data: {
-                title,
-                confirmLabel,
-                selectedFolderId,
-                folders: this.docLibrarySelectableFolders.map((folder) => ({
-                    id: folder.id,
-                    label: this.projectDocLibraryStorage.getFolderPathLabel(folder.id)
-                }))
-            } as SalesDocLibraryCategoryDialogData
-        }).afterClosed())
     }
 
     async saveProjectDetails(): Promise<void> {
         if (!this.projectId || !this.project) {
+            return
+        }
+        const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
+        if (symbolBalanceErrors.length > 0) {
+            this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
+            this.saveMessage = 'Project save blocked by floorplan symbol counts.'
             return
         }
 
@@ -311,6 +304,12 @@ export class SalesProjectPage {
 
     async saveBom(): Promise<void> {
         if (!this.projectId || !this.project) {
+            return
+        }
+        const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
+        if (symbolBalanceErrors.length > 0) {
+            this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
+            this.saveMessage = 'BOM save blocked by floorplan symbol counts.'
             return
         }
 
@@ -372,10 +371,10 @@ export class SalesProjectPage {
         const allCount = visibleFiles.length
         return [
             { id: 'all', label: 'All Documents', itemCount: allCount },
-            ...this.docLibraryFolders.map((folder) => ({
+            ...this.docLibraryDirectories.map((folder) => ({
                 id: folder.id,
-                label: folder.label,
-                itemCount: visibleFiles.filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, folder.id)).length
+                label: folder.name,
+                itemCount: visibleFiles.filter((file) => file.folderId === folder.id).length
             }))
         ]
     }
@@ -384,13 +383,21 @@ export class SalesProjectPage {
         if (this.selectedDocLibraryFolder === 'all') {
             return this.getDocLibraryFilesOnly()
         }
-        return this.getDocLibraryFilesOnly().filter((file) => this.projectDocLibraryStorage.isInFolderBranch(file, this.selectedDocLibraryFolder))
+        return this.getDocLibraryFilesOnly().filter((file) => file.folderId === this.selectedDocLibraryFolder)
     }
 
     getFloorplanFiles(): ProjectDocLibraryFileRecord[] {
         return this.docLibraryFiles
             .filter((file) => file.folderId === this.floorplansFolderId)
-            .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+            .sort((left, right) => this.compareFloorplanFilesByName(left, right))
+    }
+
+    private compareFloorplanFilesByName(left: ProjectDocLibraryFileRecord, right: ProjectDocLibraryFileRecord): number {
+        const nameComparison = String(left.name || '').localeCompare(String(right.name || ''), undefined, { numeric: true, sensitivity: 'base' })
+        if (nameComparison !== 0) {
+            return nameComparison
+        }
+        return String(left.id || '').localeCompare(String(right.id || ''))
     }
 
     isFloorplanPdf(file: ProjectDocLibraryFileRecord): boolean {
@@ -401,11 +408,136 @@ export class SalesProjectPage {
 
     getFloorplanPreviewContent(file: ProjectDocLibraryFileRecord): string {
         const version = this.getLatestDocLibraryVersion(file)
-        return version?.thumbnailDataUrl || version?.dataUrl || version?.contentUrl || ''
+        return version?.thumbnailDataUrl || version?.dataUrl || ''
+    }
+
+    getFloorplanVersionContent(file: ProjectDocLibraryFileRecord): string {
+        const version = this.getLatestDocLibraryVersion(file)
+        return version?.dataUrl || version?.contentUrl || ''
     }
 
     getFloorplanTotalBytes(): number {
         return this.getFloorplanFiles().reduce((sum, file) => sum + Number(this.getLatestDocLibraryVersion(file)?.sizeBytes || 0), 0)
+    }
+
+    private getFloorplanDesignerSymbols(): FloorplanDesignerSymbolOption[] {
+        const inventory = this.getFloorplanSymbolInventory()
+        const placedCounts = this.getFloorplanSymbolPlacementCounts()
+        return inventory.map((symbol) => {
+            const placedQty = placedCounts.get(symbol.id) || 0
+            return {
+                ...symbol,
+                placedQty,
+                remainingQty: Math.max(0, symbol.totalQty - placedQty)
+            }
+        })
+    }
+
+    private getFloorplanSymbolInventory(): FloorplanDesignerSymbolOption[] {
+        const bySymbol = new Map<string, FloorplanDesignerSymbolOption>()
+        for (const section of this.bomSections) {
+            for (const row of section.rows || []) {
+                const categoryName = String(row.type || '').trim()
+                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                if (!categoryName || qty <= 0) {
+                    continue
+                }
+
+                const categoryKey = `category-${this.normalizeFloorplanSymbolKey(categoryName)}`
+                const partNumber = String(row.partNbr || '').trim()
+                const deviceName = String(row.description || row.partNbr || categoryName).trim()
+                const id = `${categoryKey}::${this.normalizeFloorplanSymbolKey(partNumber || deviceName)}`
+                const existing = bySymbol.get(id)
+                if (existing) {
+                    existing.totalQty += qty
+                    continue
+                }
+
+                bySymbol.set(id, {
+                    id,
+                    code: this.createFloorplanSymbolCode(categoryName, deviceName),
+                    label: deviceName,
+                    color: this.getFloorplanSymbolColor(categoryKey),
+                    totalQty: qty,
+                    placedQty: 0,
+                    remainingQty: qty,
+                    categoryKey,
+                    categoryName,
+                    partNumber,
+                    deviceName,
+                    materialCost: Number(row.cost || 0),
+                    laborHours: Number(row.labor || 0),
+                    customAttributes: []
+                })
+            }
+        }
+        return [...bySymbol.values()]
+    }
+
+    private getFloorplanSymbolPlacementCounts(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): Map<string, number> {
+        const counts = new Map<string, number>()
+        for (const file of this.getFloorplanFiles()) {
+            const design = overrideFileId && file.id === overrideFileId ? overrideDesign : file.floorplanDesign
+            for (const annotation of design?.annotations || []) {
+                if (annotation.kind !== 'symbol' || !annotation.symbolId) {
+                    continue
+                }
+                counts.set(annotation.symbolId, (counts.get(annotation.symbolId) || 0) + 1)
+            }
+        }
+        return counts
+    }
+
+    private getFloorplanSymbolBalanceErrors(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): string[] {
+        const inventory = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
+        const placedCounts = this.getFloorplanSymbolPlacementCounts(overrideFileId, overrideDesign)
+        const errors: string[] = []
+        for (const [symbolId, placedQty] of placedCounts) {
+            const symbol = inventory.get(symbolId)
+            if (!symbol) {
+                errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
+                continue
+            }
+            if (placedQty > symbol.totalQty) {
+                errors.push(`${symbol.label} (${symbol.partNumber || symbol.categoryName}) has ${placedQty} symbols placed across floorplans, but the BOM quantity is ${symbol.totalQty}. Remove ${placedQty - symbol.totalQty} placement${placedQty - symbol.totalQty === 1 ? '' : 's'} or increase the BOM quantity.`)
+            }
+        }
+        return errors
+    }
+
+    private showFloorplanSymbolBalanceErrors(errors: string[]): void {
+        if (errors.length <= 0) {
+            return
+        }
+        this.dialog.open(FloorplanSymbolBalanceDialog, {
+            width: '520px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: { errors } as FloorplanSymbolBalanceDialogData
+        })
+    }
+
+    private normalizeFloorplanSymbolKey(value: string): string {
+        return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item'
+    }
+
+    private createFloorplanSymbolCode(categoryName: string, deviceName: string): string {
+        const source = String(categoryName || deviceName || 'SY').trim()
+        const words = source.split(/[^a-z0-9]+/i).filter(Boolean)
+        const code = words.length > 1
+            ? words.map((word) => word[0]).join('')
+            : source.slice(0, 3)
+        return code.slice(0, 3).toUpperCase() || 'SY'
+    }
+
+    private getFloorplanSymbolColor(key: string): string {
+        const palette = ['#77d7ff', '#ffcf7a', '#ff8d8d', '#9effb6', '#d49bff', '#8dd7ff', '#ffd07f', '#a5f3fc']
+        let hash = 0
+        for (const char of key) {
+            hash = ((hash << 5) - hash) + char.charCodeAt(0)
+            hash |= 0
+        }
+        return palette[Math.abs(hash) % palette.length]
     }
 
     formatFloorplanBytes(sizeBytes: number): string {
@@ -457,6 +589,14 @@ export class SalesProjectPage {
         }
     }
 
+    readonly getDocLibraryRecordMarkupQueryParams = (file: ProjectDocLibraryFileRecord): Record<string, string> => {
+        return this.getDocLibraryMarkupQueryParams(file)
+    }
+
+    readonly getFloorplanPreview = (file: ProjectDocLibraryFileRecord): string => {
+        return this.getFloorplanPreviewContent(file)
+    }
+
     getReadableDocLibraryFileSize(file: ProjectDocLibraryFileRecord): string {
         const sizeBytes = Number(this.getLatestDocLibraryVersion(file)?.sizeBytes || 0)
         if (sizeBytes >= 1024 * 1024) {
@@ -470,9 +610,9 @@ export class SalesProjectPage {
 
     getDocLibraryFolderLabel(folderId: string): string {
         if (folderId === 'all') {
-            return 'All Documents'
+            return 'Project Files'
         }
-        return this.projectDocLibraryStorage.getFolderPathLabel(folderId)
+        return this.docLibraryDirectories.find((directory) => directory.id === folderId)?.name || 'Unfiled'
     }
 
     getBomRowExtCost(row: SalesBomRow): number {
@@ -757,6 +897,50 @@ export class SalesProjectPage {
         this.bomSections = this.bomSections.filter((_, idx) => idx !== sectionIndex)
     }
 
+    addBomSection(): void {
+        const nextNumber = this.bomSections.length + 1
+        this.bomSections = [
+            ...this.bomSections,
+            {
+                title: `NEW SECTION ${nextNumber}`,
+                sectionKey: this.createClientId(),
+                rows: [this.createEmptyBomRow()]
+            }
+        ]
+    }
+
+    exportBomCsv(): void {
+        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'TYPE']
+        const csvLines = this.bomSections.flatMap((section) => {
+            const rows = this.getFilteredBomRows(section)
+            return [
+                this.toCsvCell(section.title),
+                headers.join(','),
+                ...rows.map((row) => {
+                    return [
+                        this.toCsvCell(row.partNbr),
+                        this.toCsvCell(row.description),
+                        this.toCsvCell(`${row.qty}`),
+                        this.toCsvCell(Number(row.cost || 0).toFixed(2)),
+                        this.toCsvCell(this.getBomRowExtCost(row).toFixed(2)),
+                        this.toCsvCell(Number(row.labor || 0).toFixed(2)),
+                        this.toCsvCell(this.getBomRowExtLabor(row).toFixed(2)),
+                        this.toCsvCell(row.type)
+                    ].join(',')
+                }),
+                ''
+            ]
+        })
+
+        const blob = new Blob([csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `${(this.project?.name || 'sales-bom').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+        anchor.click()
+        URL.revokeObjectURL(url)
+    }
+
     async addSelectedDeviceSetToBom(): Promise<void> {
         const deviceSetId = String(this.selectedDeviceSetId || '').trim()
         if (!deviceSetId) {
@@ -825,15 +1009,118 @@ export class SalesProjectPage {
         URL.revokeObjectURL(url)
     }
 
-    async onDocLibraryFileSelected(event: Event): Promise<void> {
-        const input = event.target as HTMLInputElement | null
-        if (!input?.files?.length) {
+    async deleteFloorplanFile(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
             return
         }
 
-        if (this.selectedDocLibraryFolder === 'all') {
-            this.docLibraryStatusMessage = 'Choose a document category before uploading.'
-            input.value = ''
+        const confirmed = await firstValueFrom(this.dialog.open(SalesFloorplanDeleteDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                fileName: file.name
+            } as SalesFloorplanDeleteDialogData
+        }).afterClosed())
+
+        if (!confirmed) {
+            return
+        }
+
+        const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
+        this.docLibraryFiles = [...(workspace.files || [])]
+        this.docLibraryDirectories = [...(workspace.directories || this.docLibraryDirectories)]
+        this.floorplanStatusMessage = `Deleted ${file.name}.`
+    }
+
+    async deleteDocLibraryFile(fileId: string): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === fileId)
+        if (!file) {
+            return
+        }
+
+        const confirmed = await firstValueFrom(this.dialog.open(SalesFloorplanDeleteDialog, {
+            width: '420px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: {
+                fileName: file.name
+            } as SalesFloorplanDeleteDialogData
+        }).afterClosed())
+
+        if (!confirmed) {
+            return
+        }
+
+        const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
+        this.docLibraryFiles = [...(workspace.files || [])]
+        this.docLibraryDirectories = [...(workspace.directories || this.docLibraryDirectories)]
+        this.docLibraryStatusMessage = `Deleted ${file.name}.`
+    }
+
+    async createDocLibraryDirectory(parentId: string): Promise<void> {
+        const name = window.prompt('New directory name', 'New Folder')
+        const normalizedName = String(name || '').trim()
+        if (!normalizedName) {
+            return
+        }
+        const now = new Date().toISOString()
+        const directory: ProjectDocLibraryDirectoryRecord = {
+            id: this.createClientId(),
+            name: normalizedName,
+            parentId: parentId && parentId !== 'all' ? parentId : undefined,
+            createdAt: now,
+            updatedAt: now
+        }
+        this.docLibraryDirectories = [...this.docLibraryDirectories, directory]
+        this.selectedDocLibraryFolder = directory.id
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Created ${normalizedName}.`
+    }
+
+    async renameDocLibraryDirectory(directoryId: string): Promise<void> {
+        const directory = this.docLibraryDirectories.find((item) => item.id === directoryId)
+        if (!directory) {
+            return
+        }
+        const name = window.prompt('Directory name', directory.name)
+        const normalizedName = String(name || '').trim()
+        if (!normalizedName || normalizedName === directory.name) {
+            return
+        }
+        directory.name = normalizedName
+        directory.updatedAt = new Date().toISOString()
+        this.docLibraryDirectories = [...this.docLibraryDirectories]
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Renamed directory to ${normalizedName}.`
+    }
+
+    async deleteDocLibraryDirectory(directoryId: string): Promise<void> {
+        const directory = this.docLibraryDirectories.find((item) => item.id === directoryId)
+        if (!directory) {
+            return
+        }
+        const descendantIds = this.getDocLibraryDirectoryDescendantIds(directoryId)
+        const fileCount = this.docLibraryFiles.filter((file) => descendantIds.has(file.folderId)).length
+        const confirmed = window.confirm(fileCount > 0
+            ? `Delete ${directory.name} and ${fileCount} file${fileCount === 1 ? '' : 's'} inside it?`
+            : `Delete ${directory.name}?`)
+        if (!confirmed) {
+            return
+        }
+        this.docLibraryDirectories = this.docLibraryDirectories.filter((item) => !descendantIds.has(item.id))
+        this.docLibraryFiles = this.docLibraryFiles.filter((file) => !descendantIds.has(file.folderId))
+        if (descendantIds.has(this.selectedDocLibraryFolder)) {
+            this.selectedDocLibraryFolder = directory.parentId || 'all'
+        }
+        await this.persistDocLibraryWorkspace()
+        this.docLibraryStatusMessage = `Deleted ${directory.name}.`
+    }
+
+    async onDocLibraryFileSelected(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement | null
+        if (!input?.files?.length) {
             return
         }
 
@@ -895,7 +1182,7 @@ export class SalesProjectPage {
                     continue
                 }
 
-                await this.uploadFileToDocLibraryFolder(file, this.floorplansFolderId, false, await this.createPdfThumbnailIfNeeded(file))
+                await this.uploadFileToDocLibraryFolder(file, this.floorplansFolderId, false, await this.createFloorplanThumbnailIfNeeded(file))
                 uploadedCount += 1
             }
 
@@ -935,7 +1222,9 @@ export class SalesProjectPage {
             width: '100vw',
             data: {
                 file,
-                imageUrl: this.getFloorplanPreviewContent(file)
+                imageUrl: this.getFloorplanVersionContent(file),
+                symbols: this.getFloorplanDesignerSymbols(),
+                validateDesign: (design: ProjectFloorplanDesignState) => this.getFloorplanSymbolBalanceErrors(file.id, design)
             }
         }).afterClosed()) as FloorplanDesignerDialogResult | undefined
 
@@ -965,6 +1254,7 @@ export class SalesProjectPage {
         }
         const workspace = await this.projectDocLibraryStorage.loadWorkspace(key)
         this.docLibraryFiles = [...(workspace.files || [])]
+        this.docLibraryDirectories = [...(workspace.directories || [])]
         await this.ensureFloorplanPdfThumbnails()
     }
 
@@ -975,7 +1265,8 @@ export class SalesProjectPage {
         }
 
         await this.projectDocLibraryStorage.saveWorkspace(key, {
-            files: this.docLibraryFiles
+            files: this.docLibraryFiles,
+            directories: this.docLibraryDirectories
         })
     }
 
@@ -1054,12 +1345,7 @@ export class SalesProjectPage {
     }
 
     private async uploadDocLibraryFile(file: File): Promise<'uploaded' | 'versioned' | 'skipped'> {
-        const folderId = this.selectedDocLibraryFolder
-        if (!folderId || folderId === 'all') {
-            throw new Error('Choose a document category before uploading.')
-        }
-
-        return this.uploadFileToDocLibraryFolder(file, folderId)
+        return this.uploadFileToDocLibraryFolder(file, this.selectedDocLibraryFolder || 'all')
     }
 
     private async uploadFileToDocLibraryFolder(file: File, folderId: string, confirmVersion = false, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
@@ -1113,6 +1399,21 @@ export class SalesProjectPage {
         return this.docLibraryFiles.filter((file) => file.folderId !== this.floorplansFolderId)
     }
 
+    private getDocLibraryDirectoryDescendantIds(directoryId: string): Set<string> {
+        const ids = new Set([directoryId])
+        let changed = true
+        while (changed) {
+            changed = false
+            for (const directory of this.docLibraryDirectories) {
+                if (!ids.has(directory.id) && directory.parentId && ids.has(directory.parentId)) {
+                    ids.add(directory.id)
+                    changed = true
+                }
+            }
+        }
+        return ids
+    }
+
     private isFloorplanUploadFile(file: File): boolean {
         const mimeType = String(file.type || '').toLowerCase()
         const extension = this.getDocLibraryExtension(file.name)
@@ -1121,28 +1422,34 @@ export class SalesProjectPage {
             || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'pdf'].includes(extension)
     }
 
-    private async createPdfThumbnailIfNeeded(file: File): Promise<string> {
+    private async createFloorplanThumbnailIfNeeded(file: File): Promise<string> {
         const mimeType = String(file.type || '').toLowerCase()
         const extension = this.getDocLibraryExtension(file.name)
-        if (mimeType !== 'application/pdf' && extension !== 'pdf') {
-            return ''
+        if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) {
+            return this.readFileAsDataUrl(file)
         }
-
-        return this.pdfThumbnailService.createThumbnail(file)
+        if (mimeType === 'application/pdf' || extension === 'pdf') {
+            return this.pdfThumbnailService.createThumbnail(file)
+        }
+        return ''
     }
 
     private async ensureFloorplanPdfThumbnails(): Promise<void> {
         let changed = false
         for (const file of this.getFloorplanFiles()) {
             const version = this.getLatestDocLibraryVersion(file)
-            if (!version || version.thumbnailDataUrl || !this.isFloorplanPdf(file)) {
+            if (!version || version.thumbnailDataUrl) {
                 continue
             }
 
             const blob = version.dataUrl
                 ? this.dataUrlToBlob(version.dataUrl)
                 : await this.projectDocLibraryStorage.downloadVersion(file.storageKey || this.getDocLibraryStorageKey(), file.id, version)
-            version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            if (this.isFloorplanPdf(file)) {
+                version.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+            } else if (String(version.mimeType || '').toLowerCase().startsWith('image/')) {
+                version.thumbnailDataUrl = await this.blobToDataUrl(blob)
+            }
             changed = true
         }
 
@@ -1328,6 +1635,11 @@ export class SalesProjectPage {
         return parsed.toISOString().slice(0, 10)
     }
 
+    private toCsvCell(value: string): string {
+        const escaped = String(value || '').replace(/"/g, '""')
+        return `"${escaped}"`
+    }
+
     private dataUrlToBlob(dataUrl: string): Blob {
         const commaIndex = dataUrl.indexOf(',')
         const header = commaIndex >= 0 ? dataUrl.slice(0, commaIndex) : ''
@@ -1348,6 +1660,15 @@ export class SalesProjectPage {
             reader.onload = () => resolve(String(reader.result || ''))
             reader.onerror = () => reject(reader.error || new Error('Unable to read file.'))
             reader.readAsDataURL(file)
+        })
+    }
+
+    private blobToDataUrl(blob: Blob): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result || ''))
+            reader.onerror = () => reject(reader.error || new Error('Unable to read file.'))
+            reader.readAsDataURL(blob)
         })
     }
 
@@ -1411,5 +1732,29 @@ export class SalesDocLibraryCategoryDialog {
 
     confirmSelection(): void {
         this.dialogRef.close(this.selectedFolderId)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'sales-floorplan-delete-dialog',
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    template: `
+        <h2 mat-dialog-title>Delete Floorplan</h2>
+        <mat-dialog-content>
+            Delete <strong>{{data.fileName}}</strong>? This removes it from this workspace.
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button color="warn" type="button" (click)="confirm()">Delete</button>
+        </mat-dialog-actions>
+    `
+})
+export class SalesFloorplanDeleteDialog {
+    readonly data = inject<SalesFloorplanDeleteDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<SalesFloorplanDeleteDialog>)
+
+    confirm(): void {
+        this.dialogRef.close(true)
     }
 }

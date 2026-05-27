@@ -1,0 +1,159 @@
+<section class="fw-doc-explorer">
+    <div class="fw-doc-explorer__summary">
+        <div class="fw-doc-explorer__stat">
+            <span>Active Folder</span>
+            <strong>{{selectedFolderLabel}}</strong>
+        </div>
+        <div class="fw-doc-explorer__stat">
+            <span>Files</span>
+            <strong>{{fileCount}}</strong>
+        </div>
+        <div class="fw-doc-explorer__stat">
+            <span>Storage</span>
+            <strong>{{formatBytes(totalBytes)}}</strong>
+        </div>
+        <div class="fw-doc-explorer__stat">
+            <span>Versions</span>
+            <strong>{{versionCount}}</strong>
+        </div>
+    </div>
+
+    <div class="fw-doc-explorer__shell">
+        <aside class="fw-doc-explorer__tree" aria-label="Document folders" (contextmenu)="onBackgroundContextMenu($event)">
+            <button
+                type="button"
+                class="fw-doc-explorer__tree-item"
+                [class.is-active]="selectedFolder === 'all'"
+                (click)="selectFolder('all')"
+                (contextmenu)="onFolderContextMenu($event, 'all')">
+                <mat-icon fontIcon="folder_open"></mat-icon>
+                <span>Project Files</span>
+                <strong>{{getFolderCount('all')}}</strong>
+            </button>
+            <button
+                *ngFor="let folder of allDirectories"
+                type="button"
+                class="fw-doc-explorer__tree-item"
+                [class.is-child]="folder.depth > 0"
+                [class.is-active]="selectedFolder === folder.id"
+                [style.padding-left.px]="12 + (folder.depth * 18)"
+                (click)="selectFolder(folder.id)"
+                (contextmenu)="onFolderContextMenu($event, folder.id)">
+                <mat-icon fontIcon="folder"></mat-icon>
+                <span>{{folder.name}}</span>
+                <strong>{{getFolderCount(folder.id)}}</strong>
+            </button>
+        </aside>
+
+        <main class="fw-doc-explorer__content" (contextmenu)="onBackgroundContextMenu($event)">
+            <header class="fw-doc-explorer__header">
+                <div class="fw-doc-explorer__header-main">
+                    <div class="fw-doc-explorer__eyebrow">Project Files</div>
+                    <nav class="fw-doc-explorer__breadcrumb" aria-label="Current folder">
+                        <ng-container *ngFor="let crumb of breadcrumb; let isLast = last">
+                            <button type="button" [disabled]="isLast" (click)="selectFolder(crumb.id)">{{crumb.label}}</button>
+                            <span *ngIf="!isLast">/</span>
+                        </ng-container>
+                    </nav>
+                    <h4>/Projects/{{projectKey}}/{{getFolderPathLabel(selectedFolder)}}</h4>
+                </div>
+                <div class="fw-doc-explorer__header-actions">
+                    <div *ngIf="statusMessage" class="fw-doc-explorer__status">{{statusMessage}}</div>
+                    <div class="fw-doc-explorer__view-switch" aria-label="View mode">
+                        <button type="button" [class.is-active]="viewMode === 'tiles'" (click)="setViewMode('tiles')" title="Tiles">
+                            <mat-icon fontIcon="dashboard"></mat-icon>
+                        </button>
+                        <button type="button" [class.is-active]="viewMode === 'icons'" (click)="setViewMode('icons')" title="Icons">
+                            <mat-icon fontIcon="grid_view"></mat-icon>
+                        </button>
+                        <button type="button" [class.is-active]="viewMode === 'list'" (click)="setViewMode('list')" title="List">
+                            <mat-icon fontIcon="view_list"></mat-icon>
+                        </button>
+                        <button type="button" [class.is-active]="viewMode === 'details'" (click)="setViewMode('details')" title="Details">
+                            <mat-icon fontIcon="table_rows"></mat-icon>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div *ngIf="childDirectories.length <= 0 && visibleFiles.length <= 0" class="fw-doc-explorer__empty">
+                No documents in this folder yet.
+            </div>
+
+            <div class="fw-doc-explorer__items" [ngClass]="'fw-doc-explorer__items--' + viewMode">
+                <button
+                    *ngFor="let folder of childDirectories"
+                    type="button"
+                    class="fw-doc-explorer__item fw-doc-explorer__item--folder"
+                    (click)="selectFolder(folder.id)"
+                    (contextmenu)="onFolderContextMenu($event, folder.id)">
+                    <mat-icon fontIcon="folder"></mat-icon>
+                    <span class="fw-doc-explorer__item-name">{{folder.name}}</span>
+                    <span class="fw-doc-explorer__item-meta">{{getFolderCount(folder.id)}} file{{getFolderCount(folder.id) === 1 ? '' : 's'}}</span>
+                </button>
+
+                <article
+                    *ngFor="let file of visibleFiles"
+                    class="fw-doc-explorer__item fw-doc-explorer__item--file"
+                    (contextmenu)="onFileContextMenu($event, file.id)">
+                    <span class="fw-doc-explorer__ext">{{extensionLabel(file)}}</span>
+                    <div class="fw-doc-explorer__file-text">
+                        <button type="button" class="fw-doc-explorer__file-name" (click)="downloadFile.emit(file.id)">
+                            {{file.name}}
+                        </button>
+                        <span>{{formatBytes(latestVersion(file)?.sizeBytes || 0)}} / {{file.versions.length}} version{{file.versions.length === 1 ? '' : 's'}}</span>
+                    </div>
+                    <div class="fw-doc-explorer__details-cell">{{modifiedAt(file)}}</div>
+                    <div class="fw-doc-explorer__details-cell">{{modifiedBy(file)}}</div>
+                    <div class="fw-doc-explorer__actions">
+                        <button mat-icon-button type="button" [attr.aria-label]="'Download ' + file.name" (click)="downloadFile.emit(file.id)">
+                            <mat-icon fontIcon="download"></mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" [attr.aria-label]="'Delete ' + file.name" (click)="deleteFile.emit(file.id)">
+                            <mat-icon fontIcon="delete"></mat-icon>
+                        </button>
+                    </div>
+                    <a
+                        *ngIf="canShowMarkup(file)"
+                        class="fw-doc-explorer__markup-link"
+                        [routerLink]="['/edit-markup']"
+                        [queryParams]="getMarkupQueryParams(file)">
+                        Edit Markup
+                    </a>
+                </article>
+            </div>
+        </main>
+    </div>
+
+    <div
+        *ngIf="contextMenu"
+        class="fw-doc-explorer__context-menu"
+        [style.left.px]="contextMenu.x"
+        [style.top.px]="contextMenu.y"
+        (click)="$event.stopPropagation()">
+        <ng-container *ngIf="contextMenu.kind === 'folder'">
+            <button type="button" (click)="createDirectory.emit(getContextFolderId()); closeContextMenu()">
+                <mat-icon fontIcon="create_new_folder"></mat-icon>
+                New Directory
+            </button>
+            <button type="button" [disabled]="!canRenameContextFolder()" (click)="renameDirectory.emit(getContextFolderId()); closeContextMenu()">
+                <mat-icon fontIcon="drive_file_rename_outline"></mat-icon>
+                Rename
+            </button>
+            <button type="button" [disabled]="!canDeleteContextFolder()" class="is-danger" (click)="deleteDirectory.emit(getContextFolderId()); closeContextMenu()">
+                <mat-icon fontIcon="delete"></mat-icon>
+                Delete
+            </button>
+        </ng-container>
+        <ng-container *ngIf="contextMenu.kind === 'file'">
+            <button type="button" (click)="downloadFile.emit(getContextFileId()); closeContextMenu()">
+                <mat-icon fontIcon="download"></mat-icon>
+                Download
+            </button>
+            <button type="button" class="is-danger" (click)="deleteFile.emit(getContextFileId()); closeContextMenu()">
+                <mat-icon fontIcon="delete"></mat-icon>
+                Delete
+            </button>
+        </ng-container>
+    </div>
+</section>

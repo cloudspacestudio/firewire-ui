@@ -32,6 +32,7 @@ interface PartsVendorView {
     caption: string
     datasetLabel: string
     vendorName: string
+    vendorId?: string
     listEndpoint: string
     createDeviceEndpoint: (partNumber: string) => string
     addToDeviceEndpoint: (partNumber: string) => string
@@ -89,7 +90,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     pageWorking = true
     eddypricelists: VwEddyPricelist[] = []
     navItems = NavToolbar.DeviceNavItems
-    vendorViews = PARTS_VENDOR_VIEWS
+    vendorViews: PartsVendorView[] = [...PARTS_VENDOR_VIEWS]
     vendors: Vendor[] = []
     availablePartsVendors: Vendor[] = []
     errText?: string
@@ -120,8 +121,6 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     ngOnInit(): void {
         this.route.paramMap.subscribe((params) => {
             const vendorKey = String(params.get('vendorKey') || '').trim().toLowerCase()
-            const nextView = this.vendorViews.find((view) => view.key === vendorKey) || this.vendorViews[0]
-            this.activeVendorView = nextView
             this.textFilter = this.readStoredPartsTextFilter()
             this.selectedCategories = this.readStoredCategoryFilter()
             const storedSort = this.readStoredPartsSort()
@@ -130,9 +129,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             this.pageSize = this.readStoredPartsPageSize()
             this.configureFilterPredicate()
             this.statusText = ''
-            void this.loadActiveVendorContext()
-            void this.ensureCategoriesLoaded()
-            this.loadParts()
+            void this.initializeVendorRoute(vendorKey)
         })
     }
 
@@ -340,11 +337,30 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         await this.router.navigate(['/parts', targetView.key])
     }
 
+    private async initializeVendorRoute(vendorKey: string) {
+        await this.loadVendorViews()
+        this.activeVendorView = this.vendorViews.find((view) => view.key === vendorKey) || this.vendorViews[0]
+        await this.loadActiveVendorContext()
+        await this.ensureCategoriesLoaded()
+        this.loadParts()
+    }
+
+    private async loadVendorViews() {
+        const vendorsResponse = await firstValueFrom(this.http.get<{ rows?: Vendor[] }>('/api/firewire/vendors'))
+        this.vendors = Array.isArray(vendorsResponse?.rows) ? vendorsResponse.rows : []
+        const resolvedViews = this.vendors
+            .map((row) => this.resolveVendorViewForVendor(row))
+            .filter((row): row is PartsVendorView => !!row)
+        const viewsByKey = new Map<string, PartsVendorView>()
+        for (const view of [...PARTS_VENDOR_VIEWS, ...resolvedViews]) {
+            viewsByKey.set(view.key, view)
+        }
+        this.vendorViews = Array.from(viewsByKey.values())
+        this.availablePartsVendors = this.vendors.filter((row) => !!this.resolveVendorViewForVendor(row))
+    }
+
     private async loadActiveVendorContext() {
         try {
-            const vendorsResponse = await firstValueFrom(this.http.get<{ rows?: Vendor[] }>('/api/firewire/vendors'))
-            this.vendors = Array.isArray(vendorsResponse?.rows) ? vendorsResponse.rows : []
-            this.availablePartsVendors = this.vendors.filter((row) => !!this.resolveVendorViewForVendor(row))
             this.activeVendor = this.vendors.find((row) => {
                 const vendorView = this.resolveVendorViewForVendor(row)
                 return vendorView?.key === this.activeVendorView.key
@@ -375,9 +391,26 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     private resolveVendorViewForVendor(vendor: Vendor): PartsVendorView | null {
         const config = this.parseVendorImportConfig(vendor.importConfigJson)
         if (config?.partsVendorKey) {
-            return this.vendorViews.find((view) => view.key === config.partsVendorKey) || null
+            const staticView = PARTS_VENDOR_VIEWS.find((view) => view.key === config.partsVendorKey)
+            if (staticView) {
+                return staticView
+            }
+            if (config.targetTable && config.targetTable !== 'EddyPricelist') {
+                const key = String(config.partsVendorKey || vendor.vendorId || '').trim().toLowerCase()
+                return {
+                    key,
+                    caption: String(vendor.name || key).toUpperCase(),
+                    datasetLabel: config.sourceLabel || `${vendor.name} Parts`,
+                    vendorName: vendor.name,
+                    vendorId: vendor.vendorId,
+                    listEndpoint: `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts`,
+                    createDeviceEndpoint: (partNumber: string) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(partNumber)}/create-device`,
+                    addToDeviceEndpoint: (partNumber: string) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(partNumber)}/add-to-device`
+                }
+            }
+            return null
         }
-        return this.vendorViews.find((view) => String(vendor.name || '').trim().toLowerCase() === view.vendorName.toLowerCase()) || null
+        return PARTS_VENDOR_VIEWS.find((view) => String(vendor.name || '').trim().toLowerCase() === view.vendorName.toLowerCase()) || null
     }
 
     private parseVendorImportConfig(raw: string | null | undefined): VendorImportConfig | null {
