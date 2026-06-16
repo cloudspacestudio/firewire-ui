@@ -6,19 +6,21 @@ import { firstValueFrom, from, map, Observable, of, switchMap } from "rxjs"
 import { HttpClient } from "@angular/common/http"
 
 import { MatButtonModule } from "@angular/material/button"
-import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from "@angular/material/dialog"
+import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatListModule } from "@angular/material/list"
 import { MatSelectModule } from "@angular/material/select"
+import { MatSlideToggleModule } from "@angular/material/slide-toggle"
+import { MatTooltipModule } from "@angular/material/tooltip"
 
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
 import { MaterialAttribute } from "../../schemas/materialattribute.schema"
 import { MaterialSubTask } from "../../schemas/materialsubtask.schema"
-import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
-import { Category } from "../../schemas/category.schema"
+import { Vendor } from "../../schemas/vendor.schema"
+import { VwPart } from "../../schemas/vwpart.schema"
 import { ConfirmFirewireNavigationDialog } from "../../pages/projects/confirm-firewire-navigation.dialog"
 
 interface DeviceVendorLinkIssue {
@@ -56,12 +58,22 @@ interface LinkedPartDisplayRow {
     description: string
     category: string
     cost: number | null
+    msrp: number | null
+}
+
+interface DeviceMediaFile {
+    id: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+    uploadedAt: string
+    uploadedBy?: string
 }
 
 @Component({
     standalone: true,
     selector: 'device-detail',
-    imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatInputModule, MatListModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatInputModule, MatListModule, MatSlideToggleModule, MatTooltipModule],
     providers: [HttpClient],
     templateUrl: './devicedetail.component.html',
     styleUrls: ['./devicedetail.component.scss']
@@ -94,10 +106,11 @@ export class DeviceDetailComponent implements OnChanges {
     deviceAttributes: MaterialAttribute[] = []
     deviceSubTasks: MaterialSubTask[] = []
     vendorLinkIssues: DeviceVendorLinkIssue[] = []
-    categories: Category[] = []
-    partlist: VwEddyPricelist[] = []
-    vendorPartRows: VwEddyPricelist[] = []
-    vendorPartResults: VwEddyPricelist[] = []
+    vendors: Vendor[] = []
+    deviceMediaFiles: DeviceMediaFile[] = []
+    partlist: VwPart[] = []
+    vendorPartRows: VwPart[] = []
+    vendorPartResults: VwPart[] = []
     partImagePath = ''
     partImageFailed = false
 
@@ -107,6 +120,7 @@ export class DeviceDetailComponent implements OnChanges {
     saveWorking = false
     vendorPartLookupWorking = false
     vendorPartLookupLoaded = false
+    mediaUploadWorking = false
     statusText = ''
 
     editDevice: Partial<VwDevice> = {}
@@ -114,6 +128,7 @@ export class DeviceDetailComponent implements OnChanges {
     editAttributes: EditableAttribute[] = []
     editSubTasks: EditableSubTask[] = []
     vendorPartFilter = ''
+    selectedVendorPartVendorId = ''
     selectedVendorPartCategories: string[] = []
     initialEditState = ''
 
@@ -141,16 +156,18 @@ export class DeviceDetailComponent implements OnChanges {
         this.vendorPartLookupLoaded = false
         this.vendorPartLookupWorking = false
         this.vendorPartFilter = ''
+        this.selectedVendorPartVendorId = ''
         this.selectedVendorPartCategories = []
 
         try {
-            const [device, materials, attributes, subTasks, categories, issuesResponse] = await Promise.all([
+            const [device, materials, attributes, subTasks, issuesResponse, vendorsResponse, mediaResponse] = await Promise.all([
                 firstValueFrom(this.http.get<VwDevice>(`/api/firewire/devices/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialAttribute[] }>(`/api/firewire/devices/${this.deviceId}/attributes`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialSubTask[] }>(`/api/firewire/devices/${this.deviceId}/subtasks`)),
-                firstValueFrom(this.http.get<{ rows?: Category[] }>(`/api/firewire/categories`)),
-                firstValueFrom(this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', { params: { state: 'all' } }))
+                firstValueFrom(this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', { params: { state: 'all' } })),
+                firstValueFrom(this.http.get<{ rows?: Vendor[] }>('/api/firewire/vendors')),
+                firstValueFrom(this.http.get<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media`))
             ])
 
             this.device = device
@@ -158,7 +175,10 @@ export class DeviceDetailComponent implements OnChanges {
             this.deviceMaterials = Array.isArray(materials?.rows) ? materials.rows : []
             this.deviceAttributes = Array.isArray(attributes?.rows) ? attributes.rows : []
             this.deviceSubTasks = Array.isArray(subTasks?.rows) ? subTasks.rows : []
-            this.categories = Array.isArray(categories?.rows) ? categories.rows : []
+            this.vendors = (Array.isArray(vendorsResponse?.rows) ? vendorsResponse.rows : [])
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+            this.deviceMediaFiles = Array.isArray(mediaResponse?.data?.files) ? mediaResponse.data.files : []
+            this.selectedVendorPartVendorId = this.resolveDefaultVendorPartVendorId(device)
             const allIssues = Array.isArray(issuesResponse?.rows) ? issuesResponse.rows : []
             this.vendorLinkIssues = allIssues.filter((issue) => issue.deviceId === this.deviceId)
             await this.loadPartPreview(device.partNumber)
@@ -174,7 +194,7 @@ export class DeviceDetailComponent implements OnChanges {
     }
 
     startVendorPartsEdit() {
-        this.startEditView('vendor-parts')
+        void this.openVendorPartsDialog()
     }
 
     startEditView(view: DeviceEditView) {
@@ -208,6 +228,7 @@ export class DeviceDetailComponent implements OnChanges {
                 ordinal: subTask.ordinal
             }))
             this.vendorPartFilter = ''
+            this.selectedVendorPartVendorId = this.resolveDefaultVendorPartVendorId(this.device)
             this.selectedVendorPartCategories = []
             this.vendorPartResults = []
             this.syncDerivedAttributes()
@@ -225,11 +246,50 @@ export class DeviceDetailComponent implements OnChanges {
         this.activeEditView = view
     }
 
+    async openVendorPartsDialog(): Promise<void> {
+        if (!this.device) {
+            return
+        }
+        if (!this.editMode) {
+            this.startEditView('details')
+        }
+        this.releaseFocusedElementBeforeDialog()
+        const dialogRef = this.dialog.open(DeviceVendorPartsDialog, {
+            width: '980px',
+            maxWidth: 'calc(100vw - 48px)',
+            maxHeight: 'calc(100vh - 48px)',
+            disableClose: true,
+            data: {
+                vendors: this.vendors,
+                initialPartNumbers: [...this.editLinkedPartNumbers],
+                defaultVendorId: this.resolveDefaultVendorPartVendorId(this.device),
+                deviceMaterials: this.deviceMaterials
+            }
+        })
+        const result = await firstValueFrom(dialogRef.afterClosed())
+        if (!result || !Array.isArray(result.partNumbers)) {
+            this.activeEditView = 'details'
+            return
+        }
+        const mergedParts = new Map<string, VwPart>()
+        for (const row of this.vendorPartRows) {
+            mergedParts.set(String(row.PartNumber || '').trim(), row)
+        }
+        for (const row of Array.isArray(result.parts) ? result.parts : []) {
+            mergedParts.set(String(row.PartNumber || '').trim(), row)
+        }
+        this.vendorPartRows = [...mergedParts.values()].filter((row) => String(row.PartNumber || '').trim())
+        this.editLinkedPartNumbers = result.partNumbers.map((value: unknown) => String(value || '').trim()).filter(Boolean)
+        this.syncDeviceCostFromLinkedParts()
+        this.activeEditView = 'details'
+    }
+
     cancelEdit() {
         this.editMode = false
         this.activeEditView = 'details'
         this.statusText = ''
         this.vendorPartFilter = ''
+        this.selectedVendorPartVendorId = this.resolveDefaultVendorPartVendorId(this.device)
         this.selectedVendorPartCategories = []
         this.vendorPartResults = []
         this.initialEditState = ''
@@ -244,6 +304,7 @@ export class DeviceDetailComponent implements OnChanges {
             return
         }
 
+        this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(ConfirmDeviceDeleteDialog, {
             width: '360px',
             maxWidth: '88vw',
@@ -277,6 +338,7 @@ export class DeviceDetailComponent implements OnChanges {
             return true
         }
 
+        this.releaseFocusedElementBeforeDialog()
         return this.dialog.open(ConfirmFirewireNavigationDialog, {
             width: '360px',
             maxWidth: '88vw',
@@ -432,7 +494,7 @@ export class DeviceDetailComponent implements OnChanges {
             return
         }
         try {
-            const response = await firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>(`/api/firewire/vweddypricelist/${partNumber}`))
+            const response = await firstValueFrom(this.http.get<{ rows?: VwPart[] }>(`/api/firewire/parts/${partNumber}`))
             this.partlist = Array.isArray(response?.rows) ? response.rows : []
             this.partImagePath = this.getPartImagePath()
             this.partImageFailed = !this.partImagePath
@@ -471,6 +533,24 @@ export class DeviceDetailComponent implements OnChanges {
         this.applyVendorPartFilters()
     }
 
+    async onVendorPartCategoryOpened(opened: boolean): Promise<void> {
+        if (opened && !this.vendorPartLookupLoaded) {
+            await this.ensureVendorPartLookupLoaded()
+        }
+    }
+
+    async onVendorPartVendorChanged(): Promise<void> {
+        this.vendorPartRows = []
+        this.vendorPartResults = []
+        this.vendorPartLookupLoaded = false
+        this.vendorPartLookupWorking = false
+        this.selectedVendorPartCategories = []
+        if (this.isVendorPartSearchReady()) {
+            await this.ensureVendorPartLookupLoaded()
+            this.applyVendorPartFilters()
+        }
+    }
+
     clearVendorPartCategoryFilter() {
         this.selectedVendorPartCategories = []
         this.applyVendorPartFilters()
@@ -504,8 +584,22 @@ export class DeviceDetailComponent implements OnChanges {
             partNumber: normalizedPartNumber,
             description: String(linkedMaterial?.materialName || vendorPart?.LongDescription || '').trim(),
             category: String(vendorPart?.Category || vendorPart?.ParentCategory || linkedMaterial?.deviceCategoryName || '').trim(),
-            cost: linkedMaterial?.materialCost ?? vendorPart?.SalesPrice ?? vendorPart?.MSRPPrice ?? null
+            cost: linkedMaterial?.materialCost ?? vendorPart?.SalesPrice ?? null,
+            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null
         }
+    }
+
+    getVisibleVendorPartRows(): LinkedPartDisplayRow[] {
+        if (this.editMode) {
+            return this.editLinkedPartNumbers.map((partNumber) => this.getLinkedPartDisplayRow(partNumber))
+        }
+        return this.deviceMaterials.map((material) => ({
+            partNumber: String(material.materialPartNumber || '').trim(),
+            description: String(material.materialName || '').trim(),
+            category: this.getVendorPartCategory(material),
+            cost: Number.isFinite(Number(material.materialCost)) ? Number(material.materialCost) : null,
+            msrp: Number.isFinite(Number(material.materialMsrp)) ? Number(material.materialMsrp) : null
+        }))
     }
 
     getVendorPartCategory(material: VwDeviceMaterial): string {
@@ -527,6 +621,7 @@ export class DeviceDetailComponent implements OnChanges {
     }
 
     openVendorPartDetail(material: VwDeviceMaterial) {
+        this.releaseFocusedElementBeforeDialog()
         this.dialog.open(VendorPartDetailDialog, {
             width: '520px',
             maxWidth: '92vw',
@@ -538,9 +633,104 @@ export class DeviceDetailComponent implements OnChanges {
         })
     }
 
+    async onDeviceMediaSelected(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement
+        const file = input.files && input.files.length > 0 ? input.files[0] : null
+        input.value = ''
+        if (!file || !this.deviceId) {
+            return
+        }
+        const formData = new FormData()
+        formData.append('file', file)
+        this.mediaUploadWorking = true
+        this.statusText = `Uploading ${file.name}...`
+        try {
+            const response = await firstValueFrom(this.http.post<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media`, formData))
+            this.deviceMediaFiles = Array.isArray(response?.data?.files) ? response.data.files : []
+            this.statusText = `${file.name} uploaded.`
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to upload device media.'
+        } finally {
+            this.mediaUploadWorking = false
+        }
+    }
+
+    async deleteDeviceMedia(file: DeviceMediaFile): Promise<void> {
+        if (!this.deviceId || !file?.id) {
+            return
+        }
+        this.mediaUploadWorking = true
+        this.statusText = `Deleting ${file.fileName}...`
+        try {
+            const response = await firstValueFrom(this.http.delete<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media/${encodeURIComponent(file.id)}`))
+            this.deviceMediaFiles = Array.isArray(response?.data?.files) ? response.data.files : []
+            this.statusText = `${file.fileName} deleted.`
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to delete device media.'
+        } finally {
+            this.mediaUploadWorking = false
+        }
+    }
+
+    getDeviceMediaContentUrl(file: DeviceMediaFile, disposition: 'inline' | 'attachment' = 'inline'): string {
+        if (!this.deviceId || !file?.id) {
+            return ''
+        }
+        const query = disposition === 'attachment' ? '?disposition=attachment' : ''
+        return `/api/firewire/devices/${encodeURIComponent(this.deviceId)}/media/${encodeURIComponent(file.id)}/content${query}`
+    }
+
+    previewDeviceMedia(file: DeviceMediaFile): void {
+        const url = this.getDeviceMediaContentUrl(file, 'inline')
+        if (!url) {
+            return
+        }
+        window.open(url, '_blank', 'noopener')
+    }
+
+    async downloadDeviceMedia(file: DeviceMediaFile): Promise<void> {
+        const url = this.getDeviceMediaContentUrl(file, 'attachment')
+        if (!url) {
+            return
+        }
+        this.mediaUploadWorking = true
+        this.statusText = `Downloading ${file.fileName}...`
+        try {
+            const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }))
+            const objectUrl = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = objectUrl
+            anchor.download = file.fileName || 'device-media'
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
+            URL.revokeObjectURL(objectUrl)
+            this.statusText = `${file.fileName} downloaded.`
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to download device media.'
+        } finally {
+            this.mediaUploadWorking = false
+        }
+    }
+
+    formatFileSize(sizeBytes: number): string {
+        const value = Number(sizeBytes || 0)
+        if (!Number.isFinite(value) || value <= 0) {
+            return '0 B'
+        }
+        const units = ['B', 'KB', 'MB', 'GB']
+        let current = value
+        let unitIndex = 0
+        while (current >= 1024 && unitIndex < units.length - 1) {
+            current = current / 1024
+            unitIndex++
+        }
+        return `${current.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+    }
+
     getVendorPartSearchHint(): string {
         if (!this.hasVendorPartLookup()) {
-            return 'Vendor part search is not configured for this vendor yet.'
+            return 'Select a vendor to search parts.'
         }
         if (this.vendorPartLookupWorking) {
             return 'Loading vendor parts...'
@@ -759,7 +949,8 @@ export class DeviceDetailComponent implements OnChanges {
                 name: String(this.editDevice.name || '').trim(),
                 shortName: String(this.editDevice.shortName || '').trim(),
                 partNumber: String(this.editDevice.partNumber || '').trim(),
-                categoryId: String(this.editDevice.categoryId || '').trim(),
+                categoryName: String(this.editDevice.categoryName || '').trim(),
+                includeOnFloorplan: !!this.editDevice.includeOnFloorplan,
                 cost: Number(this.editDevice.cost || 0),
                 defaultLabor: Number(this.editDevice.defaultLabor || 0),
                 laborRate: this.getDeviceLaborRate(),
@@ -802,13 +993,19 @@ export class DeviceDetailComponent implements OnChanges {
         return 0
     }
 
+    private releaseFocusedElementBeforeDialog(): void {
+        const activeElement = typeof document !== 'undefined' ? document.activeElement : null
+        if (activeElement instanceof HTMLElement) {
+            activeElement.blur()
+        }
+    }
+
     private getNormalizedVendorPartFilter(): string {
         return String(this.vendorPartFilter || '').trim().toLowerCase()
     }
 
     private hasVendorPartLookup(): boolean {
-        const vendorName = String(this.device?.vendorName || '').trim().toLowerCase()
-        return vendorName === 'edwards' || vendorName === 'edwards fire safety'
+        return !!String(this.selectedVendorPartVendorId || '').trim()
     }
 
     private async ensureVendorPartLookupLoaded(): Promise<void> {
@@ -816,14 +1013,23 @@ export class DeviceDetailComponent implements OnChanges {
             return
         }
 
+        const vendorId = String(this.selectedVendorPartVendorId || '').trim()
         this.vendorPartLookupWorking = true
         try {
-            const response = await firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist'))
+            const response = await firstValueFrom(this.http.get<{ rows?: VwPart[] }>(`/api/firewire/vendors/${encodeURIComponent(vendorId)}/parts`))
             this.vendorPartRows = Array.isArray(response?.rows) ? response.rows : []
             this.vendorPartLookupLoaded = true
         } finally {
             this.vendorPartLookupWorking = false
         }
+    }
+
+    private resolveDefaultVendorPartVendorId(device?: VwDevice): string {
+        const deviceVendorId = String(device?.vendorId || '').trim()
+        if (deviceVendorId && this.vendors.some((vendor) => vendor.vendorId === deviceVendorId)) {
+            return deviceVendorId
+        }
+        return this.vendors[0]?.vendorId || deviceVendorId
     }
 
     private applyVendorPartFilters() {
@@ -864,6 +1070,399 @@ interface ConfirmDeviceDeleteDialogData {
 interface VendorPartDetailDialogData {
     material: VwDeviceMaterial
     category: string
+}
+
+interface DeviceVendorPartsDialogData {
+    vendors: Vendor[]
+    initialPartNumbers: string[]
+    defaultVendorId: string
+    deviceMaterials: VwDeviceMaterial[]
+}
+
+interface DeviceVendorPartsDialogResult {
+    partNumbers: string[]
+    parts: VwPart[]
+}
+
+@Component({
+    standalone: true,
+    selector: 'fw-device-vendor-parts-dialog',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatButtonModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatInputModule,
+        MatSelectModule
+    ],
+    providers: [HttpClient],
+    styles: [`
+        :host {
+            display: block;
+            width: 100%;
+            max-width: calc(100vw - 48px);
+        }
+
+        .vendor-parts-dialog__titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .vendor-parts-dialog__content {
+            display: grid;
+            gap: 12px;
+            width: 100%;
+            max-width: 100%;
+            max-height: min(72vh, 760px);
+            overflow: auto;
+        }
+
+        .vendor-parts-dialog__toolbar {
+            display: grid;
+            grid-template-columns: minmax(240px, 0.85fr) minmax(320px, 1.35fr) auto minmax(180px, 0.75fr);
+            gap: 10px;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            padding-top: 2px;
+            background: rgba(7, 13, 23, 0.98);
+        }
+
+        .vendor-parts-dialog__table {
+            display: grid;
+            width: 100%;
+            max-width: 100%;
+            border: 1px solid rgba(72, 221, 255, 0.16);
+            background: rgba(7, 15, 27, 0.72);
+        }
+
+        .vendor-parts-dialog__row,
+        .vendor-parts-dialog__header {
+            display: grid;
+            grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.45fr) minmax(110px, 0.75fr) minmax(100px, 0.6fr) minmax(100px, 0.6fr) 40px;
+            gap: 12px;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(72, 221, 255, 0.1);
+        }
+
+        .vendor-parts-dialog__header {
+            color: var(--fw-accent-2);
+            font-size: 0.74rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: rgba(72, 221, 255, 0.06);
+        }
+
+        .vendor-parts-dialog__header span:nth-child(4),
+        .vendor-parts-dialog__header span:nth-child(5) {
+            text-align: right;
+        }
+
+        .vendor-parts-dialog__row:last-child {
+            border-bottom: 0;
+        }
+
+        .vendor-parts-dialog__part {
+            color: var(--fw-text);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .vendor-parts-dialog__description {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .vendor-parts-dialog__money {
+            text-align: right;
+        }
+
+        .vendor-parts-dialog__hint,
+        .vendor-parts-dialog__empty {
+            color: var(--fw-muted);
+            font-size: 0.82rem;
+        }
+
+        @media (max-width: 900px) {
+            .vendor-parts-dialog__toolbar,
+            .vendor-parts-dialog__row,
+            .vendor-parts-dialog__header {
+                grid-template-columns: 1fr;
+            }
+
+            .vendor-parts-dialog__money {
+                text-align: left;
+            }
+        }
+    `],
+    template: `
+        <div mat-dialog-title class="vendor-parts-dialog__titlebar">
+            <span>Edit Vendor Parts</span>
+            <button mat-icon-button type="button" aria-label="Cancel vendor part edits" (click)="discard()">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content class="vendor-parts-dialog__content">
+            <div *ngIf="linkedPartNumbers.length > 0; else noLinkedParts" class="vendor-parts-dialog__table">
+                <div class="vendor-parts-dialog__header">
+                    <span>Part Number</span>
+                    <span>Description</span>
+                    <span>Category</span>
+                    <span>Cost</span>
+                    <span>MSRP</span>
+                    <span></span>
+                </div>
+                <div *ngFor="let partNumber of linkedPartNumbers; let index = index" class="vendor-parts-dialog__row">
+                    <span class="vendor-parts-dialog__part">{{getLinkedPartDisplayRow(partNumber).partNumber}}</span>
+                    <span class="vendor-parts-dialog__description">{{getLinkedPartDisplayRow(partNumber).description || 'None'}}</span>
+                    <span>{{getLinkedPartDisplayRow(partNumber).category || 'None'}}</span>
+                    <span class="vendor-parts-dialog__money">{{getLinkedPartDisplayRow(partNumber).cost !== null ? (getLinkedPartDisplayRow(partNumber).cost | currency) : 'None'}}</span>
+                    <span class="vendor-parts-dialog__money">{{getLinkedPartDisplayRow(partNumber).msrp !== null ? (getLinkedPartDisplayRow(partNumber).msrp | currency) : 'None'}}</span>
+                    <button mat-icon-button type="button" aria-label="Remove linked part" (click)="removeLinkedPart(index)">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+            </div>
+            <ng-template #noLinkedParts>
+                <div class="vendor-parts-dialog__empty">No vendor parts linked yet.</div>
+            </ng-template>
+
+            <div class="vendor-parts-dialog__toolbar">
+                <mat-form-field>
+                    <mat-label>Vendor</mat-label>
+                    <mat-select [(ngModel)]="selectedVendorId" (selectionChange)="onVendorChanged()">
+                        <mat-option *ngFor="let vendor of vendors" [value]="vendor.vendorId">{{vendor.name}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field>
+                    <mat-label>Find Vendor Part</mat-label>
+                    <input matInput [(ngModel)]="filter" (ngModelChange)="onFilterChanged()" placeholder="Type part number, description, or category" />
+                </mat-form-field>
+                <button *ngIf="selectedCategories.length > 0" mat-icon-button type="button" aria-label="Clear category filter" (click)="clearCategoryFilter()">
+                    <mat-icon>filter_alt_off</mat-icon>
+                </button>
+                <mat-form-field>
+                    <mat-label>Category</mat-label>
+                    <mat-select [(ngModel)]="selectedCategories" multiple (openedChange)="onCategoryOpened($event)" (selectionChange)="onCategoryChanged()">
+                        <mat-option *ngFor="let option of getCategoryOptions()" [value]="option">{{option}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <div class="vendor-parts-dialog__hint">{{getSearchHint()}}</div>
+
+            <div *ngIf="results.length > 0" class="vendor-parts-dialog__table">
+                <div class="vendor-parts-dialog__header">
+                    <span>Part Number</span>
+                    <span>Description</span>
+                    <span>Category</span>
+                    <span>Cost</span>
+                    <span>MSRP</span>
+                    <span></span>
+                </div>
+                <div *ngFor="let row of results" class="vendor-parts-dialog__row">
+                    <span class="vendor-parts-dialog__part">{{row.PartNumber}}</span>
+                    <span class="vendor-parts-dialog__description">{{row.LongDescription}}</span>
+                    <span>{{row.Category || row.ParentCategory || 'None'}}</span>
+                    <span class="vendor-parts-dialog__money">{{(row.SalesPrice || 0) | currency}}</span>
+                    <span class="vendor-parts-dialog__money">{{(row.MSRPPrice || 0) | currency}}</span>
+                    <button mat-stroked-button type="button" [disabled]="isLinkedPartSelected(row.PartNumber)" (click)="addLinkedPart(row.PartNumber)">
+                        {{isLinkedPartSelected(row.PartNumber) ? 'Selected' : 'Select'}}
+                    </button>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button type="button" (click)="discard()">Cancel</button>
+            <button mat-flat-button type="button" (click)="save()">Save Vendor Parts</button>
+        </mat-dialog-actions>
+    `
+})
+export class DeviceVendorPartsDialog {
+    private readonly minChars = 3
+    readonly data = inject<DeviceVendorPartsDialogData>(MAT_DIALOG_DATA)
+    private dialogRef = inject(MatDialogRef<DeviceVendorPartsDialog>)
+    private http = inject(HttpClient)
+
+    vendors = [...(this.data.vendors || [])]
+    linkedPartNumbers = [...(this.data.initialPartNumbers || [])]
+    selectedVendorId = this.data.defaultVendorId || this.vendors[0]?.vendorId || ''
+    selectedCategories: string[] = []
+    rows: VwPart[] = []
+    results: VwPart[] = []
+    filter = ''
+    loaded = false
+    working = false
+
+    async onFilterChanged(): Promise<void> {
+        if (this.normalizedFilter().length < this.minChars) {
+            this.results = []
+            return
+        }
+        await this.ensureLoaded()
+        this.applyFilters()
+    }
+
+    async onCategoryOpened(opened: boolean): Promise<void> {
+        if (opened && !this.loaded) {
+            await this.ensureLoaded()
+        }
+    }
+
+    async onCategoryChanged(): Promise<void> {
+        if (!this.loaded && this.normalizedFilter().length >= this.minChars) {
+            await this.ensureLoaded()
+        }
+        this.applyFilters()
+    }
+
+    async onVendorChanged(): Promise<void> {
+        this.rows = []
+        this.results = []
+        this.loaded = false
+        this.working = false
+        this.selectedCategories = []
+        if (this.normalizedFilter().length >= this.minChars) {
+            await this.ensureLoaded()
+            this.applyFilters()
+        }
+    }
+
+    clearCategoryFilter(): void {
+        this.selectedCategories = []
+        this.applyFilters()
+    }
+
+    addLinkedPart(partNumber: string): void {
+        const normalized = String(partNumber || '').trim()
+        if (normalized && !this.linkedPartNumbers.includes(normalized)) {
+            this.linkedPartNumbers = [...this.linkedPartNumbers, normalized]
+        }
+        this.applyFilters()
+    }
+
+    removeLinkedPart(index: number): void {
+        this.linkedPartNumbers = this.linkedPartNumbers.filter((_, rowIndex) => rowIndex !== index)
+        this.applyFilters()
+    }
+
+    isLinkedPartSelected(partNumber: string): boolean {
+        return this.linkedPartNumbers.includes(String(partNumber || '').trim())
+    }
+
+    getCategoryOptions(): string[] {
+        const categories = new Set<string>()
+        for (const row of this.rows) {
+            const category = String(row.Category || '').trim()
+            if (category) {
+                categories.add(category)
+            }
+        }
+        return [...categories].sort((a, b) => a.localeCompare(b))
+    }
+
+    getSearchHint(): string {
+        if (!this.selectedVendorId) {
+            return 'Select a vendor to search parts.'
+        }
+        if (this.working) {
+            return 'Loading vendor parts...'
+        }
+        if (this.normalizedFilter().length < this.minChars) {
+            return `Enter at least ${this.minChars} characters to search vendor parts.`
+        }
+        if (this.results.length <= 0) {
+            return 'No vendor parts match the current filter.'
+        }
+        if (this.results.length >= 100) {
+            return 'Showing the first 100 matching parts.'
+        }
+        return `${this.results.length} matching parts found.`
+    }
+
+    getLinkedPartDisplayRow(partNumber: string): LinkedPartDisplayRow {
+        const normalized = String(partNumber || '').trim()
+        const linkedMaterial = this.data.deviceMaterials.find((row) => String(row.materialPartNumber || '').trim() === normalized)
+        const vendorPart = this.rows.find((row) => String(row.PartNumber || '').trim() === normalized)
+            || this.results.find((row) => String(row.PartNumber || '').trim() === normalized)
+        return {
+            partNumber: normalized,
+            description: String(linkedMaterial?.materialName || vendorPart?.LongDescription || '').trim(),
+            category: String(vendorPart?.Category || vendorPart?.ParentCategory || linkedMaterial?.deviceCategoryName || '').trim(),
+            cost: linkedMaterial?.materialCost ?? vendorPart?.SalesPrice ?? null,
+            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null
+        }
+    }
+
+    save(): void {
+        const selected = new Map<string, VwPart>()
+        for (const row of [...this.rows, ...this.results]) {
+            const partNumber = String(row.PartNumber || '').trim()
+            if (partNumber && this.linkedPartNumbers.includes(partNumber)) {
+                selected.set(partNumber, row)
+            }
+        }
+        const result: DeviceVendorPartsDialogResult = {
+            partNumbers: [...this.linkedPartNumbers],
+            parts: [...selected.values()]
+        }
+        this.dialogRef.close(result)
+    }
+
+    discard(): void {
+        this.dialogRef.close(null)
+    }
+
+    private async ensureLoaded(): Promise<void> {
+        if (this.loaded || this.working || !this.selectedVendorId) {
+            return
+        }
+        this.working = true
+        try {
+            const response = await firstValueFrom(this.http.get<{ rows?: VwPart[] }>(`/api/firewire/vendors/${encodeURIComponent(this.selectedVendorId)}/parts`))
+            this.rows = Array.isArray(response?.rows) ? response.rows : []
+            this.loaded = true
+        } finally {
+            this.working = false
+        }
+    }
+
+    private applyFilters(): void {
+        const filterValue = this.normalizedFilter()
+        if (filterValue.length < this.minChars) {
+            this.results = []
+            return
+        }
+        const selectedCategories = new Set(this.selectedCategories.map((value) => String(value || '').trim()))
+        this.results = this.rows
+            .filter((row) => {
+                const partNumber = String(row.PartNumber || '')
+                const description = String(row.LongDescription || '')
+                const parentCategory = String(row.ParentCategory || '')
+                const category = String(row.Category || '')
+                const matchesText =
+                    partNumber.toLowerCase().includes(filterValue)
+                    || description.toLowerCase().includes(filterValue)
+                    || parentCategory.toLowerCase().includes(filterValue)
+                    || category.toLowerCase().includes(filterValue)
+                if (!matchesText) {
+                    return false
+                }
+                return selectedCategories.size <= 0 || selectedCategories.has(category)
+            })
+            .slice(0, 100)
+    }
+
+    private normalizedFilter(): string {
+        return String(this.filter || '').trim().toLowerCase()
+    }
 }
 
 @Component({

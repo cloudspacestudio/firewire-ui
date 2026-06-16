@@ -2,9 +2,10 @@ import { CommonModule } from '@angular/common'
 import { HttpClient } from '@angular/common/http'
 import { Component, ViewChild, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { RouterLink } from '@angular/router'
+import { Router, RouterLink } from '@angular/router'
 
 import { MatButtonModule } from '@angular/material/button'
+import { MatDialog } from '@angular/material/dialog'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatIconModule } from '@angular/material/icon'
 import { MatInputModule } from '@angular/material/input'
@@ -15,9 +16,11 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table'
 
 import { AuthService } from '../../auth/auth.service'
 import { PageToolbar } from '../../common/components/page-toolbar'
-import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectUpsert } from '../../schemas/firewire-project.schema'
+import { ViewPreferencesService } from '../../common/services/view-preferences.service'
+import { FirewireProjectUpsert } from '../../schemas/firewire-project.schema'
 import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
-import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
+import { CreateFirewireProjectDialog } from '../projects/create-firewire-project.dialog'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
 
 @Component({
@@ -43,7 +46,6 @@ import { ProjectSettingsApi } from '../projects/project-settings.api'
 })
 export class SalesPage {
     displayedColumns: string[] = ['projectTypeIcon', 'name', 'projectNbr', 'projectStatus', 'address', 'bidDueDate', 'actions']
-    readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
     readonly salesProjectStatus = 'Estimation'
     private readonly salesStatusFilterStorageKey = 'firewire.sales.statusFilter'
     private readonly salesSortStorageKey = 'firewire.sales.sort'
@@ -72,7 +74,6 @@ export class SalesPage {
 
     pageWorking = true
     saveWorking = false
-    createPanelOpen = false
     errText?: string
     createStatusText = ''
     textFilter = ''
@@ -82,18 +83,14 @@ export class SalesPage {
     pageSize = 25
     projects: ProjectListItemSchema[] = []
     datasource: MatTableDataSource<ProjectListItemSchema> = new MatTableDataSource<ProjectListItemSchema>([])
-    createModel: FirewireProjectUpsert = this.createDefaultProject()
-    projectSettings: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    projectSettings: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
 
     constructor(
         private http: HttpClient,
-        private projectSettingsApi: ProjectSettingsApi
+        private projectSettingsApi: ProjectSettingsApi,
+        private dialog: MatDialog,
+        private router: Router,
+        private viewPreferences: ViewPreferencesService
     ) {}
 
     ngOnInit(): void {
@@ -169,33 +166,60 @@ export class SalesPage {
         this.storePageSize()
     }
 
-    toggleCreatePanel(): void {
-        this.createPanelOpen = !this.createPanelOpen
-        this.createStatusText = ''
-        if (!this.createPanelOpen) {
-            this.createModel = this.createDefaultProject()
-        } else {
-            this.createModel.projectStatus = this.salesProjectStatus
-        }
-    }
-
     createProject(): void {
-        this.saveWorking = true
-        this.createStatusText = 'Saving project...'
-
-        this.http.post('/api/firewire/projects', this.createModel).subscribe({
-            next: () => {
-                this.saveWorking = false
-                this.createStatusText = 'Project saved.'
-                this.createPanelOpen = false
-                this.createModel = this.createDefaultProject()
-                this.loadProjects()
-            },
-            error: (err: any) => {
-                this.saveWorking = false
-                this.createStatusText = err?.error?.message || err?.message || 'Unable to save project.'
+        this.createStatusText = ''
+        this.releaseFocusedElementBeforeDialog()
+        const profile = this.auth.getUserProfile()
+        const dialogRef = this.dialog.open(CreateFirewireProjectDialog, {
+            width: '860px',
+            maxWidth: '95vw',
+            panelClass: 'fw-fit-content-dialog-pane',
+            data: {
+                fieldwireProject: {
+                    name: '',
+                    projectNbr: '',
+                    address: ''
+                },
+                projectSettings: this.projectSettings,
+                suggestedProjectStatus: this.salesProjectStatus,
+                suggestedSalesman: profile?.name || ''
             }
         })
+
+        dialogRef.afterClosed().subscribe((payload?: FirewireProjectUpsert) => {
+            if (!payload) {
+                return
+            }
+
+            this.saveWorking = true
+            this.createStatusText = 'Creating sales project...'
+            this.http.post('/api/firewire/projects', {
+                ...payload,
+                projectStatus: this.salesProjectStatus
+            }).subscribe({
+                next: (response: any) => {
+                    this.saveWorking = false
+                    this.createStatusText = 'Sales project created.'
+                    const firewireProjectId = response?.data?.uuid
+                    if (firewireProjectId) {
+                        this.router.navigate(['/sales', firewireProjectId])
+                        return
+                    }
+                    this.loadProjects()
+                },
+                error: (err: any) => {
+                    this.saveWorking = false
+                    this.createStatusText = err?.error?.message || err?.message || 'Unable to create sales project.'
+                }
+            })
+        })
+    }
+
+    private releaseFocusedElementBeforeDialog(): void {
+        const active = document.activeElement
+        if (active instanceof HTMLElement) {
+            active.blur()
+        }
     }
 
     getNoDataRowText(): string {
@@ -265,28 +289,6 @@ export class SalesPage {
         return String(row.projectStatus || '').trim() === this.salesProjectStatus
     }
 
-    private createDefaultProject(): FirewireProjectUpsert {
-        const defaultBidDate = new Date()
-        defaultBidDate.setDate(defaultBidDate.getDate() + 30)
-        const profile = this.auth.getUserProfile()
-
-        return {
-            fieldwireId: null,
-            name: '',
-            projectNbr: '',
-            address: '',
-            bidDueDate: defaultBidDate.toISOString().slice(0, 10),
-            projectStatus: this.salesProjectStatus,
-            projectType: 'Fire Alarm',
-            salesman: profile?.name || '',
-            jobType: '',
-            scopeType: '',
-            projectScope: '',
-            difficulty: '',
-            totalSqFt: 0
-        }
-    }
-
     private loadProjectSettings(): void {
         this.projectSettingsApi.getCatalog().subscribe({
             next: (catalog) => {
@@ -350,55 +352,27 @@ export class SalesPage {
     }
 
     private storeProjectStatusFilter(): void {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.salesStatusFilterStorageKey, JSON.stringify(this.selectedProjectStatuses))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeJson(this.salesStatusFilterStorageKey, this.selectedProjectStatuses)
     }
 
     private readStoredProjectStatusFilter(): string[] {
-        if (typeof localStorage === 'undefined') {
-            return []
-        }
-
-        try {
-            const value = JSON.parse(localStorage.getItem(this.salesStatusFilterStorageKey) || '[]')
+        return this.viewPreferences.readJson<string[]>(this.salesStatusFilterStorageKey, [], (value) => {
             return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-        } catch {
-            return []
-        }
+        })
     }
 
     private storeSalesSort(): void {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.salesSortStorageKey, JSON.stringify({
-                active: this.currentSortActive,
-                direction: this.currentSortDirection
-            }))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeSort(this.salesSortStorageKey, {
+            active: this.currentSortActive,
+            direction: this.currentSortDirection
+        })
     }
 
     private readStoredSalesSort(): { active: string, direction: SortDirection } {
-        if (typeof localStorage === 'undefined') {
-            return { active: 'name', direction: 'asc' }
-        }
-
-        try {
-            const parsed = JSON.parse(localStorage.getItem(this.salesSortStorageKey) || '{}') as { active?: unknown, direction?: unknown }
-            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active : 'name'
-            const direction = parsed.direction === 'desc' || parsed.direction === 'asc' ? parsed.direction : 'asc'
-            return { active, direction }
-        } catch {
-            return { active: 'name', direction: 'asc' }
+        const stored = this.viewPreferences.readSort(this.salesSortStorageKey, { active: 'name', direction: 'asc' })
+        return {
+            active: stored.active,
+            direction: stored.direction === 'desc' || stored.direction === 'asc' ? stored.direction : 'asc'
         }
     }
 
@@ -412,47 +386,18 @@ export class SalesPage {
     }
 
     private storeTextFilter(): void {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.salesTextFilterStorageKey, this.textFilter)
-        } catch {
-            return
-        }
+        this.viewPreferences.writeText(this.salesTextFilterStorageKey, this.textFilter)
     }
 
     private readStoredTextFilter(): string {
-        if (typeof localStorage === 'undefined') {
-            return ''
-        }
-        try {
-            return localStorage.getItem(this.salesTextFilterStorageKey) || ''
-        } catch {
-            return ''
-        }
+        return this.viewPreferences.readText(this.salesTextFilterStorageKey)
     }
 
     private storePageSize(): void {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.salesPageSizeStorageKey, String(this.pageSize))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeNumber(this.salesPageSizeStorageKey, this.pageSize)
     }
 
     private readStoredPageSize(): number {
-        if (typeof localStorage === 'undefined') {
-            return 25
-        }
-        try {
-            const value = Number(localStorage.getItem(this.salesPageSizeStorageKey) || '25')
-            return Number.isFinite(value) && value > 0 ? value : 25
-        } catch {
-            return 25
-        }
+        return this.viewPreferences.readNumber(this.salesPageSizeStorageKey, 25, [5, 10, 25, 100])
     }
 }

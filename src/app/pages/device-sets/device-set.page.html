@@ -14,25 +14,25 @@
                 <div class="page-subtitle">Curated device grouping for project quick start workflows.</div>
             </div>
             <div class="device-set-actions">
-                <a
-                    mat-stroked-button
-                    [routerLink]="['/device-sets', deviceSetId, 'parts']"
-                    target="_blank"
-                    rel="noopener">
-                    <mat-icon>open_in_new</mat-icon>
+                <button mat-stroked-button type="button" class="device-set-action-button" [disabled]="pageWorking" (click)="openLinkedPartsDialog()">
+                    <mat-icon>table_view</mat-icon>
                     <span>Open Linked Parts</span>
-                </a>
-                <button mat-stroked-button type="button" [disabled]="saveWorking || pageWorking" (click)="openImportDialog()">
+                </button>
+                <button mat-stroked-button type="button" class="device-set-action-button" [disabled]="saveWorking || pageWorking" (click)="openAddDevicesDialog()">
+                    <mat-icon>add</mat-icon>
+                    <span>Add Devices</span>
+                </button>
+                <button mat-stroked-button type="button" class="device-set-action-button" [disabled]="saveWorking || pageWorking" (click)="openImportDialog()">
                     <mat-icon>content_paste</mat-icon>
                     <span>Paste From Excel</span>
                 </button>
-                <button mat-stroked-button type="button" [disabled]="saveWorking" (click)="resetChanges()">
-                    <mat-icon>close</mat-icon>
-                    <span>Cancel</span>
-                </button>
-                <button mat-flat-button type="button" [disabled]="saveWorking || !editName.trim()" (click)="saveChanges()">
+                <button mat-flat-button type="button" class="device-set-action-button" [disabled]="saveWorking || !editName.trim()" (click)="saveChanges()">
                     <mat-icon>save</mat-icon>
                     <span>Save Changes</span>
+                </button>
+                <button mat-stroked-button type="button" class="device-set-action-button" [disabled]="saveWorking" (click)="resetChanges()">
+                    <mat-icon>close</mat-icon>
+                    <span>Cancel</span>
                 </button>
             </div>
         </div>
@@ -48,6 +48,16 @@
                         <mat-label>Device Set Name</mat-label>
                         <input matInput maxlength="120" [(ngModel)]="editName" />
                     </mat-form-field>
+                    <mat-form-field appearance="outline" class="device-set-name-field">
+                        <mat-label>Visibility</mat-label>
+                        <mat-select multiple [(ngModel)]="editVisibility">
+                            <mat-option *ngFor="let option of visibilityOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <div class="device-set-summary-line">
+                        <span class="device-set-summary-label">Visible To</span>
+                        <span>{{getVisibilitySummary()}}</span>
+                    </div>
                     <div class="device-set-summary-line">
                         <span class="device-set-summary-label">Vendor Coverage</span>
                         <span>{{getVendorSummary()}}</span>
@@ -70,27 +80,6 @@
                                 <div class="device-set-list-meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
                             </div>
                             <button mat-stroked-button type="button" (click)="removeDevice(row.deviceId)">Remove</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="component-group component-group--span-2">
-                <div class="component-group__title">ADD DEVICES</div>
-                <div class="device-set-card-body">
-                    <mat-form-field appearance="outline" class="device-set-filter-field">
-                        <mat-label>Find Devices</mat-label>
-                        <input matInput [(ngModel)]="availableFilter" placeholder="Name, part number, vendor, category" />
-                    </mat-form-field>
-                    <div class="device-set-helper">Showing up to 100 devices that are not already in this set. You can also use <strong>Paste From Excel</strong> to reconcile a copied column of device names by vendor.</div>
-                    <div *ngIf="availableDevices.length <= 0" class="device-set-empty">No matching devices available.</div>
-                    <div class="device-set-list" *ngIf="availableDevices.length > 0">
-                        <div class="device-set-list-row" *ngFor="let row of availableDevices">
-                            <div class="device-set-list-copy">
-                                <div class="device-set-list-title">{{row.name}}</div>
-                                <div class="device-set-list-meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}} · {{row.cost | currency}}</div>
-                            </div>
-                            <button mat-flat-button type="button" (click)="addDevice(row.deviceId)">Add</button>
                         </div>
                     </div>
                 </div>

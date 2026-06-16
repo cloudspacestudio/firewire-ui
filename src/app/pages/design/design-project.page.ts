@@ -530,7 +530,9 @@ export class DesignProjectPage implements OnInit {
 
         file.floorplanDesign = result.design
         file.updatedAt = new Date().toISOString()
+        this.syncFloorplanQuantitiesToBom()
         await this.persistDocLibraryWorkspace()
+        await this.persistBomAfterFloorplanSync()
         this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
     }
 
@@ -688,13 +690,13 @@ export class DesignProjectPage implements OnInit {
             for (const row of section.rows || []) {
                 const categoryName = String(row.type || '').trim()
                 const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
-                if (!categoryName || qty <= 0) {
+                if (!row.includeOnFloorplan || !categoryName) {
                     continue
                 }
                 const categoryKey = `category-${this.normalizeKey(categoryName)}`
                 const partNumber = String(row.partNbr || '').trim()
                 const deviceName = String(row.description || row.partNbr || categoryName).trim()
-                const id = `${categoryKey}::${this.normalizeKey(partNumber || deviceName)}`
+                const id = this.getFloorplanSymbolIdForBomRow(row)
                 const existing = bySymbol.get(id)
                 if (existing) {
                     existing.totalQty += qty
@@ -743,10 +745,6 @@ export class DesignProjectPage implements OnInit {
             const symbol = inventory.get(symbolId)
             if (!symbol) {
                 errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
-                continue
-            }
-            if (placedQty > symbol.totalQty) {
-                errors.push(`${symbol.label} (${symbol.partNumber || symbol.categoryName}) has ${placedQty} symbols placed across floorplans, but the BOM quantity is ${symbol.totalQty}. Remove ${placedQty - symbol.totalQty} placement${placedQty - symbol.totalQty === 1 ? '' : 's'} or increase the BOM quantity.`)
             }
         }
         if (errors.length > 0) {
@@ -758,6 +756,48 @@ export class DesignProjectPage implements OnInit {
             })
         }
         return errors
+    }
+
+    private syncFloorplanQuantitiesToBom(): void {
+        const placedCounts = this.getFloorplanSymbolPlacementCounts()
+        const synchronized = new Set<string>()
+        for (const section of this.getBomSections()) {
+            for (const row of section.rows || []) {
+                if (!row.includeOnFloorplan || !String(row.type || '').trim()) {
+                    continue
+                }
+                const symbolId = this.getFloorplanSymbolIdForBomRow(row)
+                row.qty = synchronized.has(symbolId) ? 0 : (placedCounts.get(symbolId) || 0)
+                synchronized.add(symbolId)
+            }
+        }
+        this.refreshTakeoffColumnDefinitions()
+    }
+
+    private getFloorplanSymbolIdForBomRow(row: any): string {
+        const categoryName = String(row.type || '').trim()
+        const categoryKey = `category-${this.normalizeKey(categoryName)}`
+        const partNumber = String(row.partNbr || '').trim()
+        const deviceName = String(row.description || row.partNbr || categoryName).trim()
+        return `${categoryKey}::${this.normalizeKey(partNumber || deviceName)}`
+    }
+
+    private async persistBomAfterFloorplanSync(): Promise<void> {
+        if (!this.project) {
+            return
+        }
+        const worksheetData = {
+            ...(this.project.worksheetData || {}),
+            bomSections: this.getBomSections()
+        }
+        const response = await firstValueFrom(this.http.patch<{ data?: FirewireProjectSchema }>(`/api/firewire/projects/firewire/${this.project.uuid}`, {
+            ...this.project,
+            worksheetData
+        }))
+        if (response?.data) {
+            this.project = response.data
+            this.refreshTakeoffColumnDefinitions()
+        }
     }
 
     private getFloorplanAreaName(file: ProjectDocLibraryFileRecord): string {

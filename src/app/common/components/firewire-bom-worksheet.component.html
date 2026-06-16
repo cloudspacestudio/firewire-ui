@@ -34,7 +34,7 @@
                     ADD TO BOM
                 </button>
             </ng-container>
-            <div class="firewire-bom-grand-total">{{host.getBomGrandTotal() | currency}}</div>
+            <div class="firewire-bom-grand-total">{{host.getBomGrandTotal() | currency:'USD':'symbol':'1.0-0'}}</div>
             <button *ngIf="canAddSection" mat-stroked-button type="button" (click)="host.addBomSection()" [disabled]="locked || saveWorking">ADD NEW SECTION</button>
             <button *ngIf="canExportCsv" mat-stroked-button type="button" (click)="host.exportBomCsv()" [disabled]="saveWorking">EXPORT CSV</button>
         </div>
@@ -50,7 +50,7 @@
         <div class="firewire-bom-section__header">
             <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" [readonly]="locked" aria-label="BOM section title" />
             <div class="firewire-bom-section__actions">
-                <span>{{host.getBomSectionGrandTotal(section) | currency}}</span>
+                <span>{{host.getBomSectionGrandTotal(section) | currency:'USD':'symbol':'1.0-0'}}</span>
                 <button mat-stroked-button type="button" (click)="host.addBomRow(section)" [disabled]="locked">ADD ROW</button>
                 <button *ngIf="canRemoveSection" mat-stroked-button type="button" color="warn" (click)="host.removeBomSection(sectionIndex)" [disabled]="locked || saveWorking">REMOVE SECTION</button>
             </div>
@@ -66,18 +66,19 @@
                     <col class="bom-col-ext-cost" />
                     <col class="bom-col-labor" />
                     <col class="bom-col-ext-labor" />
+                    <col class="bom-col-floorplan" />
                     <col class="bom-col-type" />
                     <col class="bom-col-actions" />
                 </colgroup>
                 <thead>
                     <tr>
-                        <th *ngFor="let key of ['partNbr', 'description', 'qty', 'cost', 'extCost', 'labor', 'extLabor', 'type']" [class.right-align]="key !== 'partNbr' && key !== 'description' && key !== 'type'">
-                            <button type="button" class="bom-sort-button" [class.bom-sort-button--right]="key !== 'partNbr' && key !== 'description' && key !== 'type'" [class.is-active]="host.isBomSortActive(key)" (click)="host.setBomSort(key)">
-                                {{key === 'partNbr' ? 'Part Nbr' : key === 'extCost' ? 'Ext Cost' : key === 'extLabor' ? 'Ext Labor' : (key | titlecase)}}
+                        <th *ngFor="let key of ['partNbr', 'description', 'qty', 'cost', 'extCost', 'labor', 'extLabor', 'includeOnFloorplan', 'type']" [class.right-align]="key !== 'partNbr' && key !== 'description' && key !== 'type' && key !== 'includeOnFloorplan'" [class.bom-floorplan-heading]="key === 'includeOnFloorplan'">
+                            <button type="button" class="bom-sort-button" [class.bom-sort-button--right]="key !== 'partNbr' && key !== 'description' && key !== 'type' && key !== 'includeOnFloorplan'" [class.bom-sort-button--center]="key === 'includeOnFloorplan'" [class.is-active]="host.isBomSortActive(key)" (click)="host.setBomSort(key)">
+                                {{key === 'partNbr' ? 'Part Nbr' : key === 'extCost' ? 'Ext Cost' : key === 'extLabor' ? 'Ext Labor' : key === 'includeOnFloorplan' ? 'FP' : (key | titlecase)}}
                                 <span>{{host.isBomSortActive(key) ? (host.bomSortDirection === 'asc' ? '▲' : '▼') : ''}}</span>
                             </button>
                         </th>
-                        <th class="bom-actions-heading">Actions</th>
+                        <th class="bom-actions-heading" aria-label="BOM row actions"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -96,14 +97,14 @@
                                     <button *ngFor="let option of host.getBomDeviceLookupResults(section, row)" type="button" class="sales-bom-part-lookup__option" (mousedown)="host.selectBomDevice(section, row, option)">
                                         <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
                                         <span class="sales-bom-part-lookup__description">{{option.name}}</span>
-                                        <span class="sales-bom-part-lookup__cost">{{option.cost | currency}}</span>
+                                        <span class="sales-bom-part-lookup__cost">{{option.cost | currency:'USD':'symbol':'1.0-0'}}</span>
                                         <span class="sales-bom-part-lookup__category">{{option.categoryName}}</span>
                                     </button>
                                     <div *ngIf="host.getBomPartLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Vendor Parts</div>
                                     <button *ngFor="let option of host.getBomPartLookupResults(section, row)" type="button" class="sales-bom-part-lookup__option" (mousedown)="host.selectBomPart(section, row, option)">
                                         <span class="sales-bom-part-lookup__part">{{option.PartNumber}}</span>
                                         <span class="sales-bom-part-lookup__description">{{option.LongDescription}}</span>
-                                        <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency}}</span>
+                                        <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency:'USD':'symbol':'1.0-0'}}</span>
                                         <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
                                     </button>
                                 </div>
@@ -113,22 +114,33 @@
                             <textarea fwAutosizeTextarea rows="2" [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
                         </td>
                         <td class="right-align">
-                            <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                            <span *ngIf="row.includeOnFloorplan; else editableBomQty" class="bom-readonly-qty">{{row.qty || 0}}</span>
+                            <ng-template #editableBomQty>
+                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                            </ng-template>
                         </td>
                         <td class="right-align">
                             <div class="bom-currency-input">
                                 <span>$</span>
-                                <input type="number" min="0" step="0.01" [(ngModel)]="row.cost" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
+                                <input type="number" min="0" step="1" [(ngModel)]="row.cost" (blur)="host.normalizeBomMoneyField?.(row, 'cost')" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
                             </div>
                         </td>
-                        <td class="right-align bom-total-cell">{{host.getBomRowExtCost(row) | currency}}</td>
+                        <td class="right-align bom-total-cell">{{host.getBomRowExtCost(row) | currency:'USD':'symbol':'1.0-0'}}</td>
                         <td class="right-align">
                             <div class="bom-currency-input">
                                 <span>$</span>
-                                <input type="number" min="0" step="0.01" [(ngModel)]="row.labor" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
+                                <input type="number" min="0" step="1" [(ngModel)]="row.labor" (blur)="host.normalizeBomMoneyField?.(row, 'labor')" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
                             </div>
                         </td>
-                        <td class="right-align bom-total-cell">{{host.getBomRowExtLabor(row) | currency}}</td>
+                        <td class="right-align bom-total-cell">{{host.getBomRowExtLabor(row) | currency:'USD':'symbol':'1.0-0'}}</td>
+                        <td class="bom-floorplan-cell">
+                            <label class="bom-floorplan-toggle" [class.is-checked]="row.includeOnFloorplan">
+                                <input type="checkbox" [(ngModel)]="row.includeOnFloorplan" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'Include BOM row on floorplan ' + (idx + 1)" />
+                                <span aria-hidden="true">
+                                    <mat-icon *ngIf="row.includeOnFloorplan" fontIcon="check"></mat-icon>
+                                </span>
+                            </label>
+                        </td>
                         <td>
                             <input [(ngModel)]="row.type" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'BOM type ' + (idx + 1)" />
                         </td>

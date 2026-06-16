@@ -15,7 +15,14 @@
     margin-right: 10px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    column-gap: 12px;
+    row-gap: 8px;
+}
+
+.devices-action-help-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
 }
 
 .devices-name-link {

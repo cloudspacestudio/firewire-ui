@@ -10,6 +10,11 @@
     width: 240px;
 }
 
+.device-sets-visibility-field {
+    flex: 0 0 260px;
+    width: 260px;
+}
+
 .device-sets-tabstrip-actions {
     margin-left: auto;
     margin-right: 10px;
@@ -35,7 +40,8 @@
         flex-wrap: wrap;
     }
 
-    .device-sets-filter-field {
+    .device-sets-filter-field,
+    .device-sets-visibility-field {
         flex: 1 1 240px;
         width: 100%;
     }

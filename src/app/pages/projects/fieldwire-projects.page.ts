@@ -15,7 +15,7 @@ import { PageToolbar } from "../../common/components/page-toolbar"
 import { NavToolbar } from "../../common/components/nav-toolbar"
 import { Utils } from "../../common/utils"
 import { FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
-import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema } from "../../schemas/project-list-item.schema"
 import { CreateFirewireProjectDialog } from "./create-firewire-project.dialog"
 import { ProjectSettingsApi } from "./project-settings.api"
@@ -72,13 +72,7 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
     pageSize = 25
-    projectSettings: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    projectSettings: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
 
     datasource: MatTableDataSource<ProjectListItemSchema> = new MatTableDataSource(this.projects)
 

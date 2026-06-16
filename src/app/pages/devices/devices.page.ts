@@ -13,6 +13,7 @@ import {MatSort, MatSortModule, Sort, SortDirection} from '@angular/material/sor
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
+import { MatTooltipModule } from "@angular/material/tooltip"
 
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { VwDevice } from "../../schemas/vwdevice.schema"
@@ -44,7 +45,7 @@ interface DeviceSetMembershipSummary {
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule,
-        MatIconModule, PageToolbar, NavToolbar],
+        MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './devices.page.html',
     styleUrls: ['./devices.page.scss']
@@ -157,7 +158,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
 
     async reconcileVendorLinks() {
         this.reconcileWorking = true
-        this.reconcileStatusText = 'Reconciling device part links and syncing latest part prices...'
+        this.reconcileStatusText = 'Checking device part links and syncing latest part prices...'
         try {
             const response = await this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', {
                 params: {
@@ -169,7 +170,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
             const activeCount = this.vendorLinkIssues.filter((issue) => !issue.ignored).length
             const ignoredCount = this.vendorLinkIssues.filter((issue) => issue.ignored).length
             const priceSummary = await this.syncVisibleDevicePrices()
-            this.reconcileStatusText = `Reconciled ${this.devices.length} devices. ${activeCount} active issue${activeCount === 1 ? '' : 's'}, ${ignoredCount} ignored. Updated ${priceSummary.updatedCount} device price${priceSummary.updatedCount === 1 ? '' : 's'} from vendor parts.${priceSummary.missingCount > 0 ? ` ${priceSummary.missingCount} linked part${priceSummary.missingCount === 1 ? '' : 's'} still missing vendor price matches.` : ''}`
+            this.reconcileStatusText = `Checked ${this.devices.length} devices. ${activeCount} active issue${activeCount === 1 ? '' : 's'}, ${ignoredCount} ignored. Updated ${priceSummary.updatedCount} device price${priceSummary.updatedCount === 1 ? '' : 's'} from vendor parts.${priceSummary.missingCount > 0 ? ` ${priceSummary.missingCount} linked part${priceSummary.missingCount === 1 ? '' : 's'} still missing vendor price matches.` : ''}`
             await this.reloadDevices()
         } catch (err: any) {
             this.reconcileStatusText = err?.error?.message || err?.message || 'Unable to reconcile vendor links.'

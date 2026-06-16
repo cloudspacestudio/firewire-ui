@@ -18,8 +18,15 @@
 .device-set-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    justify-content: flex-end;
+    padding-right: 12px;
+}
+
+.device-set-action-button {
+    min-height: 38px;
+    letter-spacing: 0.04em;
 }
 
 .device-set-grid {
@@ -80,7 +87,6 @@
     align-items: center;
     padding: 10px 12px;
     border: 1px solid rgba(72, 221, 255, 0.16);
-    border-radius: 14px;
     background: linear-gradient(180deg, rgba(17, 37, 58, 0.7), rgba(10, 19, 33, 0.92));
 }
 

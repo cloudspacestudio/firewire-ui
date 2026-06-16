@@ -20,14 +20,42 @@
                 <button *ngIf="lastReconciledAt" mat-stroked-button type="button" [disabled]="reconcileWorking" (click)="openVendorLinkIssues('ignored')">
                     Ignored Issues
                 </button>
-                <button mat-flat-button type="button" [disabled]="reconcileWorking" (click)="reconcileVendorLinks()">
-                    <mat-icon>sync</mat-icon>
-                    <span>Reconcile</span>
-                </button>
-                <button mat-stroked-button type="button" [disabled]="priceSyncWorking || reconcileWorking || pageWorking" (click)="refreshDevicePartPrices()">
-                    <mat-icon>price_check</mat-icon>
-                    <span>{{priceSyncWorking ? 'Refreshing...' : 'Refresh Prices'}}</span>
-                </button>
+                <div class="devices-action-help-pair">
+                    <button mat-flat-button type="button" [disabled]="reconcileWorking" (click)="reconcileVendorLinks()">
+                        <mat-icon>sync</mat-icon>
+                        <span>{{reconcileWorking ? 'Checking...' : 'Check Vendor Links'}}</span>
+                    </button>
+                    <button
+                        mat-icon-button
+                        class="fw-control-help-button"
+                        type="button"
+                        aria-label="Help for Check Vendor Links"
+                        matTooltip="Checks every device and linked material part number against the current master vendor parts list. Missing matches appear as active or ignored vendor link issues, and visible device prices are refreshed from current part costs."
+                        matTooltipPosition="below"
+                        matTooltipClass="fw-control-help-tooltip"
+                        #vendorLinkHelp="matTooltip"
+                        (click)="vendorLinkHelp.toggle(); $event.stopPropagation()">
+                        <mat-icon>help_outline</mat-icon>
+                    </button>
+                </div>
+                <div class="devices-action-help-pair">
+                    <button mat-flat-button type="button" [disabled]="priceSyncWorking || reconcileWorking || pageWorking" (click)="refreshDevicePartPrices()">
+                        <mat-icon>price_check</mat-icon>
+                        <span>{{priceSyncWorking ? 'Refreshing...' : 'Refresh Device Prices'}}</span>
+                    </button>
+                    <button
+                        mat-icon-button
+                        class="fw-control-help-button"
+                        type="button"
+                        aria-label="Help for Refresh Device Prices"
+                        matTooltip="Recalculates each visible device cost from its linked master parts. Device cost is updated when the current vendor part prices differ from the saved device cost."
+                        matTooltipPosition="below"
+                        matTooltipClass="fw-control-help-tooltip"
+                        #priceRefreshHelp="matTooltip"
+                        (click)="priceRefreshHelp.toggle(); $event.stopPropagation()">
+                        <mat-icon>help_outline</mat-icon>
+                    </button>
+                </div>
             </div>
         </div>
         <div *ngIf="reconcileStatusText" class="project-create-status">{{reconcileStatusText}}</div>

@@ -29,11 +29,9 @@ export const routes: Routes = [
     {path: 'design/:projectId', loadComponent: () => import('./pages/design/design-project.page').then(m => m.DesignProjectPage)},
     {path: 'install', loadComponent: () => import('./pages/install/install.page').then(m => m.InstallPage)},
     {path: 'materials', loadComponent: () => import('./pages/materials/materials.page').then(m => m.MaterialsPage)},
-    {path: 'categories', loadComponent: () => import('./pages/categories/categories.page').then(m => m.CategoriesPage)},
-    {path: 'categories/:categoryId', loadComponent: () => import('./pages/categories/category.page').then(m => m.CategoryPage)},
     {path: 'vendors', loadComponent: () => import('./pages/vendors/vendors.page').then(m => m.VendorsPage)},
-    {path: 'parts', redirectTo: 'parts/edwards', pathMatch: 'full'},
-    {path: 'parts/:vendorKey', loadComponent: () => import('./pages/eddypricelist/eddypricelist.page').then(m => m.EddyPricelistPage)},
+    {path: 'parts', loadComponent: () => import('./pages/parts/parts.page').then(m => m.PartsPage)},
+    {path: 'parts/:vendorKey', loadComponent: () => import('./pages/parts/parts.page').then(m => m.PartsPage)},
 
     {path: 'projects/:projectId/dailyreport', loadComponent: () => import('./pages/dailyreport/dailyreport.page').then(m => m.DailyReportPage)},
     {path: 'projects/:projectId/imports', loadComponent: () => import('./pages/imports/imports.page').then(m => m.ImportsPage)},

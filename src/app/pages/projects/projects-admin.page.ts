@@ -8,9 +8,13 @@ import { MatCheckboxModule } from "@angular/material/checkbox"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
+import { MatSelectModule } from "@angular/material/select"
 import { PageToolbar } from "../../common/components/page-toolbar"
 import { NavToolbar } from "../../common/components/nav-toolbar"
 import {
+    createEmptyProjectSettingsCatalog,
+    PROJECT_SETTING_DIVISIONS,
+    ProjectSettingDivision,
     ProjectSettingItemSchema,
     ProjectSettingsCatalogSchema,
     ProjectSettingsListKey,
@@ -35,6 +39,7 @@ interface ListMeta {
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
+        MatSelectModule,
         PageToolbar,
         NavToolbar
     ],
@@ -46,19 +51,17 @@ export class ProjectsAdminPage implements OnInit {
     navItems = NavToolbar.SettingsNavItems
     pageWorking = true
     statusText = ''
-    catalog: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    readonly divisionOptions = PROJECT_SETTING_DIVISIONS
+    catalog: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
     createModels: Record<ProjectSettingsListKey, ProjectSettingUpsert> = {
         jobType: this.createEmptyModel('jobType'),
         scopeType: this.createEmptyModel('scopeType'),
         projectScope: this.createEmptyModel('projectScope'),
         difficulty: this.createEmptyModel('difficulty'),
-        projectStatus: this.createEmptyModel('projectStatus')
+        projectStatus: this.createEmptyModel('projectStatus'),
+        assumptions: this.createEmptyModel('assumptions'),
+        inclusions: this.createEmptyModel('inclusions'),
+        exclusions: this.createEmptyModel('exclusions')
     }
     saveBusy: Record<string, boolean> = {}
     activeListKey: ProjectSettingsListKey = 'jobType'
@@ -67,7 +70,10 @@ export class ProjectsAdminPage implements OnInit {
         { key: 'scopeType', title: 'SCOPE TYPES', subtitle: 'How the job fits into an existing or new install.' },
         { key: 'projectScope', title: 'PROJECT SCOPE', subtitle: 'Commercial packaging modes for the project effort.' },
         { key: 'projectStatus', title: 'PROJECT STATUS', subtitle: 'Lifecycle stage options for Firewire projects.' },
-        { key: 'difficulty', title: 'DIFFICULTY', subtitle: 'Estimating difficulty bands and their guidance text.' }
+        { key: 'difficulty', title: 'DIFFICULTY', subtitle: 'Estimating difficulty bands and their guidance text.' },
+        { key: 'assumptions', title: 'ASSUMPTIONS', subtitle: 'Division-specific assumption paragraphs for estimates, proposals, and summaries.' },
+        { key: 'inclusions', title: 'INCLUSIONS', subtitle: 'Division-specific promised scope paragraphs for estimate and proposal reporting.' },
+        { key: 'exclusions', title: 'EXCLUSIONS', subtitle: 'Division-specific excluded scope paragraphs for estimate and proposal reporting.' }
     ]
 
     constructor(private http: HttpClient) {}
@@ -78,6 +84,14 @@ export class ProjectsAdminPage implements OnInit {
 
     getItems(listKey: ProjectSettingsListKey): ProjectSettingItemSchema[] {
         return this.catalog[listKey] || []
+    }
+
+    isDivisionSpecificList(listKey: ProjectSettingsListKey): boolean {
+        return listKey === 'assumptions' || listKey === 'inclusions' || listKey === 'exclusions'
+    }
+
+    getItemTextLabel(listKey: ProjectSettingsListKey): string {
+        return this.isDivisionSpecificList(listKey) ? 'Paragraph Text' : 'Label'
     }
 
     get activeList(): ListMeta {
@@ -118,6 +132,7 @@ export class ProjectsAdminPage implements OnInit {
 
         this.http.patch(`/api/firewire/project-settings/items/${item.uuid}`, {
             listKey: item.listKey,
+            division: this.isDivisionSpecificList(item.listKey) ? item.division : null,
             label: item.label,
             description: item.description,
             sortOrder: item.sortOrder,
@@ -160,19 +175,16 @@ export class ProjectsAdminPage implements OnInit {
         this.pageWorking = true
         this.http.get<{ data?: ProjectSettingsCatalogSchema }>('/api/firewire/project-settings').subscribe({
             next: (response) => {
-                this.catalog = response?.data || {
-                    jobType: [],
-                    scopeType: [],
-                    projectScope: [],
-                    difficulty: [],
-                    projectStatus: []
-                }
+                this.catalog = response?.data || createEmptyProjectSettingsCatalog()
                 this.createModels = {
                     jobType: this.createEmptyModel('jobType'),
                     scopeType: this.createEmptyModel('scopeType'),
                     projectScope: this.createEmptyModel('projectScope'),
                     difficulty: this.createEmptyModel('difficulty'),
-                    projectStatus: this.createEmptyModel('projectStatus')
+                    projectStatus: this.createEmptyModel('projectStatus'),
+                    assumptions: this.createEmptyModel('assumptions'),
+                    inclusions: this.createEmptyModel('inclusions'),
+                    exclusions: this.createEmptyModel('exclusions')
                 }
                 this.pageWorking = false
             },
@@ -186,6 +198,7 @@ export class ProjectsAdminPage implements OnInit {
     private createEmptyModel(listKey: ProjectSettingsListKey): ProjectSettingUpsert {
         return {
             listKey,
+            division: this.getDefaultDivision(listKey),
             label: '',
             description: '',
             sortOrder: this.getItems(listKey).length * 10 + 10,
@@ -195,5 +208,9 @@ export class ProjectsAdminPage implements OnInit {
 
     private getListTitle(listKey: ProjectSettingsListKey): string {
         return this.lists.find((list) => list.key === listKey)?.title || listKey
+    }
+
+    private getDefaultDivision(listKey: ProjectSettingsListKey): ProjectSettingDivision | null {
+        return this.isDivisionSpecificList(listKey) ? 'Fire Alarm' : null
     }
 }

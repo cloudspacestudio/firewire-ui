@@ -221,6 +221,12 @@
     outline: none;
 }
 
+.admin-cell-textarea {
+    min-height: 82px;
+    resize: vertical;
+    line-height: 1.35;
+}
+
 .admin-cell-input:focus {
     border-color: rgba(125, 227, 255, 0.4);
     box-shadow: 0 0 0 1px rgba(125, 227, 255, 0.22);
@@ -228,6 +234,10 @@
 
 .cell-label {
     width: auto;
+}
+
+.cell-division {
+    width: 190px;
 }
 
 .cell-sort {

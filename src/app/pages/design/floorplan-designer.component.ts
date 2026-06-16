@@ -161,10 +161,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     selectSymbol(symbol: FloorplanDesignerSymbolOption): void {
         this.selectedSymbol = symbol
-        const remaining = this.getSymbolRemaining(symbol)
-        this.statusText = remaining > 0
-            ? `${symbol.label}: ${remaining} remaining.`
-            : `${symbol.label}: none remaining.`
+        this.statusText = `${this.getSymbolPrimaryText(symbol)}: ${this.getSymbolDescriptionText(symbol)}. Click the floorplan to place another symbol.`
     }
 
     getSymbolRemaining(symbol: FloorplanDesignerSymbolOption): number {
@@ -174,8 +171,34 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     }
 
     getSymbolPlacedText(symbol: FloorplanDesignerSymbolOption): string {
-        const placed = Math.max(0, Number(symbol.totalQty || 0) - this.getSymbolRemaining(symbol))
-        return `${placed}/${symbol.totalQty}`
+        return `${this.getCurrentSymbolCount(symbol.id)} placed`
+    }
+
+    getSymbolPrimaryText(symbol: FloorplanDesignerSymbolOption): string {
+        const partNumber = String(symbol.partNumber || '').trim()
+        const categoryName = String(symbol.categoryName || '').trim()
+        return [partNumber, categoryName].filter(Boolean).join(' · ') || String(symbol.label || 'BOM Symbol').trim()
+    }
+
+    getSymbolDescriptionText(symbol: FloorplanDesignerSymbolOption): string {
+        return String(symbol.label || symbol.deviceName || '').trim() || 'No description'
+    }
+
+    getStickyFontSize(text?: string): number {
+        const normalizedLength = String(text || '').replace(/\s+/g, ' ').trim().length
+        if (normalizedLength <= 8) {
+            return 24
+        }
+        if (normalizedLength <= 18) {
+            return 20
+        }
+        if (normalizedLength <= 36) {
+            return 16
+        }
+        if (normalizedLength <= 72) {
+            return 13
+        }
+        return 11
     }
 
     zoomIn(): void {
@@ -231,10 +254,8 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         if (this.tool === 'select' || this.tool === 'pan' || this.isPanning) {
             return
         }
-        if (this.tool === 'symbol' && (!this.selectedSymbol || this.getSymbolRemaining(this.selectedSymbol) <= 0)) {
-            this.statusText = this.selectedSymbol
-                ? `No ${this.selectedSymbol.label} symbols remain available from the BOM.`
-                : 'No BOM symbols are available to place.'
+        if (this.tool === 'symbol' && !this.selectedSymbol) {
+            this.statusText = 'No BOM symbols are available to place.'
             return
         }
 
@@ -246,9 +267,8 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         this.annotations = [...this.annotations, annotation]
         if (this.tool === 'symbol') {
             this.selectedAnnotation = undefined
-            const remaining = this.selectedSymbol ? this.getSymbolRemaining(this.selectedSymbol) : 0
             this.statusText = this.selectedSymbol
-                ? `${this.selectedSymbol.label} placed. ${remaining} remaining.`
+                ? `${this.selectedSymbol.label} placed. BOM quantity will update when the design is saved.`
                 : 'Symbol placed.'
             return
         }

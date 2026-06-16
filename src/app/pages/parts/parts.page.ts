@@ -17,15 +17,17 @@ import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatInputModule} from '@angular/material/input';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import { MatSelectModule } from "@angular/material/select"
+import { MatSlideToggleModule } from "@angular/material/slide-toggle"
+import { MatTooltipModule } from "@angular/material/tooltip"
 
 import { PageToolbar } from '../../common/components/page-toolbar';
-import { EddyPricelist } from "../../schemas/eddypricelist.schema"
+import { Part } from "../../schemas/part.schema"
 import { NavToolbar } from "../../common/components/nav-toolbar"
-import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
-import { Category } from "../../schemas/category.schema"
+import { VwPart } from "../../schemas/vwpart.schema"
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { Vendor } from "../../schemas/vendor.schema"
 import { VendorImportConfig, VendorImportPreview, VendorImportRun, VendorImportSnapshot } from "../../schemas/vendor-import-config.schema"
+import { ViewPreferencesService } from "../../common/services/view-preferences.service"
 
 interface PartsVendorView {
     key: string
@@ -34,19 +36,21 @@ interface PartsVendorView {
     vendorName: string
     vendorId?: string
     listEndpoint: string
-    createDeviceEndpoint: (partNumber: string) => string
-    addToDeviceEndpoint: (partNumber: string) => string
+    createDeviceEndpoint: (part: VwPart) => string
+    addToDeviceEndpoint: (part: VwPart) => string
+    deletePartEndpoint: (part: VwPart) => string
 }
 
 const PARTS_VENDOR_VIEWS: PartsVendorView[] = [
     {
-        key: 'edwards',
-        caption: 'EDWARDS',
-        datasetLabel: 'Edwards Price List',
-        vendorName: 'Edwards',
-        listEndpoint: '/api/firewire/vweddypricelist',
-        createDeviceEndpoint: (partNumber: string) => `/api/firewire/eddypricelist/${encodeURIComponent(partNumber)}/create-device`,
-        addToDeviceEndpoint: (partNumber: string) => `/api/firewire/eddypricelist/${encodeURIComponent(partNumber)}/add-to-device`
+        key: 'all',
+        caption: 'PARTS',
+        datasetLabel: 'Master Parts',
+        vendorName: 'All Vendors',
+        listEndpoint: '/api/firewire/parts',
+        createDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(String(part.vendorId || ''))}/parts/${encodeURIComponent(part.PartNumber)}/create-device`,
+        addToDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(String(part.vendorId || ''))}/parts/${encodeURIComponent(part.PartNumber)}/add-to-device`,
+        deletePartEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(String(part.vendorId || ''))}/parts/${encodeURIComponent(part.PartNumber)}`
     }
 ]
 
@@ -59,22 +63,22 @@ const PARTS_VENDOR_VIEWS: PartsVendorView[] = [
         MatPaginatorModule, MatSortModule,
         MatTableModule, MatInputModule,
         MatFormFieldModule, MatSelectModule,
-        MatIconModule, PageToolbar, NavToolbar],
+        MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
-    templateUrl: './eddypricelist.page.html',
-    styleUrls: ['./eddypricelist.page.scss']
+    templateUrl: './parts.page.html',
+    styleUrls: ['./parts.page.scss']
 })
-export class EddyPricelistPage implements OnInit, AfterViewInit  {
+export class PartsPage implements OnInit, AfterViewInit  {
     displayedColumns: string[] = [
         'PartNumber',
         'LongDescription',
         'ParentCategory',
         'Category',
         'MSRPPrice',
+        'cost',
         'MinOrderQuantity',
         //'ProductStatus',
         'UPC',
-        //'SalesPrice',
         //'FuturePrice',
         //'FutureEffectiveDate',
         //'FutureSalesPrice',
@@ -88,7 +92,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     @ViewChild(MatSort) sort?: MatSort;
 
     pageWorking = true
-    eddypricelists: VwEddyPricelist[] = []
+    parts: VwPart[] = []
     navItems = NavToolbar.DeviceNavItems
     vendorViews: PartsVendorView[] = [...PARTS_VENDOR_VIEWS]
     vendors: Vendor[] = []
@@ -97,7 +101,6 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     statusText = ''
     textFilter = ''
     actionWorking = false
-    categories: Category[] = []
     devices: VwDevice[] = []
     selectedCategories: string[] = []
     activeVendorView = PARTS_VENDOR_VIEWS[0]
@@ -109,25 +112,19 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     currentSortDirection: SortDirection = 'asc'
     pageSize = 25
 
-    datasource: MatTableDataSource<VwEddyPricelist> = new MatTableDataSource(this.eddypricelists);
+    datasource: MatTableDataSource<VwPart> = new MatTableDataSource(this.parts);
     
     constructor(
         private http: HttpClient,
         private dialog: MatDialog,
         private route: ActivatedRoute,
-        private router: Router
+        private router: Router,
+        private viewPreferences: ViewPreferencesService
     ) {}
 
     ngOnInit(): void {
         this.route.paramMap.subscribe((params) => {
             const vendorKey = String(params.get('vendorKey') || '').trim().toLowerCase()
-            this.textFilter = this.readStoredPartsTextFilter()
-            this.selectedCategories = this.readStoredCategoryFilter()
-            const storedSort = this.readStoredPartsSort()
-            this.currentSortActive = storedSort.active
-            this.currentSortDirection = storedSort.direction
-            this.pageSize = this.readStoredPartsPageSize()
-            this.configureFilterPredicate()
             this.statusText = ''
             void this.initializeVendorRoute(vendorKey)
         })
@@ -181,15 +178,12 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         return `No data matching the filter "${filterValue}"`
     }
 
-    async openCreateDeviceDialog(row: VwEddyPricelist) {
-        await this.ensureCategoriesLoaded()
-
+    async openCreateDeviceDialog(row: VwPart) {
+        await this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(CreateDeviceFromPartDialog, {
-            width: '560px',
-            maxWidth: '95vw',
+            panelClass: 'fw-medium-dialog-pane',
             data: {
-                part: row,
-                categories: this.categories
+                part: row
             }
         })
 
@@ -201,7 +195,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         this.actionWorking = true
         this.statusText = `Creating device from ${row.PartNumber}...`
 
-        this.http.post<{ data?: { device?: VwDevice } }>(this.activeVendorView.createDeviceEndpoint(row.PartNumber), result).subscribe({
+        this.http.post<{ data?: { device?: VwDevice } }>(this.activeVendorView.createDeviceEndpoint(row), result).subscribe({
             next: (response) => {
                 this.actionWorking = false
                 const deviceName = response?.data?.device?.name || result.name || row.LongDescription || row.PartNumber
@@ -214,9 +208,10 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         })
     }
 
-    async openAddToExistingDeviceDialog(row: VwEddyPricelist) {
+    async openAddToExistingDeviceDialog(row: VwPart) {
         await this.ensureDevicesLoaded()
 
+        await this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(AddPartToExistingDeviceDialog, {
             width: '560px',
             maxWidth: '95vw',
@@ -234,7 +229,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         this.actionWorking = true
         this.statusText = `Adding ${row.PartNumber} to selected device...`
 
-        this.http.post(this.activeVendorView.addToDeviceEndpoint(row.PartNumber), result).subscribe({
+        this.http.post(this.activeVendorView.addToDeviceEndpoint(row), result).subscribe({
             next: () => {
                 const target = this.devices.find((device) => device.deviceId === result.deviceId)
                 this.actionWorking = false
@@ -247,13 +242,45 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         })
     }
 
-    private async ensureCategoriesLoaded() {
-        if (this.categories.length > 0) {
+    async openDeletePartDialog(row: VwPart) {
+        if (!row.vendorId) {
+            this.statusText = 'Unable to delete part because the vendor is unknown.'
             return
         }
 
-        const response = await firstValueFrom(this.http.get<{ rows?: Category[] }>('/api/firewire/categories'))
-        this.categories = Array.isArray(response?.rows) ? response.rows : []
+        await this.releaseFocusedElementBeforeDialog()
+        const dialogRef = this.dialog.open(DeletePartDialog, {
+            width: '440px',
+            maxWidth: 'calc(100vw - 40px)',
+            panelClass: 'fw-confirmation-dialog-pane',
+            data: {
+                part: row,
+                vendorName: row.sourceVendorName || this.activeVendor?.name || this.activeVendorView.vendorName
+            }
+        })
+
+        const confirmed = await firstValueFrom(dialogRef.afterClosed())
+        if (!confirmed) {
+            return
+        }
+
+        this.actionWorking = true
+        this.statusText = `Deleting part ${row.PartNumber}...`
+        this.http.delete<{ data?: { vendorId: string, partNumber: string } }>(this.activeVendorView.deletePartEndpoint(row)).subscribe({
+            next: () => {
+                this.actionWorking = false
+                this.parts = this.parts.filter((part) =>
+                    !(part.vendorId === row.vendorId && String(part.PartNumber || '') === String(row.PartNumber || ''))
+                )
+                this.datasource.data = [...this.parts]
+                this.applyCombinedFilter()
+                this.statusText = `Deleted part ${row.PartNumber}. Existing device/material snapshots were not changed.`
+            },
+            error: (err: any) => {
+                this.actionWorking = false
+                this.statusText = err?.error?.message || err?.message || `Unable to delete part ${row.PartNumber}.`
+            }
+        })
     }
 
     private async ensureDevicesLoaded() {
@@ -263,7 +290,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
 
         const response = await firstValueFrom(this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices'))
         const rows = Array.isArray(response?.rows) ? response.rows : []
-        const activeVendorId = this.eddypricelists.find((row) => row.vendorId)?.vendorId || null
+        const activeVendorId = this.parts.find((row) => row.vendorId)?.vendorId || null
 
         this.devices = activeVendorId
             ? rows.filter((device) => device.vendorId === activeVendorId)
@@ -271,11 +298,28 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     }
 
     async openImportDialog() {
+        if (this.activeVendorView.key === 'all') {
+            await this.releaseFocusedElementBeforeDialog()
+            const dialogRef = this.dialog.open(AllPartsWorkbookImportDialog, {
+                width: '840px',
+                maxWidth: '96vw'
+            })
+            const result = await firstValueFrom(dialogRef.afterClosed())
+            if (result?.message) {
+                this.statusText = result.message
+                if (result.imported) {
+                    this.loadParts()
+                }
+            }
+            return
+        }
+
         if (!this.activeVendor || !this.activeImportConfig) {
             this.statusText = `Configure import rules for ${this.activeVendorView.vendorName} before importing.`
             return
         }
 
+        await this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(PartsImportDialog, {
             width: '840px',
             maxWidth: '96vw',
@@ -299,6 +343,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             return
         }
 
+        await this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(PartsImportProcessDialog, {
             width: '920px',
             maxWidth: '96vw',
@@ -322,6 +367,12 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             return
         }
 
+        if (vendorId === '__all_parts__') {
+            this.storePartsVendorChannel('all')
+            await this.router.navigate(['/parts', 'all'])
+            return
+        }
+
         const vendor = this.vendors.find((row) => row.vendorId === vendorId) || null
         if (!vendor) {
             return
@@ -334,15 +385,37 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             return
         }
 
+        this.storePartsVendorChannel(targetView.key)
         await this.router.navigate(['/parts', targetView.key])
     }
 
     private async initializeVendorRoute(vendorKey: string) {
         await this.loadVendorViews()
-        this.activeVendorView = this.vendorViews.find((view) => view.key === vendorKey) || this.vendorViews[0]
+        const storedVendorKey = this.readStoredPartsVendorChannel()
+        const hasStoredVendorView = storedVendorKey !== 'all' && this.vendorViews.some((view) => view.key === storedVendorKey)
+        const shouldRestoreStoredVendor = !vendorKey || (vendorKey === 'all' && hasStoredVendorView)
+        const requestedVendorKey = shouldRestoreStoredVendor ? storedVendorKey : vendorKey || storedVendorKey
+        this.activeVendorView = this.vendorViews.find((view) => view.key === requestedVendorKey) || this.vendorViews[0]
+        this.storePartsVendorChannel(this.activeVendorView.key)
+        if (shouldRestoreStoredVendor) {
+            await this.router.navigate(['/parts', this.activeVendorView.key], { replaceUrl: true })
+            return
+        }
+        this.applyStoredViewPreferences()
         await this.loadActiveVendorContext()
-        await this.ensureCategoriesLoaded()
         this.loadParts()
+    }
+
+    private applyStoredViewPreferences() {
+        this.textFilter = this.readStoredPartsTextFilter()
+        this.selectedCategories = this.readStoredCategoryFilter()
+        const storedSort = this.readStoredPartsSort()
+        this.currentSortActive = storedSort.active
+        this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredPartsPageSize()
+        this.configureFilterPredicate()
+        this.applyStoredSortState()
+        this.applyStoredPageSizeState()
     }
 
     private async loadVendorViews() {
@@ -351,12 +424,22 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         const resolvedViews = this.vendors
             .map((row) => this.resolveVendorViewForVendor(row))
             .filter((row): row is PartsVendorView => !!row)
+            .sort((left, right) => this.compareVendorLabels(left.vendorName, right.vendorName))
         const viewsByKey = new Map<string, PartsVendorView>()
         for (const view of [...PARTS_VENDOR_VIEWS, ...resolvedViews]) {
             viewsByKey.set(view.key, view)
         }
         this.vendorViews = Array.from(viewsByKey.values())
-        this.availablePartsVendors = this.vendors.filter((row) => !!this.resolveVendorViewForVendor(row))
+        this.availablePartsVendors = this.vendors
+            .filter((row) => !!this.resolveVendorViewForVendor(row))
+            .sort((left, right) => this.compareVendorLabels(left.name, right.name))
+    }
+
+    private compareVendorLabels(left: string | null | undefined, right: string | null | undefined): number {
+        return String(left || '').trim().localeCompare(String(right || '').trim(), undefined, {
+            numeric: true,
+            sensitivity: 'base'
+        })
     }
 
     private async loadActiveVendorContext() {
@@ -368,16 +451,16 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             if (!this.activeVendor) {
                 this.activeImportConfig = null
                 this.activeImportRun = null
-                this.selectedVendorId = ''
-                return
-            }
+            this.selectedVendorId = this.activeVendorView.key === 'all' ? '__all_parts__' : ''
+            return
+        }
             this.selectedVendorId = this.activeVendor.vendorId
 
             const configResponse = await firstValueFrom(this.http.get<{ data?: VendorImportConfig }>(`/api/firewire/vendors/${this.activeVendor.vendorId}/import-config`))
             this.activeImportConfig = configResponse?.data || null
             const statusResponse = await firstValueFrom(this.http.get<{ data?: VendorImportRun | null }>(`/api/firewire/vendors/${this.activeVendor.vendorId}/parts-import-status`, {
                 params: {
-                    targetTable: this.activeImportConfig?.targetTable || 'EddyPricelist'
+                    targetTable: this.activeImportConfig?.targetTable || 'parts'
                 }
             }))
             this.activeImportRun = statusResponse?.data || null
@@ -395,7 +478,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             if (staticView) {
                 return staticView
             }
-            if (config.targetTable && config.targetTable !== 'EddyPricelist') {
+            if (this.normalizePartsTargetTable(config.targetTable) === 'parts') {
                 const key = String(config.partsVendorKey || vendor.vendorId || '').trim().toLowerCase()
                 return {
                     key,
@@ -404,13 +487,28 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
                     vendorName: vendor.name,
                     vendorId: vendor.vendorId,
                     listEndpoint: `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts`,
-                    createDeviceEndpoint: (partNumber: string) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(partNumber)}/create-device`,
-                    addToDeviceEndpoint: (partNumber: string) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(partNumber)}/add-to-device`
+                    createDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}/create-device`,
+                    addToDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}/add-to-device`,
+                    deletePartEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}`
                 }
             }
             return null
         }
-        return PARTS_VENDOR_VIEWS.find((view) => String(vendor.name || '').trim().toLowerCase() === view.vendorName.toLowerCase()) || null
+        const key = String(vendor.vendorId || vendor.name || '').trim().toLowerCase()
+        if (!key) {
+            return null
+        }
+        return {
+            key,
+            caption: String(vendor.name || key).toUpperCase(),
+            datasetLabel: `${vendor.name || 'Vendor'} Parts`,
+            vendorName: vendor.name,
+            vendorId: vendor.vendorId,
+            listEndpoint: `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts`,
+            createDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}/create-device`,
+            addToDeviceEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}/add-to-device`,
+            deletePartEndpoint: (part: VwPart) => `/api/firewire/vendors/${encodeURIComponent(vendor.vendorId)}/parts/${encodeURIComponent(part.PartNumber)}`
+        }
     }
 
     private parseVendorImportConfig(raw: string | null | undefined): VendorImportConfig | null {
@@ -418,24 +516,34 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
             return null
         }
         try {
-            return JSON.parse(raw) as VendorImportConfig
+            const config = JSON.parse(raw) as VendorImportConfig
+            config.targetTable = this.normalizePartsTargetTable(config.targetTable)
+            return config
         } catch {
             return null
         }
     }
 
+    private normalizePartsTargetTable(value: string | null | undefined): string {
+        const normalized = String(value || '').trim().toLowerCase()
+        if (!normalized || normalized === 'part' || normalized === 'parts' || normalized === 'eddypricelist' || normalized === 'vendorpricelist') {
+            return 'parts'
+        }
+        return normalized
+    }
+
     private loadParts() {
-        this.eddypricelists = []
+        this.parts = []
         this.devices = []
         this.pageWorking = true
         this.errText = undefined
         this.datasource.data = []
 
-        this.http.get<{ rows?: VwEddyPricelist[] }>(this.activeVendorView.listEndpoint).subscribe({
+        this.http.get<{ rows?: VwPart[] }>(this.activeVendorView.listEndpoint).subscribe({
             next: (response) => {
                 if (response && Array.isArray(response.rows)) {
-                    this.eddypricelists = [...response.rows]
-                    this.datasource = new MatTableDataSource(this.eddypricelists)
+                    this.parts = [...response.rows]
+                    this.datasource = new MatTableDataSource(this.parts)
                     this.configureFilterPredicate()
                     this.datasource.paginator = this.paginator || null
                     this.datasource.sort = this.sort || null
@@ -446,7 +554,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
                     return
                 }
 
-                this.eddypricelists = []
+                this.parts = []
                 this.datasource.data = []
                 this.pageWorking = false
             },
@@ -458,7 +566,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     }
 
     getCategoryFilterOptions(): string[] {
-        const categories = this.eddypricelists
+        const categories = this.parts
             .map((row) => String(row.Category || '').trim())
             .filter((value) => !!value)
         return Array.from(new Set(categories)).sort((left, right) => left.localeCompare(right))
@@ -476,7 +584,7 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     }
 
     private configureFilterPredicate() {
-        this.datasource.filterPredicate = (row: VwEddyPricelist, filter: string) => {
+        this.datasource.filterPredicate = (row: VwPart, filter: string) => {
             let parsed: { text?: string, categories?: string[] } = {}
             try {
                 parsed = JSON.parse(filter || '{}')
@@ -516,77 +624,45 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
         return `firewire.parts.${this.activeVendorView.key}.pageSize`
     }
 
+    private getPartsVendorChannelStorageKey(): string {
+        return 'firewire.parts.vendorChannel'
+    }
+
+    private storePartsVendorChannel(vendorKey: string) {
+        this.viewPreferences.writeText(this.getPartsVendorChannelStorageKey(), vendorKey || 'all')
+    }
+
+    private readStoredPartsVendorChannel(): string {
+        return this.viewPreferences.readText(this.getPartsVendorChannelStorageKey(), 'all')
+    }
+
     private storePartsTextFilter() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.getPartsTextFilterStorageKey(), this.textFilter)
-        } catch {
-            return
-        }
+        this.viewPreferences.writeText(this.getPartsTextFilterStorageKey(), this.textFilter)
     }
 
     private readStoredPartsTextFilter(): string {
-        if (typeof localStorage === 'undefined') {
-            return ''
-        }
-        try {
-            return localStorage.getItem(this.getPartsTextFilterStorageKey()) || ''
-        } catch {
-            return ''
-        }
+        return this.viewPreferences.readText(this.getPartsTextFilterStorageKey(), '')
     }
 
     private storeCategoryFilter() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.getPartsCategoryFilterStorageKey(), JSON.stringify(this.selectedCategories))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeJson(this.getPartsCategoryFilterStorageKey(), this.selectedCategories)
     }
 
     private readStoredCategoryFilter(): string[] {
-        if (typeof localStorage === 'undefined') {
-            return []
-        }
-        try {
-            const value = JSON.parse(localStorage.getItem(this.getPartsCategoryFilterStorageKey()) || '[]')
+        return this.viewPreferences.readJson<string[]>(this.getPartsCategoryFilterStorageKey(), [], (value) => {
             return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-        } catch {
-            return []
-        }
+        })
     }
 
     private storePartsSort() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.getPartsSortStorageKey(), JSON.stringify({
-                active: this.currentSortActive,
-                direction: this.currentSortDirection
-            }))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeSort(this.getPartsSortStorageKey(), {
+            active: this.currentSortActive,
+            direction: this.currentSortDirection
+        })
     }
 
     private readStoredPartsSort(): { active: string, direction: SortDirection } {
-        if (typeof localStorage === 'undefined') {
-            return { active: 'PartNumber', direction: 'asc' }
-        }
-        try {
-            const parsed = JSON.parse(localStorage.getItem(this.getPartsSortStorageKey()) || '{}') as { active?: unknown, direction?: unknown }
-            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active : 'PartNumber'
-            const direction = parsed.direction === 'desc' || parsed.direction === 'asc' ? parsed.direction : 'asc'
-            return { active, direction }
-        } catch {
-            return { active: 'PartNumber', direction: 'asc' }
-        }
+        return this.viewPreferences.readSort(this.getPartsSortStorageKey(), { active: 'PartNumber', direction: 'asc' }) as { active: string, direction: SortDirection }
     }
 
     private applyStoredSortState() {
@@ -604,47 +680,38 @@ export class EddyPricelistPage implements OnInit, AfterViewInit  {
     }
 
     private storePartsPageSize() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem(this.getPartsPageSizeStorageKey(), String(this.pageSize))
-        } catch {
-            return
-        }
+        this.viewPreferences.writeNumber(this.getPartsPageSizeStorageKey(), this.pageSize)
     }
 
     private readStoredPartsPageSize(): number {
-        if (typeof localStorage === 'undefined') {
-            return 25
+        return this.viewPreferences.readNumber(this.getPartsPageSizeStorageKey(), 25, [5, 10, 25, 100])
+    }
+
+    private async releaseFocusedElementBeforeDialog(): Promise<void> {
+        const activeElement = typeof document !== 'undefined' ? document.activeElement : null
+        if (activeElement instanceof HTMLElement) {
+            activeElement.blur()
         }
-        try {
-            const raw = Number(localStorage.getItem(this.getPartsPageSizeStorageKey()) || '25')
-            return [5, 10, 25, 100].includes(raw) ? raw : 25
-        } catch {
-            return 25
-        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
 
 }
 
 interface CreateDeviceFromPartDialogData {
-    part: VwEddyPricelist
-    categories: Category[]
-}
-
-interface CreateDeviceFromPartCategoryOption {
-    categoryId: string
-    name: string
-    pendingCreate?: boolean
+    part: VwPart
 }
 
 @Component({
     standalone: true,
     selector: 'fw-create-device-from-part-dialog',
-    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule, MatSelectModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, MatSlideToggleModule],
     template: `
-        <div mat-dialog-title>Create Device From Part</div>
+        <div mat-dialog-title class="fw-dialog-titlebar">
+            <span class="fw-dialog-titlebar__text">Create Device From Part</span>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel create device" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
         <mat-dialog-content>
             <div class="fw-dialog-stack">
                 <p><strong>{{data.part.PartNumber}}</strong> will be used as the default part number for the new device.</p>
@@ -658,15 +725,13 @@ interface CreateDeviceFromPartCategoryOption {
                 </mat-form-field>
                 <mat-form-field>
                     <mat-label>Category</mat-label>
-                    <mat-select [(ngModel)]="model.categoryId">
-                        <mat-option *ngFor="let category of categoryOptions" [value]="category.categoryId">
-                            {{category.name}}
-                        </mat-option>
-                    </mat-select>
-                    <mat-hint *ngIf="getSelectedCategoryOption()?.pendingCreate">
-                        This part category does not exist yet. A new category will be created when the device is created.
-                    </mat-hint>
+                    <input matInput [(ngModel)]="model.categoryName" />
+                    <mat-hint>This becomes the BOM category/type text for this device.</mat-hint>
                 </mat-form-field>
+                <div>
+                    <mat-slide-toggle [(ngModel)]="model.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
+                    <div class="fw-dialog-hint">When enabled, floorplan drops and install task labels use this category with the device name.</div>
+                </div>
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
@@ -674,16 +739,16 @@ interface CreateDeviceFromPartCategoryOption {
             <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!canSave()">Create Device</button>
         </mat-dialog-actions>
     `,
-    styles: [`.fw-dialog-stack{display:grid;gap:12px;min-width:min(460px,100%)}`]
+    styles: [`.fw-dialog-stack{display:grid;gap:12px;width:100%;max-width:100%}.fw-dialog-stack p{margin:0}.fw-dialog-hint{margin-top:4px;color:rgba(214,238,255,.72);font-size:12px;line-height:1.35}`]
 })
 export class CreateDeviceFromPartDialog {
     readonly data = inject<CreateDeviceFromPartDialogData>(MAT_DIALOG_DATA)
     readonly partCategoryName = String(this.data.part.Category || '').trim()
-    readonly categoryOptions: CreateDeviceFromPartCategoryOption[] = this.buildCategoryOptions()
     model = {
         name: this.getDefaultDeviceName(),
         shortName: this.data.part.PartNumber || '',
-        categoryId: this.getDefaultCategoryId()
+        categoryName: this.partCategoryName,
+        includeOnFloorplan: !!this.partCategoryName
     }
 
     private getDefaultDeviceName(): string {
@@ -694,60 +759,22 @@ export class CreateDeviceFromPartDialog {
         return description
     }
 
-    private buildCategoryOptions(): CreateDeviceFromPartCategoryOption[] {
-        const baseOptions = this.data.categories.map((category) => ({
-            categoryId: category.categoryId,
-            name: category.name,
-            pendingCreate: false
-        }))
-        const normalizedPartCategory = this.normalizeCategoryName(this.partCategoryName)
-        if (!normalizedPartCategory) {
-            return baseOptions
-        }
-        const existing = baseOptions.find((category) => this.normalizeCategoryName(category.name) === normalizedPartCategory)
-        if (existing) {
-            return baseOptions
-        }
-        return [
-            {
-                categoryId: `__pending__:${this.partCategoryName}`,
-                name: this.partCategoryName,
-                pendingCreate: true
-            },
-            ...baseOptions
-        ]
-    }
-
-    private getDefaultCategoryId(): string {
-        const normalizedPartCategory = this.normalizeCategoryName(this.partCategoryName)
-        const match = this.categoryOptions.find((category) => this.normalizeCategoryName(category.name) === normalizedPartCategory)
-        return match?.categoryId || this.categoryOptions[0]?.categoryId || ''
-    }
-
-    private normalizeCategoryName(value: string): string {
-        return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase()
-    }
-
-    getSelectedCategoryOption(): CreateDeviceFromPartCategoryOption | null {
-        return this.categoryOptions.find((category) => category.categoryId === this.model.categoryId) || null
-    }
-
     canSave(): boolean {
-        return !!this.model.name.trim() && !!this.model.shortName.trim() && !!this.model.categoryId
+        return !!this.model.name.trim() && !!this.model.shortName.trim()
     }
 
     getResult() {
         return this.canSave() ? {
             name: this.model.name.trim(),
             shortName: this.model.shortName.trim(),
-            categoryId: this.model.categoryId,
-            categoryName: this.getSelectedCategoryOption()?.name || ''
+            categoryName: this.model.categoryName.trim(),
+            includeOnFloorplan: !!this.model.includeOnFloorplan
         } : null
     }
 }
 
 interface AddPartToExistingDeviceDialogData {
-    part: VwEddyPricelist
+    part: VwPart
     devices: VwDevice[]
 }
 
@@ -785,20 +812,237 @@ export class AddPartToExistingDeviceDialog {
     }
 }
 
+interface DeletePartDialogData {
+    part: VwPart
+    vendorName: string
+}
+
+@Component({
+    standalone: true,
+    selector: 'fw-delete-part-dialog',
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
+    template: `
+        <div mat-dialog-title class="fw-dialog-titlebar">
+            <span class="fw-dialog-titlebar__text">Delete Part</span>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel delete part" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content>
+            <div class="fw-confirmation-dialog">
+                <p>Delete <strong>{{data.part.PartNumber}}</strong> from {{data.vendorName}}?</p>
+                <p class="parts-dialog-status">Existing devices and BOM material snapshots keep their copied part details.</p>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button color="warn" type="button" class="fw-danger-button" [mat-dialog-close]="true">Delete Part</button>
+        </mat-dialog-actions>
+    `
+})
+export class DeletePartDialog {
+    readonly data = inject<DeletePartDialogData>(MAT_DIALOG_DATA)
+}
+
 interface PartsImportDialogData {
     vendor: Vendor
     config: VendorImportConfig
 }
 
+interface BulkPartsWorkbookVendorResult {
+    sheetName: string
+    vendorId?: string
+    vendorName?: string
+    matched: boolean
+    valid: boolean
+    rowCount: number
+    importedRowCount?: number
+    issues: string[]
+    sampleErrors: string[]
+}
+
+interface BulkPartsWorkbookResult {
+    fileName: string
+    sheetCount: number
+    matchedVendorCount: number
+    skippedSheetCount: number
+    importedVendorCount: number
+    importedRowCount: number
+    valid: boolean
+    results: BulkPartsWorkbookVendorResult[]
+}
+
 @Component({
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
-        <div mat-dialog-title>Import Parts</div>
+        <div mat-dialog-title class="fw-dialog-titlebar">
+            <span class="fw-dialog-titlebar__text">Import All Vendor Parts</span>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content>
+            <div class="fw-dialog-stack">
+                <p>Import an Excel workbook with one vendor per worksheet. Worksheet names must match existing vendor names.</p>
+                <input type="file" accept=".xlsx,.xls" (change)="onFileSelected($event)" />
+                <div
+                    class="parts-dialog-status"
+                    [class.parts-dialog-status--error]="preview && !preview.valid"
+                    [class.parts-dialog-status--success]="preview?.valid"
+                    *ngIf="statusText">
+                    {{statusText}}
+                </div>
+                <div *ngIf="preview && !preview.valid" class="parts-dialog-blocker">
+                    <strong>Workbook cannot be imported yet.</strong>
+                    <span>Fix the worksheet issues listed below, then verify the workbook again.</span>
+                </div>
+                <div *ngIf="preview" class="parts-dialog-preview" [class.parts-dialog-preview--invalid]="!preview.valid">
+                    <div><strong>Sheets:</strong> {{preview.sheetCount}}</div>
+                    <div><strong>Matched Vendors:</strong> {{preview.matchedVendorCount}}</div>
+                    <div><strong>Skipped Sheets:</strong> {{preview.skippedSheetCount}}</div>
+                    <div><strong>Status:</strong> {{preview.valid ? 'Ready to import' : 'Needs attention'}}</div>
+                    <div *ngFor="let row of preview.results" [class.parts-dialog-preview__row--invalid]="row.matched && (!row.valid || row.sampleErrors.length > 0 || row.issues.length > 0)">
+                        <strong>{{row.sheetName}}</strong>:
+                        {{row.matched ? (row.vendorName + ' · ' + row.rowCount + ' rows') : 'Skipped'}}
+                        <span *ngIf="row.issues.length > 0"> · {{row.issues.join(' | ')}}</span>
+                        <span *ngIf="row.sampleErrors.length > 0"> · {{row.sampleErrors.join(' | ')}}</span>
+                    </div>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify Workbook</button>
+            <button
+                mat-flat-button
+                type="button"
+                class="parts-dialog-import-button"
+                [class.parts-dialog-import-button--disabled]="isImportDisabled()"
+                [attr.title]="getImportDisabledReason()"
+                [disabled]="isImportDisabled()"
+                (click)="importFile()">
+                Import Workbook
+            </button>
+        </mat-dialog-actions>
+    `,
+    styles: [`
+        .parts-dialog-status { color: var(--fw-muted); font-size: 0.84rem; }
+        .parts-dialog-status--error { color: #ffb4ab; font-weight: 600; }
+        .parts-dialog-status--success { color: #9be7c0; }
+        .parts-dialog-blocker { display: grid; gap: 4px; padding: 12px; border: 1px solid rgba(255, 90, 90, 0.52); border-left: 4px solid #ff6b6b; background: rgba(255, 75, 75, 0.12); color: #ffd6d6; border-radius: 0; }
+        .parts-dialog-blocker span { color: #ffc0c0; font-size: 0.86rem; }
+        .parts-dialog-preview { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 0; }
+        .parts-dialog-preview--invalid { border-color: rgba(255, 90, 90, 0.42); }
+        .parts-dialog-preview__row--invalid { color: #ffc7c7; }
+        .parts-dialog-import-button--disabled { opacity: 0.34 !important; filter: grayscale(0.7); cursor: not-allowed !important; }
+    `]
+})
+export class AllPartsWorkbookImportDialog {
+    private readonly http = inject(HttpClient)
+    private readonly dialogRef = inject(MatDialogRef<AllPartsWorkbookImportDialog>)
+
+    selectedFile: File | null = null
+    preview: BulkPartsWorkbookResult | null = null
+    statusText = ''
+    working = false
+
+    onFileSelected(event: Event) {
+        const input = event.target as HTMLInputElement
+        const file = input.files && input.files.length > 0 ? input.files[0] : null
+        this.selectedFile = this.isWorkbookFile(file) ? file : null
+        this.preview = null
+        this.statusText = file && !this.selectedFile
+            ? 'Choose an Excel workbook with an .xlsx or .xls file extension.'
+            : this.selectedFile ? `${this.selectedFile.name} selected.` : ''
+        input.value = ''
+    }
+
+    async verify() {
+        if (!this.selectedFile) {
+            return
+        }
+        this.working = true
+        this.statusText = `Verifying ${this.selectedFile.name}...`
+        try {
+            const formData = new FormData()
+            formData.append('file', this.selectedFile, this.selectedFile.name)
+            const response = await firstValueFrom(this.http.post<{ data?: BulkPartsWorkbookResult }>('/api/firewire/parts-import/workbook/preview', formData))
+            this.preview = response?.data || null
+            this.statusText = this.preview?.valid
+                ? 'Workbook verified. Import is available.'
+                : 'Import is blocked until the workbook issues are fixed.'
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to verify workbook.'
+        } finally {
+            this.working = false
+        }
+    }
+
+    async importFile() {
+        if (!this.selectedFile) {
+            return
+        }
+        this.working = true
+        this.statusText = `Importing ${this.selectedFile.name}...`
+        try {
+            const formData = new FormData()
+            formData.append('file', this.selectedFile, this.selectedFile.name)
+            const response = await firstValueFrom(this.http.post<{ data?: BulkPartsWorkbookResult }>('/api/firewire/parts-import/workbook', formData))
+            const result = response?.data || null
+            this.dialogRef.close({
+                imported: true,
+                message: result
+                    ? `Imported ${result.importedRowCount} parts across ${result.importedVendorCount} vendor worksheet${result.importedVendorCount === 1 ? '' : 's'}.`
+                    : 'Workbook import completed.'
+            })
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to import workbook.'
+        } finally {
+            this.working = false
+        }
+    }
+
+    isImportDisabled(): boolean {
+        return !this.selectedFile || !this.preview?.valid || this.working
+    }
+
+    getImportDisabledReason(): string {
+        if (this.working) {
+            return 'Workbook operation is still running.'
+        }
+        if (!this.selectedFile) {
+            return 'Choose an Excel workbook first.'
+        }
+        if (!this.preview) {
+            return 'Verify the workbook before importing.'
+        }
+        if (!this.preview.valid) {
+            return 'Fix the workbook issues and verify again before importing.'
+        }
+        return ''
+    }
+
+    private isWorkbookFile(file: File | null): file is File {
+        const fileName = String(file?.name || '').trim().toLowerCase()
+        return fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+    }
+}
+
+@Component({
+    standalone: true,
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
+    template: `
+        <div mat-dialog-title class="fw-dialog-titlebar">
+            <span class="fw-dialog-titlebar__text">Import Parts</span>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
         <mat-dialog-content>
             <div class="fw-dialog-stack">
                 <p><strong>{{data.vendor.name}}</strong> will import into <strong>{{data.config.targetTable}}</strong> using the stored normalization rules.</p>
-                <input type="file" accept=".csv,text/csv" (change)="onFileSelected($event)" />
+                <input type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" />
                 <div class="parts-dialog-status" *ngIf="statusText">{{statusText}}</div>
                 <div *ngIf="preview" class="parts-dialog-preview">
                     <div><strong>Rows:</strong> {{preview.rowCount}}</div>
@@ -812,14 +1056,14 @@ interface PartsImportDialogData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Close</button>
+            <button mat-button mat-dialog-close type="button">Cancel</button>
             <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify File</button>
             <button mat-flat-button type="button" [disabled]="!selectedFile || !preview?.valid || working" (click)="importFile()">Import</button>
         </mat-dialog-actions>
     `,
     styles: [`
         .parts-dialog-status { color: var(--fw-muted); font-size: 0.84rem; }
-        .parts-dialog-preview { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 12px; }
+        .parts-dialog-preview { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 0; }
     `]
 })
 export class PartsImportDialog {
@@ -834,9 +1078,13 @@ export class PartsImportDialog {
 
     onFileSelected(event: Event) {
         const input = event.target as HTMLInputElement
-        this.selectedFile = input.files && input.files.length > 0 ? input.files[0] : null
+        const file = input.files && input.files.length > 0 ? input.files[0] : null
+        this.selectedFile = this.isPartsImportFile(file) ? file : null
         this.preview = null
-        this.statusText = this.selectedFile ? `${this.selectedFile.name} selected.` : ''
+        this.statusText = file && !this.selectedFile
+            ? 'Choose a CSV or Excel file with a .csv, .xlsx, or .xls file extension.'
+            : this.selectedFile ? `${this.selectedFile.name} selected.` : ''
+        input.value = ''
     }
 
     async verify() {
@@ -847,7 +1095,7 @@ export class PartsImportDialog {
         this.statusText = `Verifying ${this.selectedFile.name}...`
         try {
             const formData = new FormData()
-            formData.append('file', this.selectedFile)
+            formData.append('file', this.selectedFile, this.selectedFile.name)
             const response = await firstValueFrom(this.http.post<{ data?: VendorImportPreview }>(`/api/firewire/vendors/${this.data.vendor.vendorId}/parts-import/preview`, formData))
             this.preview = response?.data || null
             this.statusText = this.preview?.valid ? 'File verified and ready to import.' : 'Verification found issues that must be resolved first.'
@@ -866,7 +1114,7 @@ export class PartsImportDialog {
         this.statusText = `Importing ${this.selectedFile.name}...`
         try {
             const formData = new FormData()
-            formData.append('file', this.selectedFile)
+            formData.append('file', this.selectedFile, this.selectedFile.name)
             const response = await firstValueFrom(this.http.post<{ data?: { snapshotId?: string, insertedRowCount?: number } }>(`/api/firewire/vendors/${this.data.vendor.vendorId}/parts-import`, formData))
             const inserted = response?.data?.insertedRowCount || 0
             const snapshotId = response?.data?.snapshotId || ''
@@ -880,6 +1128,11 @@ export class PartsImportDialog {
             this.working = false
         }
     }
+
+    private isPartsImportFile(file: File | null): file is File {
+        const fileName = String(file?.name || '').trim().toLowerCase()
+        return fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+    }
 }
 
 interface PartsImportProcessDialogData {
@@ -889,9 +1142,14 @@ interface PartsImportProcessDialogData {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
-        <div mat-dialog-title>Import Process</div>
+        <div mat-dialog-title class="fw-dialog-titlebar">
+            <span class="fw-dialog-titlebar__text">Import Process</span>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import process" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
         <mat-dialog-content>
             <div class="fw-dialog-stack">
                 <div><strong>Vendor:</strong> {{data.vendor.name}}</div>
@@ -919,14 +1177,15 @@ interface PartsImportProcessDialogData {
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Close</button>
+            <button mat-button mat-dialog-close type="button">Cancel</button>
         </mat-dialog-actions>
     `,
     styles: [`
+        .fw-dialog-stack { display: grid; gap: 10px; }
         .parts-process-list { margin: 0; padding-left: 18px; }
         .parts-process-snapshots { display: grid; gap: 10px; }
         .parts-process-snapshots__title { font-weight: 600; }
-        .parts-process-snapshot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 12px; }
+        .parts-process-snapshot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 0; background: rgba(7, 15, 27, 0.52); }
     `]
 })
 export class PartsImportProcessDialog {

@@ -1,4 +1,3 @@
-import { Category } from "./category.schema"
 import { Vendor } from "./vendor.schema"
 import { Material } from "./material.schema"
 
@@ -10,7 +9,11 @@ export interface ResolvedDevice {
     link: string
     cost: number
     defaultLabor: number
-    category: Category
+    category: {
+        name: string
+        shortName?: string
+        handle?: string
+    }
     vendor: Vendor
     materials: Material[]
     slcAddress: string

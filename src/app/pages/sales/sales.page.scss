@@ -1,12 +1,14 @@
 .sales-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
+    padding-right: 12px;
 }
 
-.sales-actions mat-form-field:first-child {
-    min-width: 260px;
+.sales-filter-field {
+    flex: 0 0 260px;
+    width: 260px;
 }
 
 .sales-actions-spacer {
@@ -14,37 +16,24 @@
 }
 
 .sales-status-filter {
-    min-width: 220px;
+    flex: 0 0 220px;
+    width: 220px;
 }
 
-.sales-create-status {
+.sales-action-button {
+    min-height: 38px;
+    letter-spacing: 0.04em;
+}
+
+.sales-create-status,
+.sales-page-status {
     color: rgba(191, 214, 228, 0.8);
     font-size: 0.9rem;
 }
 
-.sales-create-panel {
-    margin-bottom: 18px;
-    padding: 18px;
-    border: 1px solid rgba(77, 214, 255, 0.18);
-    border-radius: 18px;
-    background: linear-gradient(180deg, rgba(7, 13, 22, 0.96), rgba(12, 22, 32, 0.9));
-}
-
-.sales-create-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.sales-create-grid__span-2 {
-    grid-column: span 2;
-}
-
-.sales-create-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 14px;
+.sales-page-status {
+    flex: 0 0 auto;
+    margin: 0 0 8px;
 }
 
 .sales-type-column {
@@ -53,6 +42,10 @@
 
 .sales-actions-column {
     width: 220px;
+}
+
+.sales-table {
+    min-width: 920px;
 }
 
 .sales-project-link {
@@ -118,12 +111,10 @@
         display: none;
     }
 
-    .sales-create-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .sales-create-grid__span-2 {
-        grid-column: span 1;
+    .sales-filter-field,
+    .sales-status-filter {
+        flex: 1 1 240px;
+        width: 100%;
     }
 
     .sales-row-actions {

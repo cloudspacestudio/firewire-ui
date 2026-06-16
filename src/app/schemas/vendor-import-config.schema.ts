@@ -1,4 +1,4 @@
-import { EddyPricelist } from "./eddypricelist.schema"
+import { Part } from "./part.schema"
 
 export interface VendorImportConfig {
     partsVendorKey: string
@@ -6,8 +6,8 @@ export interface VendorImportConfig {
     targetTable: string
     filePattern?: string
     expectedHeaders: string[]
-    headerMap: Record<string, keyof EddyPricelist>
-    columnTypes: Partial<Record<keyof EddyPricelist, 'string' | 'money' | 'int' | 'date'>>
+    headerMap: Record<string, keyof Part>
+    columnTypes: Partial<Record<keyof Part, 'string' | 'money' | 'int' | 'date'>>
     normalizationSteps: string[]
     analysisSummary: string[]
     verifiedSampleFile?: string
@@ -27,7 +27,7 @@ export interface VendorImportPreview {
     unexpectedHeaders: string[]
     issues: string[]
     sampleErrors: string[]
-    sampleRows: EddyPricelist[]
+    sampleRows: Part[]
     snapshotStrategy: string
 }
 

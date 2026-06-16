@@ -1,6 +1,6 @@
 export interface VwDevice {
-    categoryId: string
     categoryName: string
+    includeOnFloorplan: boolean
     cost: number
     createat: Date
     createby: string

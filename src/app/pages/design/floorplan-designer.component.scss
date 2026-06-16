@@ -27,6 +27,19 @@
     background: #08111d;
 }
 
+.floorplan-designer__titlebar > div:first-child {
+    min-width: 180px;
+}
+
+.floorplan-designer__header-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
 .floorplan-designer__kicker,
 .floorplan-designer__label {
     color: #55d8ff;
@@ -41,8 +54,11 @@
 }
 
 .floorplan-designer {
+    --floorplan-sidebar-width: 300px;
+
+    position: relative;
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: var(--floorplan-sidebar-width) minmax(0, 1fr);
     width: 100%;
     min-height: 0;
     min-width: 0;
@@ -84,11 +100,47 @@
     box-sizing: border-box;
 }
 
+.floorplan-designer__header-tools .floorplan-designer__tool {
+    width: auto;
+    min-width: 96px;
+    justify-content: center;
+    padding: 8px 12px;
+}
+
+.floorplan-designer__reset-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 118px;
+    height: 36px;
+    border: 1px solid rgba(72, 221, 255, 0.24);
+    border-radius: 0;
+    padding: 0 12px;
+    background: rgba(8, 31, 48, 0.78);
+    color: #eaf6ff;
+    font: inherit;
+    font-size: 0.86rem;
+    cursor: pointer;
+}
+
+.floorplan-designer__reset-action:hover {
+    border-color: rgba(72, 221, 255, 0.46);
+    background: rgba(13, 55, 78, 0.86);
+}
+
+.floorplan-designer__reset-action mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
 .floorplan-designer__symbol-option {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr);
     grid-template-areas:
         "icon label"
+        "icon description"
         "icon count";
 }
 
@@ -110,7 +162,8 @@
 }
 
 .floorplan-designer__symbol-option strong,
-.floorplan-designer__symbol-option small {
+.floorplan-designer__symbol-description,
+.floorplan-designer__symbol-count {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -121,13 +174,14 @@
     grid-area: label;
 }
 
-.floorplan-designer__symbol-option small {
-    grid-area: count;
-    color: rgba(167, 228, 255, 0.72);
+.floorplan-designer__symbol-description {
+    grid-area: description;
+    color: rgba(234, 246, 255, 0.86);
 }
 
-.floorplan-designer__symbol-option.is-depleted:not(.is-active) {
-    opacity: 0.58;
+.floorplan-designer__symbol-count {
+    grid-area: count;
+    color: rgba(167, 228, 255, 0.72);
 }
 
 .floorplan-designer__empty-panel,
@@ -149,27 +203,6 @@
     color: #55d8ff;
     font-size: 0.72rem;
     text-transform: uppercase;
-}
-
-.floorplan-designer__zoom-row {
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
-}
-
-.floorplan-designer__zoom-row button {
-    width: 44px;
-    min-width: 0;
-    height: 36px;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-.floorplan-designer__zoom-row strong {
-    min-width: 0;
-    line-height: 36px;
 }
 
 .floorplan-designer__section > button[mat-stroked-button] {
@@ -199,6 +232,57 @@
     cursor: crosshair;
 }
 
+.floorplan-designer__floating-zoom {
+    position: absolute;
+    top: 14px;
+    left: calc(var(--floorplan-sidebar-width) + 14px);
+    z-index: 12;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    margin: 0;
+    border: 1px solid rgba(72, 221, 255, 0.2);
+    border-radius: 999px;
+    padding: 7px 9px;
+    background: rgba(5, 13, 22, 0.86);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(8px);
+}
+
+.floorplan-designer__floating-zoom button {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border: 1px solid rgba(72, 221, 255, 0.32);
+    border-radius: 50%;
+    padding: 0;
+    background: rgba(8, 31, 48, 0.96);
+    color: #eaf6ff;
+    cursor: pointer;
+}
+
+.floorplan-designer__floating-zoom button:hover {
+    border-color: rgba(121, 255, 176, 0.56);
+    background: rgba(24, 68, 56, 0.82);
+}
+
+.floorplan-designer__floating-zoom mat-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    line-height: 20px;
+}
+
+.floorplan-designer__floating-zoom strong {
+    min-width: 58px;
+    color: #eaf6ff;
+    font-size: 0.86rem;
+    text-align: center;
+}
+
 .floorplan-designer__stage.is-pan-mode {
     cursor: grab;
 }
@@ -209,8 +293,9 @@
 
 .floorplan-designer__surface {
     position: relative;
-    min-width: 100%;
-    min-height: 100%;
+    display: block;
+    min-width: 0;
+    min-height: 0;
     transform-origin: top left;
 }
 
@@ -218,8 +303,8 @@
 .floorplan-designer__pdf {
     display: block;
     width: 100%;
-    height: auto;
-    min-height: 320px;
+    height: 100%;
+    min-height: 0;
     user-select: none;
 }
 
@@ -230,6 +315,7 @@
     background: transparent;
     color: #061018;
     cursor: pointer;
+    padding: 0;
 }
 
 .floorplan-designer__annotation.is-selected {
@@ -269,6 +355,38 @@
     font-size: 0.78rem;
 }
 
+.floorplan-designer__sticky-note {
+    display: grid;
+    place-items: center;
+    width: 132px;
+    height: 112px;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 2px;
+    padding: 14px;
+    resize: none;
+    overflow: hidden;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 42%),
+        #fff08a;
+    color: #17202a;
+    font: inherit;
+    font-weight: 800;
+    line-height: 1.12;
+    text-align: center;
+    text-wrap: balance;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32), inset 0 -18px 22px rgba(174, 133, 0, 0.14);
+    outline: 0;
+}
+
+.floorplan-designer__sticky-note::placeholder {
+    color: rgba(23, 32, 42, 0.48);
+}
+
+.floorplan-designer__sticky-note:focus {
+    box-shadow: 0 0 0 2px rgba(121, 255, 176, 0.82), 0 10px 22px rgba(0, 0, 0, 0.32), inset 0 -18px 22px rgba(174, 133, 0, 0.14);
+}
+
 .floorplan-designer__actions {
     display: flex;
     align-items: center;
@@ -300,8 +418,31 @@
 }
 
 @media (max-width: 900px) {
+    .floorplan-designer__titlebar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .floorplan-designer__header-tools {
+        order: 3;
+        flex-basis: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .floorplan-designer__header-tools .floorplan-designer__tool {
+        min-width: 88px;
+    }
+
     .floorplan-designer {
+        --floorplan-sidebar-width: 0px;
+
         grid-template-columns: 1fr;
+    }
+
+    .floorplan-designer__floating-zoom {
+        top: 274px;
+        left: 14px;
     }
 
     .floorplan-designer__sidebar {

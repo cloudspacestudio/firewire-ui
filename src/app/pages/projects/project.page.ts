@@ -23,7 +23,7 @@ import { Utils } from "../../common/utils"
 import { AccountProjectAttributes, AccountProjectSchema } from "../../schemas/account.project.schema"
 import { AccountProjectStatSchema } from "../../schemas/account.projectstat.schema"
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
-import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from "../../common/components/firewire-bom-worksheet.component"
@@ -57,8 +57,7 @@ import {
 import { ProjectSettingsApi } from "./project-settings.api"
 import { ReducedResponse, Reducer } from "../../common/reducer"
 import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
-import { Category } from "../../schemas/category.schema"
-import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
+import { VwPart } from "../../schemas/vwpart.schema"
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
 import { DeviceSetDetail, DeviceSetSummary } from "../../schemas/device-set.schema"
@@ -71,6 +70,7 @@ interface ProjectBomRow {
     qty: number
     cost: number
     labor: number
+    includeOnFloorplan: boolean
     type: string
     lookupQuery?: string
 }
@@ -83,7 +83,7 @@ interface ProjectBomSection {
     vendorNames?: string[]
 }
 
-type ProjectBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'type'
+type ProjectBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'includeOnFloorplan' | 'type'
 
 interface LaborRateRow {
     label: string
@@ -408,13 +408,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     private systemMapPreferences: ProjectMapPreferences = { ...this.systemMapDefaultPreferences }
     private systemPreferencesSubscription?: Subscription
     private systemMapRenderHandle?: ReturnType<typeof setTimeout>
-    projectSettings: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    projectSettings: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
 
     stats?: ReducedResponse
     folders?: ReducedResponse
@@ -597,40 +591,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
         { item: 'J-Hooks', included: false, estQty: 1, price: 1.5, labor: 0 },
         { item: 'Straps/Misc', included: false, estQty: 1, price: 50, labor: 0 }
     ]
-    bomSections: ProjectBomSection[] = [
-        {
-            title: 'EST EQUIPMENT',
-            rows: [
-                { partNbr: 'HS-24MCW', description: 'Horn Strobe Wall Mount', qty: 24, cost: 86.5, labor: 42, type: 'Notification' },
-                { partNbr: 'SD505-APS', description: 'Addressable Smoke Detector', qty: 48, cost: 32.75, labor: 18, type: 'Initiating' },
-                { partNbr: 'MS-7CAF', description: 'Manual Pull Station', qty: 12, cost: 41.2, labor: 22, type: 'Initiating' },
-                { partNbr: 'N16X', description: 'Fire Alarm Control Panel', qty: 1, cost: 2895, labor: 520, type: 'Head End' }
-            ]
-        },
-        {
-            title: 'Special Items not EST',
-            rows: [
-                { partNbr: 'RPS-1000', description: 'Remote Power Supply', qty: 3, cost: 418.95, labor: 110, type: 'Power' },
-                { partNbr: 'CELL-COMM', description: 'Cellular Communicator', qty: 1, cost: 612.4, labor: 135, type: 'Communications' }
-            ]
-        },
-        {
-            title: 'Special Items Cooper Notification',
-            rows: [
-                { partNbr: 'COOP-STROBE', description: 'Cooper High Candela Strobe', qty: 16, cost: 97.25, labor: 46, type: 'Notification' },
-                { partNbr: 'COOP-HORN', description: 'Cooper Low Frequency Horn', qty: 10, cost: 88.75, labor: 44, type: 'Notification' }
-            ]
-        }
-    ]
+    bomSections: ProjectBomSection[] = []
     bomFilter = ''
     bomSortKey: ProjectBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
     selectedDeviceSetId = ''
     deviceSets: DeviceSetSummary[] = []
-    categories: Category[] = []
     deviceRows: VwDevice[] = []
     deviceLookupLoaded = false
-    vendorPartRows: VwEddyPricelist[] = []
+    vendorPartRows: VwPart[] = []
     vendorPartLookupLoaded = false
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
@@ -1673,11 +1642,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     getBomRowExtCost(row: ProjectBomRow): number {
-        return Number(row.qty || 0) * Number(row.cost || 0)
+        return Number(row.qty || 0) * this.roundBomMoney(row.cost)
     }
 
     getBomRowExtLabor(row: ProjectBomRow): number {
-        return Number(row.qty || 0) * Number(row.labor || 0)
+        return Number(row.qty || 0) * this.roundBomMoney(row.labor)
+    }
+
+    normalizeBomMoneyField(row: ProjectBomRow, field: 'cost' | 'labor'): void {
+        row[field] = this.roundBomMoney(row[field])
     }
 
     getBomBaseManHourEstimate(): number {
@@ -1742,7 +1715,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     `${row.cost}`,
                     `${this.getBomRowExtCost(row)}`,
                     `${row.labor}`,
-                    `${this.getBomRowExtLabor(row)}`
+                    `${this.getBomRowExtLabor(row)}`,
+                    row.includeOnFloorplan ? 'floorplan fp yes' : 'no floorplan fp no'
                 ].join(' ').toLowerCase()
                 return haystack.includes(filterValue)
             })
@@ -1765,6 +1739,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     return (left.labor - right.labor) * direction
                 case 'extLabor':
                     return (this.getBomRowExtLabor(left) - this.getBomRowExtLabor(right)) * direction
+                case 'includeOnFloorplan':
+                    return (Number(!!left.includeOnFloorplan) - Number(!!right.includeOnFloorplan)) * direction
                 case 'type':
                     return left.type.localeCompare(right.type) * direction
                 default:
@@ -1787,7 +1763,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     exportBomCsv() {
-        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'TYPE']
+        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'FP', 'TYPE']
         const csvLines = this.bomSections.flatMap((section) => {
             const rows = this.getFilteredBomRows(section)
             return [
@@ -1798,10 +1774,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
                         this.toCsvCell(row.partNbr),
                         this.toCsvCell(row.description),
                         this.toCsvCell(`${row.qty}`),
-                        this.toCsvCell(row.cost.toFixed(2)),
-                        this.toCsvCell(this.getBomRowExtCost(row).toFixed(2)),
-                        this.toCsvCell(row.labor.toFixed(2)),
-                        this.toCsvCell(this.getBomRowExtLabor(row).toFixed(2)),
+                        this.toCsvCell(`${this.roundBomMoney(row.cost)}`),
+                        this.toCsvCell(`${this.getBomRowExtCost(row)}`),
+                        this.toCsvCell(`${this.roundBomMoney(row.labor)}`),
+                        this.toCsvCell(`${this.getBomRowExtLabor(row)}`),
+                        this.toCsvCell(row.includeOnFloorplan ? 'Yes' : 'No'),
                         this.toCsvCell(row.type)
                     ].join(',')
                 }),
@@ -1948,7 +1925,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     onBomPartLookupBlur(section: ProjectBomSection, row: ProjectBomRow): void {
-        row.lookupQuery = String(row.lookupQuery || row.partNbr || '').trim()
+        const value = String(row.lookupQuery || row.partNbr || '').trim()
+        row.lookupQuery = value
+        row.partNbr = value
         globalThis.setTimeout(() => {
             if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row) {
                 this.closeBomPartLookup()
@@ -1958,6 +1937,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     onBomPartLookupChanged(section: ProjectBomSection, row: ProjectBomRow, value: string): void {
         row.lookupQuery = value
+        row.partNbr = value
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
         this.positionBomPartLookup()
@@ -1967,7 +1947,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row
     }
 
-    getBomPartLookupResults(section: ProjectBomSection, row: ProjectBomRow): VwEddyPricelist[] {
+    getBomPartLookupResults(section: ProjectBomSection, row: ProjectBomRow): VwPart[] {
         const activeSectionKey = String(section.sectionKey || '')
         const query = String(row.lookupQuery || '').trim().toLowerCase()
         if (this.activeBomLookupSectionKey !== activeSectionKey || query.length < 2) {
@@ -2034,34 +2014,35 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return this.getBomDeviceLookupResults(section, row).length > 0 || this.getBomPartLookupResults(section, row).length > 0
     }
 
-    selectBomPart(section: ProjectBomSection, row: ProjectBomRow, part: VwEddyPricelist): void {
-        const category = this.getBomCategoryByName(String(part.Category || '').trim())
+    selectBomPart(section: ProjectBomSection, row: ProjectBomRow, part: VwPart): void {
+        const categoryName = String(part.Category || '').trim()
         row.partNbr = String(part.PartNumber || '').trim()
         row.lookupQuery = row.partNbr
         row.description = String(part.LongDescription || '').trim()
-        row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
-        row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = this.getDefaultLaborCost(category?.defaultLabor)
+        row.cost = this.roundBomMoney(part.SalesPrice || part.MSRPPrice || 0)
+        row.type = categoryName
+        row.includeOnFloorplan = false
+        row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
         this.refreshTakeoffColumnDefinitions()
         this.closeBomPartLookup()
     }
 
     selectBomDevice(section: ProjectBomSection, row: ProjectBomRow, device: VwDevice): void {
-        const category = this.getBomCategoryByName(String(device.categoryName || '').trim())
         const partNumber = String(device.partNumber || '').trim()
         row.partNbr = partNumber
         row.lookupQuery = partNumber
         row.description = String(device.name || device.shortName || '').trim()
-        row.cost = Number(device.cost || 0)
-        row.type = category?.includeOnFloorplan ? String(device.categoryName || '').trim() : ''
-        row.labor = this.getDefaultLaborCost(device.defaultLabor)
+        row.cost = this.roundBomMoney(device.cost || 0)
+        row.type = String(device.categoryName || '').trim()
+        row.includeOnFloorplan = !!device.includeOnFloorplan
+        row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
         this.refreshTakeoffColumnDefinitions()
         this.closeBomPartLookup()
     }
 
-    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwEddyPricelist>): ProjectBomRow[] {
-        const category = this.getBomCategoryByName(String(device.categoryName || '').trim())
-        const typeValue = category?.includeOnFloorplan ? String(device.categoryName || '').trim() : ''
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): ProjectBomRow[] {
+        const typeValue = String(device?.categoryName || '').trim()
+        const includeOnFloorplan = !!device?.includeOnFloorplan
 
         if (!materials.length) {
             const partNumber = String(device.partNumber || '').trim()
@@ -2070,8 +2051,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 lookupQuery: partNumber,
                 description: String(device.name || '').trim(),
                 qty: 0,
-                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0)),
-                labor: this.getDefaultLaborCost(device.defaultLabor),
+                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0))),
+                labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
+                includeOnFloorplan,
                 type: typeValue
             }]
         }
@@ -2083,14 +2065,15 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 lookupQuery: partNumber,
                 description: String(material.materialName || material.deviceName || device.name || '').trim(),
                 qty: 0,
-                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0)),
-                labor: index === 0 ? this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor) : 0,
+                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0))),
+                labor: index === 0 ? this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor)) : 0,
+                includeOnFloorplan,
                 type: typeValue
             }
         })
     }
 
-    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwEddyPricelist> | undefined, fallbackCost: number): number {
+    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwPart> | undefined, fallbackCost: number): number {
         const vendorPart = vendorPartMap?.get(this.devicePartPriceSync.normalizePartNumber(partNumber))
         return vendorPart ? this.devicePartPriceSync.getVendorPartPrice(vendorPart) : Number(fallbackCost || 0)
     }
@@ -2792,14 +2775,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
             for (const row of section.rows || []) {
                 const categoryName = String(row.type || '').trim()
                 const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
-                if (!categoryName || qty <= 0) {
+                if (!row.includeOnFloorplan || !categoryName) {
                     continue
                 }
 
                 const categoryKey = `category-${this.normalizeTakeoffColumnKey(categoryName)}`
                 const partNumber = String(row.partNbr || '').trim()
                 const deviceName = String(row.description || row.partNbr || categoryName).trim()
-                const id = `${categoryKey}::${this.normalizeTakeoffColumnKey(partNumber || deviceName)}`
+                const id = this.getFloorplanSymbolIdForBomRow(row)
                 const existing = bySymbol.get(id)
                 if (existing) {
                     existing.totalQty += qty
@@ -2849,13 +2832,34 @@ export class ProjectPage implements OnChanges, OnDestroy {
             const symbol = inventory.get(symbolId)
             if (!symbol) {
                 errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
-                continue
-            }
-            if (placedQty > symbol.totalQty) {
-                errors.push(`${symbol.label} (${symbol.partNumber || symbol.categoryName}) has ${placedQty} symbols placed across floorplans, but the BOM quantity is ${symbol.totalQty}. Remove ${placedQty - symbol.totalQty} placement${placedQty - symbol.totalQty === 1 ? '' : 's'} or increase the BOM quantity.`)
             }
         }
         return errors
+    }
+
+    private syncFloorplanQuantitiesToBom(): void {
+        const placedCounts = this.getFloorplanSymbolPlacementCounts()
+        const synchronized = new Set<string>()
+        for (const section of this.bomSections) {
+            for (const row of section.rows || []) {
+                if (!row.includeOnFloorplan || !String(row.type || '').trim()) {
+                    continue
+                }
+                const symbolId = this.getFloorplanSymbolIdForBomRow(row)
+                row.qty = synchronized.has(symbolId) ? 0 : (placedCounts.get(symbolId) || 0)
+                synchronized.add(symbolId)
+            }
+        }
+        this.bomSections = [...this.bomSections]
+        this.refreshTakeoffColumnDefinitions()
+    }
+
+    private getFloorplanSymbolIdForBomRow(row: ProjectBomRow): string {
+        const categoryName = String(row.type || '').trim()
+        const categoryKey = `category-${this.normalizeTakeoffColumnKey(categoryName)}`
+        const partNumber = String(row.partNbr || '').trim()
+        const deviceName = String(row.description || row.partNbr || categoryName).trim()
+        return `${categoryKey}::${this.normalizeTakeoffColumnKey(partNumber || deviceName)}`
     }
 
     private showFloorplanSymbolBalanceErrors(errors: string[]): void {
@@ -2947,6 +2951,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         if (!this.projectId || !this.firewireProject || !this.canSaveProjectDetails()) {
             return
         }
+        this.syncFloorplanQuantitiesToBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
@@ -2965,6 +2970,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         const previousStatus = this.firewireForm.projectStatus
         this.firewireForm.projectStatus = 'Proposal'
         this.firewireSaveMessage = 'Generating proposal...'
+        this.syncFloorplanQuantitiesToBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.firewireForm.projectStatus = previousStatus
@@ -3498,13 +3504,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             qty: 0,
             cost: 0,
             labor: 0,
+            includeOnFloorplan: false,
             type: ''
         }
-    }
-
-    private getBomCategoryByName(categoryName: string): Category | undefined {
-        const normalized = String(categoryName || '').trim().toLowerCase()
-        return this.categories.find((category) => String(category.name || '').trim().toLowerCase() === normalized)
     }
 
     private normalizeBomSections(input: any): ProjectBomSection[] {
@@ -3523,8 +3525,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                     lookupQuery: String(row?.partNbr || '').trim(),
                     description: String(row?.description || '').trim(),
                     qty: Number(row?.qty || 0),
-                    cost: Number(row?.cost || 0),
-                    labor: Number(row?.labor || 0),
+                    cost: this.roundBomMoney(row?.cost),
+                    labor: this.roundBomMoney(row?.labor),
+                    includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
                     type: String(row?.type || '').trim()
                 }))
                 : [this.createEmptyBomRow()]
@@ -3541,11 +3544,24 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 partNbr: String(row.partNbr || '').trim(),
                 description: String(row.description || '').trim(),
                 qty: Number(row.qty || 0),
-                cost: Number(row.cost || 0),
-                labor: Number(row.labor || 0),
+                cost: this.roundBomMoney(row.cost),
+                labor: this.roundBomMoney(row.labor),
+                includeOnFloorplan: !!row.includeOnFloorplan,
                 type: String(row.type || '').trim()
             }))
         }))
+    }
+
+    private normalizeBomRowFloorplanFlag(row: any): boolean {
+        if (typeof row?.includeOnFloorplan === 'boolean') {
+            return row.includeOnFloorplan
+        }
+        return false
+    }
+
+    private roundBomMoney(value: unknown): number {
+        const numeric = Number(value || 0)
+        return Number.isFinite(numeric) && numeric > 0 ? Math.ceil(numeric) : 0
     }
 
     private async ensureBomLookupDataLoaded(): Promise<void> {
@@ -3557,7 +3573,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         if (!this.vendorPartLookupLoaded) {
             this.vendorPartLookupWorking = true
-            requests.push(firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist'))
+            requests.push(firstValueFrom(this.http.get<{ rows?: VwPart[] }>('/api/firewire/parts'))
                 .then((response) => {
                     this.vendorPartRows = Array.isArray(response?.rows) ? response.rows : []
                     this.vendorPartLookupLoaded = true
@@ -3572,13 +3588,6 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 .then((response) => {
                     this.deviceRows = Array.isArray(response?.rows) ? response.rows : []
                     this.deviceLookupLoaded = true
-                }))
-        }
-
-        if (this.categories.length <= 0) {
-            requests.push(firstValueFrom(this.http.get<{ rows?: Category[] }>('/api/firewire/categories'))
-                .then((response) => {
-                    this.categories = Array.isArray(response?.rows) ? response.rows : []
                 }))
         }
 
@@ -4885,7 +4894,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.wireSelections = this.cloneJson(worksheet.wireSelections || this.worksheetDefaults.wireSelections)
         this.wireRunNodes = this.cloneJson(worksheet.wireRunNodes || this.worksheetDefaults.wireRunNodes)
         this.firetrolProvideRows = this.cloneJson(worksheet.firetrolProvideRows || this.worksheetDefaults.firetrolProvideRows)
-        this.bomSections = this.normalizeBomSections(worksheet.bomSections || this.worksheetDefaults.bomSections)
+        this.bomSections = this.normalizeBomSections(Array.isArray(worksheet.bomSections) ? worksheet.bomSections : [])
         this.defaultBaseManHourEstimateFromBom()
         this.refreshTakeoffColumnDefinitions()
         this.expenseSections = this.normalizeExpenseSections(this.cloneJson(worksheet.expenseSections || this.worksheetDefaults.expenseSections))
@@ -5007,8 +5016,10 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         file.floorplanDesign = result.design
         file.updatedAt = new Date().toISOString()
+        this.syncFloorplanQuantitiesToBom()
         this.refreshTakeoffColumnDefinitions()
         await this.persistDocLibraryWorkspace()
+        await firstValueFrom(this.saveFirewireProjectRequest({ silent: true }))
         this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
     }
 

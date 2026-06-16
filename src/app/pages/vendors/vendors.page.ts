@@ -445,7 +445,7 @@ export class VendorImportConfigDialog {
 
     partsVendorKey = this.data.config?.partsVendorKey || ''
     sourceLabel = this.data.config?.sourceLabel || ''
-    targetTable = this.data.config?.targetTable || 'EddyPricelist'
+    targetTable = this.data.config?.targetTable || 'parts'
     filePattern = this.data.config?.filePattern || '*.csv'
     expectedHeadersText = (this.data.config?.expectedHeaders || []).join('\n')
     headerMapText = JSON.stringify(this.data.config?.headerMap || {}, null, 2)

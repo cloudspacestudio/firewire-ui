@@ -5,17 +5,29 @@ import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
 
 import { MatButtonModule } from "@angular/material/button"
-import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from "@angular/material/dialog"
+import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
 import { MatPaginator, MatPaginatorModule, PageEvent } from "@angular/material/paginator"
+import { MatSelectModule } from "@angular/material/select"
 import { MatSort, MatSortModule, Sort, SortDirection } from "@angular/material/sort"
 import { MatTableDataSource, MatTableModule } from "@angular/material/table"
 
 import { NavToolbar } from "../../common/components/nav-toolbar"
 import { PageToolbar } from "../../common/components/page-toolbar"
+import { ViewPreferencesService } from "../../common/services/view-preferences.service"
 import { DeviceSetSummary } from "../../schemas/device-set.schema"
+
+interface DeviceSetVisibilityOption {
+    value: string
+    label: string
+}
+
+interface DeviceSetFilterCriteria {
+    text: string
+    visibility: string[]
+}
 
 @Component({
     standalone: true,
@@ -28,8 +40,10 @@ import { DeviceSetSummary } from "../../schemas/device-set.schema"
         MatIconModule,
         MatInputModule,
         MatPaginatorModule,
+        MatSelectModule,
         MatSortModule,
         MatTableModule,
+        FormsModule,
         PageToolbar,
         NavToolbar
     ],
@@ -38,7 +52,14 @@ import { DeviceSetSummary } from "../../schemas/device-set.schema"
     styleUrls: ['./device-sets.page.scss']
 })
 export class DeviceSetsPage implements OnInit, AfterViewInit {
-    displayedColumns: string[] = ['name', 'vendors', 'deviceCount', 'updateat', 'actions']
+    displayedColumns: string[] = ['name', 'visibility', 'vendors', 'deviceCount', 'updateat', 'actions']
+    readonly visibilityOptions: DeviceSetVisibilityOption[] = [
+        { value: 'all-users', label: 'All Users' },
+        { value: 'current-user', label: 'Just Me' },
+        { value: 'fire-alarm', label: 'Fire Alarm' },
+        { value: 'sprinkler', label: 'Sprinkler' },
+        { value: 'security', label: 'Security' }
+    ]
 
     @ViewChild(MatPaginator) paginator?: MatPaginator
     @ViewChild(MatSort) sort?: MatSort
@@ -47,6 +68,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
     errText?: string
     statusText = ''
     textFilter = ''
+    selectedVisibilityFilters: string[] = []
     currentSortActive = 'name'
     currentSortDirection: SortDirection = 'asc'
     pageSize = 25
@@ -54,14 +76,27 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
     datasource = new MatTableDataSource<DeviceSetSummary>(this.deviceSets)
     navItems = NavToolbar.DeviceNavItems
 
-    constructor(private http: HttpClient, private dialog: MatDialog, private router: Router) {}
+    private readonly preferenceKeys = {
+        textFilter: 'firewire.device-sets.filter',
+        visibility: 'firewire.device-sets.visibility',
+        sort: 'firewire.device-sets.sort',
+        pageSize: 'firewire.device-sets.pageSize'
+    }
+
+    constructor(
+        private http: HttpClient,
+        private dialog: MatDialog,
+        private router: Router,
+        private viewPreferences: ViewPreferencesService
+    ) {}
 
     ngOnInit(): void {
-        this.textFilter = this.readStoredFilter()
-        const storedSort = this.readStoredSort()
+        this.textFilter = this.viewPreferences.readText(this.preferenceKeys.textFilter)
+        this.selectedVisibilityFilters = this.readStoredVisibilityFilters()
+        const storedSort = this.viewPreferences.readSort(this.preferenceKeys.sort, { active: 'name', direction: 'asc' })
         this.currentSortActive = storedSort.active
-        this.currentSortDirection = storedSort.direction
-        this.pageSize = this.readStoredPageSize()
+        this.currentSortDirection = storedSort.direction || 'asc'
+        this.pageSize = this.viewPreferences.readNumber(this.preferenceKeys.pageSize, 25, [5, 10, 25, 100])
         this.loadDeviceSets()
     }
 
@@ -82,11 +117,17 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
                 this.datasource.paginator = this.paginator || null
                 this.datasource.sort = this.sort || null
                 this.datasource.filterPredicate = (row, filter) => {
+                    const criteria = this.parseFilterCriteria(filter)
                     const haystack = [
                         row.name,
+                        this.getVisibilitySummary(row),
                         ...(Array.isArray(row.vendors) ? row.vendors : [])
                     ].join(' ').toLowerCase()
-                    return haystack.includes(filter)
+                    const matchesText = !criteria.text || haystack.includes(criteria.text)
+                    const rowVisibility = this.getEffectiveVisibility(row)
+                    const matchesVisibility = criteria.visibility.length <= 0
+                        || criteria.visibility.some((value) => rowVisibility.includes(value))
+                    return matchesText && matchesVisibility
                 }
                 this.applyStoredSortState()
                 this.applyStoredPageSizeState()
@@ -102,28 +143,38 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
 
     applyFilter(event: Event) {
         this.textFilter = (event.target as HTMLInputElement).value || ''
-        this.datasource.filter = this.textFilter.trim().toLowerCase()
-        this.storeFilter()
-        if (this.datasource.paginator) {
-            this.datasource.paginator.firstPage()
-        }
+        this.viewPreferences.writeText(this.preferenceKeys.textFilter, this.textFilter)
+        this.applyStoredFilterState(true)
+    }
+
+    onVisibilityFilterChange() {
+        this.selectedVisibilityFilters = this.normalizeVisibility(this.selectedVisibilityFilters)
+        this.viewPreferences.writeJson(this.preferenceKeys.visibility, this.selectedVisibilityFilters)
+        this.applyStoredFilterState(true)
     }
 
     onSortChange(sort: Sort) {
         this.currentSortActive = sort.active || 'name'
         this.currentSortDirection = sort.direction || 'asc'
-        this.storeSort()
+        this.viewPreferences.writeSort(this.preferenceKeys.sort, {
+            active: this.currentSortActive,
+            direction: this.currentSortDirection
+        })
     }
 
     onPageChange(event: PageEvent) {
         this.pageSize = Number(event.pageSize || 25)
-        this.storePageSize()
+        this.viewPreferences.writeNumber(this.preferenceKeys.pageSize, this.pageSize)
     }
 
     async createDeviceSet() {
+        this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(CreateDeviceSetDialog, {
-            width: '420px',
-            maxWidth: '94vw'
+            maxWidth: '94vw',
+            panelClass: 'fw-fit-content-dialog-pane',
+            data: {
+                visibilityOptions: this.visibilityOptions
+            }
         })
         const result = await dialogRef.afterClosed().toPromise()
         const name = String(result?.name || '').trim()
@@ -133,7 +184,7 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         this.statusText = 'Creating device set...'
         this.http.post<{ data?: DeviceSetSummary }>(
             '/api/firewire/device-sets',
-            { name }
+            { name, visibility: this.normalizeVisibility(result?.visibility) }
         ).subscribe({
             next: (response) => {
                 const deviceSetId = String((response as any)?.data?.deviceSetId || '').trim()
@@ -151,9 +202,10 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
     }
 
     async deleteDeviceSet(row: DeviceSetSummary) {
+        this.releaseFocusedElementBeforeDialog()
         const dialogRef = this.dialog.open(ConfirmDeviceSetDeleteDialog, {
-            width: '380px',
             maxWidth: '92vw',
+            panelClass: 'fw-confirmation-dialog-pane',
             data: row
         })
         const confirmed = await dialogRef.afterClosed().toPromise()
@@ -171,6 +223,12 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
                 this.statusText = err?.error?.message || err?.message || `Unable to delete ${row.name}.`
             }
         })
+    }
+
+    getVisibilitySummary(row: DeviceSetSummary): string {
+        return this.getEffectiveVisibility(row)
+            .map((value) => this.visibilityOptions.find((option) => option.value === value)?.label || value)
+            .join(', ')
     }
 
     getVendorSummary(row: DeviceSetSummary): string {
@@ -193,9 +251,12 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         return `No device sets matching the filter "${filterValue}"`
     }
 
-    private applyStoredFilterState() {
-        this.datasource.filter = this.textFilter.trim().toLowerCase()
-        if (this.datasource.paginator && this.datasource.filter) {
+    private applyStoredFilterState(resetPage = false) {
+        this.datasource.filter = JSON.stringify({
+            text: this.textFilter.trim().toLowerCase(),
+            visibility: this.selectedVisibilityFilters
+        } satisfies DeviceSetFilterCriteria)
+        if (this.datasource.paginator && (resetPage || this.datasource.filter)) {
             this.datasource.paginator.firstPage()
         }
     }
@@ -218,108 +279,136 @@ export class DeviceSetsPage implements OnInit, AfterViewInit {
         }
     }
 
-    private storeFilter() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem('firewire.device-sets.filter', this.textFilter)
-        } catch {}
+    private getEffectiveVisibility(row: DeviceSetSummary): string[] {
+        return this.normalizeVisibility(row.visibility)
     }
 
-    private readStoredFilter(): string {
-        if (typeof localStorage === 'undefined') {
-            return ''
-        }
+    private normalizeVisibility(value: unknown): string[] {
+        const allowed = new Set(this.visibilityOptions.map((option) => option.value))
+        const source = Array.isArray(value) ? value : []
+        const normalized = Array.from(new Set(source
+            .map((item) => String(item || '').trim().toLowerCase())
+            .filter((item) => allowed.has(item))))
+        return normalized.length > 0 ? normalized : ['all-users']
+    }
+
+    private readStoredVisibilityFilters(): string[] {
+        return this.viewPreferences.readJson<string[]>(this.preferenceKeys.visibility, [], (value) => {
+            if (!Array.isArray(value)) {
+                return []
+            }
+            const allowed = new Set(this.visibilityOptions.map((option) => option.value))
+            return Array.from(new Set(value
+                .map((item) => String(item || '').trim().toLowerCase())
+                .filter((item) => allowed.has(item))))
+        })
+    }
+
+    private parseFilterCriteria(filter: string): DeviceSetFilterCriteria {
         try {
-            return localStorage.getItem('firewire.device-sets.filter') || ''
+            const parsed = JSON.parse(filter || '{}') as Partial<DeviceSetFilterCriteria>
+            return {
+                text: String(parsed.text || '').trim().toLowerCase(),
+                visibility: this.normalizeVisibilityForFilter(parsed.visibility)
+            }
         } catch {
-            return ''
+            return {
+                text: String(filter || '').trim().toLowerCase(),
+                visibility: []
+            }
         }
     }
 
-    private storeSort() {
-        if (typeof localStorage === 'undefined') {
-            return
+    private normalizeVisibilityForFilter(value: unknown): string[] {
+        if (!Array.isArray(value)) {
+            return []
         }
-        try {
-            localStorage.setItem('firewire.device-sets.sort', JSON.stringify({
-                active: this.currentSortActive,
-                direction: this.currentSortDirection
-            }))
-        } catch {}
+        const allowed = new Set(this.visibilityOptions.map((option) => option.value))
+        return Array.from(new Set(value
+            .map((item) => String(item || '').trim().toLowerCase())
+            .filter((item) => allowed.has(item))))
     }
 
-    private readStoredSort(): { active: string, direction: SortDirection } {
-        if (typeof localStorage === 'undefined') {
-            return { active: 'name', direction: 'asc' }
-        }
-        try {
-            const parsed = JSON.parse(localStorage.getItem('firewire.device-sets.sort') || '{}') as { active?: unknown, direction?: unknown }
-            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active.trim() : 'name'
-            const direction = parsed.direction === 'asc' || parsed.direction === 'desc' ? parsed.direction : 'asc'
-            return { active, direction }
-        } catch {
-            return { active: 'name', direction: 'asc' }
+    private releaseFocusedElementBeforeDialog(): void {
+        const active = document.activeElement
+        if (active instanceof HTMLElement) {
+            active.blur()
         }
     }
+}
 
-    private storePageSize() {
-        if (typeof localStorage === 'undefined') {
-            return
-        }
-        try {
-            localStorage.setItem('firewire.device-sets.pageSize', String(this.pageSize))
-        } catch {}
-    }
-
-    private readStoredPageSize(): number {
-        if (typeof localStorage === 'undefined') {
-            return 25
-        }
-        try {
-            const raw = Number(localStorage.getItem('firewire.device-sets.pageSize') || '25')
-            return [5, 10, 25, 100].includes(raw) ? raw : 25
-        } catch {
-            return 25
-        }
-    }
+interface CreateDeviceSetDialogData {
+    visibilityOptions: DeviceSetVisibilityOption[]
 }
 
 @Component({
     standalone: true,
     selector: 'create-device-set-dialog',
-    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
     template: `
-        <h2 mat-dialog-title>New Device Set</h2>
-        <mat-dialog-content>
-            <mat-form-field appearance="outline" style="width: 100%;">
+        <div class="fw-dialog-titlebar" mat-dialog-title>
+            <div class="fw-dialog-titlebar__text">New Device Set</div>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel new device set" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content class="create-device-set-dialog">
+            <mat-form-field appearance="outline" class="create-device-set-dialog__field">
                 <mat-label>Set Name</mat-label>
                 <input matInput maxlength="120" [(ngModel)]="name" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="create-device-set-dialog__field">
+                <mat-label>Visibility</mat-label>
+                <mat-select multiple [(ngModel)]="visibility">
+                    <mat-option *ngFor="let option of data.visibilityOptions" [value]="option.value">{{option.label}}</mat-option>
+                </mat-select>
             </mat-form-field>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
             <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button [mat-dialog-close]="{ name: name }" [disabled]="!name.trim()" type="button">Create</button>
+            <button mat-flat-button [mat-dialog-close]="{ name: name, visibility: visibility }" [disabled]="!name.trim()" type="button">Create</button>
         </mat-dialog-actions>
-    `
+    `,
+    styles: [`
+        .create-device-set-dialog {
+            width: min(520px, 88vw);
+            padding-top: 12px;
+        }
+
+        .create-device-set-dialog__field {
+            display: block;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+    `]
 })
 class CreateDeviceSetDialog {
     name = ''
+    visibility = ['all-users']
+
+    constructor(
+        @Inject(MAT_DIALOG_DATA) public data: CreateDeviceSetDialogData,
+        public dialogRef: MatDialogRef<CreateDeviceSetDialog>
+    ) {}
 }
 
 @Component({
     standalone: true,
     selector: 'confirm-device-set-delete-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
-        <h2 mat-dialog-title>Delete Device Set</h2>
-        <mat-dialog-content>
+        <div class="fw-dialog-titlebar" mat-dialog-title>
+            <div class="fw-dialog-titlebar__text">Delete Device Set</div>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel delete device set" mat-dialog-close>
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content class="fw-confirmation-dialog">
             Delete <strong>{{data.name}}</strong>? This only removes the set definition and its membership list.
         </mat-dialog-content>
         <mat-dialog-actions align="end">
             <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button color="warn" [mat-dialog-close]="true" type="button">Delete</button>
+            <button mat-flat-button color="warn" class="fw-danger-button" [mat-dialog-close]="true" type="button">Delete</button>
         </mat-dialog-actions>
     `
 })

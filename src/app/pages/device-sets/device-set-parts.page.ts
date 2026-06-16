@@ -15,7 +15,7 @@ import { PageToolbar } from "../../common/components/page-toolbar"
 import { DevicePartPriceSyncService } from "../../common/services/device-part-price-sync.service"
 import { DeviceSetDetail } from "../../schemas/device-set.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
-import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
+import { VwPart } from "../../schemas/vwpart.schema"
 
 interface DeviceSetLinkedPartRow extends VwDeviceMaterial {
     sourceDeviceName: string
@@ -47,7 +47,7 @@ export class DeviceSetPartsPage implements OnInit {
     deviceSetId = ''
     detail: DeviceSetDetail | null = null
     partRows: DeviceSetLinkedPartRow[] = []
-    vendorPartMap = new Map<string, VwEddyPricelist>()
+    vendorPartMap = new Map<string, VwPart>()
     pageWorking = true
     syncWorking = false
     errText = ''

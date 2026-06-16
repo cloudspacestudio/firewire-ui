@@ -7,7 +7,7 @@ import { MaterialAttribute } from "../../schemas/materialattribute.schema"
 import { MaterialSubTask } from "../../schemas/materialsubtask.schema"
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
-import { VwEddyPricelist } from "../../schemas/vwEddyPricelist"
+import { VwPart } from "../../schemas/vwpart.schema"
 
 export interface DevicePartPriceSyncResult {
     deviceId: string
@@ -27,13 +27,13 @@ interface DevicePartPriceSyncEndpointResponse {
     providedIn: 'root'
 })
 export class DevicePartPriceSyncService {
-    private vendorPartRowsPromise?: Promise<VwEddyPricelist[]>
+    private vendorPartRowsPromise?: Promise<VwPart[]>
 
     constructor(private http: HttpClient) {}
 
-    async getVendorPartRows(): Promise<VwEddyPricelist[]> {
+    async getVendorPartRows(): Promise<VwPart[]> {
         if (!this.vendorPartRowsPromise) {
-            this.vendorPartRowsPromise = firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist'))
+            this.vendorPartRowsPromise = firstValueFrom(this.http.get<{ rows?: VwPart[] }>('/api/firewire/parts'))
                 .then((response) => Array.isArray(response?.rows) ? response.rows : [])
                 .catch((err) => {
                     this.vendorPartRowsPromise = undefined
@@ -130,7 +130,7 @@ export class DevicePartPriceSyncService {
 
     calculateCurrentPrice(
         partNumbers: string[],
-        vendorParts: VwEddyPricelist[],
+        vendorParts: VwPart[],
         materialRows: VwDeviceMaterial[] = [],
         fallbackCost = 0
     ): { total: number, missingPartNumbers: string[] } {
@@ -158,11 +158,11 @@ export class DevicePartPriceSyncService {
         return { total, missingPartNumbers }
     }
 
-    getVendorPartPrice(part: VwEddyPricelist): number {
+    getVendorPartPrice(part: VwPart): number {
         return Number(part.SalesPrice || part.MSRPPrice || part.FutureSalesPrice || part.FuturePrice || 0)
     }
 
-    createVendorPartMap(vendorParts: VwEddyPricelist[]): Map<string, VwEddyPricelist> {
+    createVendorPartMap(vendorParts: VwPart[]): Map<string, VwPart> {
         return new Map(vendorParts
             .map((part) => [this.normalizePartNumber(part.PartNumber), part] as const)
             .filter(([partNumber]) => !!partNumber))

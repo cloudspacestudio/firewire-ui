@@ -46,15 +46,28 @@
                 </header>
 
                 <div class="admin-create-panel">
+                    <mat-form-field *ngIf="isDivisionSpecificList(activeList.key)">
+                        <mat-label>Division</mat-label>
+                        <mat-select [(ngModel)]="createModels[activeList.key].division">
+                            <mat-option *ngFor="let division of divisionOptions" [value]="division">{{division}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
                     <mat-form-field>
-                        <mat-label>Label</mat-label>
-                        <input matInput [(ngModel)]="createModels[activeList.key].label" />
+                        <mat-label>{{getItemTextLabel(activeList.key)}}</mat-label>
+                        <textarea
+                            *ngIf="isDivisionSpecificList(activeList.key); else standardLabelInput"
+                            matInput
+                            rows="4"
+                            [(ngModel)]="createModels[activeList.key].label"></textarea>
+                        <ng-template #standardLabelInput>
+                            <input matInput [(ngModel)]="createModels[activeList.key].label" />
+                        </ng-template>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>Sort Order</mat-label>
                         <input matInput type="number" [(ngModel)]="createModels[activeList.key].sortOrder" />
                     </mat-form-field>
-                    <mat-form-field class="span-2">
+                    <mat-form-field *ngIf="!isDivisionSpecificList(activeList.key)" class="span-2">
                         <mat-label>Description</mat-label>
                         <textarea matInput rows="3" [(ngModel)]="createModels[activeList.key].description"></textarea>
                     </mat-form-field>
@@ -69,7 +82,8 @@
                         <table class="admin-table">
                             <thead>
                                 <tr>
-                                    <th>Label</th>
+                                    <th *ngIf="isDivisionSpecificList(activeList.key)">Division</th>
+                                    <th>{{getItemTextLabel(activeList.key)}}</th>
                                     <th>Sort</th>
                                     <th>Active</th>
                                     <th>Actions</th>
@@ -77,8 +91,20 @@
                             </thead>
                             <tbody>
                                 <tr *ngFor="let item of getItems(activeList.key); trackBy: trackByUuid">
+                                    <td *ngIf="isDivisionSpecificList(activeList.key)" class="cell-division">
+                                        <select class="admin-cell-input" [(ngModel)]="item.division">
+                                            <option *ngFor="let division of divisionOptions" [ngValue]="division">{{division}}</option>
+                                        </select>
+                                    </td>
                                     <td class="cell-label">
-                                        <input class="admin-cell-input" [(ngModel)]="item.label" />
+                                        <textarea
+                                            *ngIf="isDivisionSpecificList(activeList.key); else standardItemLabelInput"
+                                            class="admin-cell-input admin-cell-textarea"
+                                            rows="3"
+                                            [(ngModel)]="item.label"></textarea>
+                                        <ng-template #standardItemLabelInput>
+                                            <input class="admin-cell-input" [(ngModel)]="item.label" />
+                                        </ng-template>
                                     </td>
                                     <td class="cell-sort">
                                         <input class="admin-cell-input" type="number" [(ngModel)]="item.sortOrder" />

@@ -12,6 +12,7 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatChipsModule } from "@angular/material/chips"
 import { MatIconModule } from "@angular/material/icon"
 import { PageToolbar } from "../../common/components/page-toolbar"
+import { NavToolbar } from "../../common/components/nav-toolbar"
 import { DeviceDetailComponent } from "../../common/components/devicedetail.component"
 
 import { VwDevice } from "../../schemas/vwdevice.schema"
@@ -23,7 +24,7 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
         MatButtonModule, MatFormFieldModule, 
         MatSelectModule, MatButtonToggleModule,
         MatChipsModule, MatIconModule, 
-        PageToolbar, DeviceDetailComponent],
+        PageToolbar, NavToolbar, DeviceDetailComponent],
     providers: [HttpClient],
     templateUrl: './device.page.html'
 })
@@ -31,6 +32,7 @@ export class DevicePage implements OnChanges {
     @Input() deviceId?: string
     @ViewChild(DeviceDetailComponent) detailComponent?: DeviceDetailComponent
 
+    navItems = NavToolbar.DeviceNavItems
     device?: VwDevice
 
     constructor(private router: Router) {}

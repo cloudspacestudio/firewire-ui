@@ -11,7 +11,7 @@ import { Utils } from "../../common/utils"
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { NavToolbar } from "../../common/components/nav-toolbar"
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
-import { ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema } from "../../schemas/project-list-item.schema"
 import { ProjectSettingsApi } from "./project-settings.api"
 import { AzureMapsService } from "../../common/services/azure-maps.service"
@@ -116,13 +116,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
     navItems = NavToolbar.ProjectNavItems
     errText?: string
     createStatusText = ''
-    projectSettings: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    projectSettings: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
 
     datasource: MatTableDataSource<ProjectListItemSchema> = new MatTableDataSource(this.projects);
     createModel: FirewireProjectUpsert = this.createDefaultProject()

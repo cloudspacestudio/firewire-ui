@@ -1,9 +1,10 @@
-<page-toolbar title="DEVICEDETAIL">
+<page-toolbar>
     <div class="button-bar">
         <button mat-fab class="back" [routerLink]="'/devices'">
             <mat-icon fontIcon="chevron_left"></mat-icon>
         </button>
     </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'devices'"></nav-toolbar>
 </page-toolbar>
 <div class="page-root">
     <div class="page-content">

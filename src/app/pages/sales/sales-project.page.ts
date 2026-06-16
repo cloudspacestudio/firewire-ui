@@ -17,7 +17,7 @@ import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from '../../common/components/firewire-bom-worksheet.component'
 import { FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
 import { FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
-import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectType } from '../../schemas/firewire-project.schema'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
 import {
@@ -30,15 +30,14 @@ import {
 import { PdfThumbnailService } from '../../common/services/pdf-thumbnail.service'
 import { DevicePartPriceSyncService } from '../../common/services/device-part-price-sync.service'
 import { DeviceSetSummary, DeviceSetDetail } from '../../schemas/device-set.schema'
-import { Category } from '../../schemas/category.schema'
 import { VwDeviceMaterial } from '../../schemas/vwdevicematerial.schema'
 import { VwDevice } from '../../schemas/vwdevice.schema'
-import { VwEddyPricelist } from '../../schemas/vwEddyPricelist'
+import { VwPart } from '../../schemas/vwpart.schema'
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from '../design/floorplan-designer.dialog'
 import { FloorplanDesignerSymbolOption } from '../design/floorplan-designer.component'
 
 type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'FLOORPLANS' | 'DOC LIBRARY'
-type SalesBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'type'
+type SalesBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'includeOnFloorplan' | 'type'
 
 interface SalesBomRow {
     partNbr: string
@@ -46,6 +45,7 @@ interface SalesBomRow {
     qty: number
     cost: number
     labor: number
+    includeOnFloorplan: boolean
     type: string
     lookupQuery?: string
 }
@@ -154,24 +154,17 @@ export class SalesProjectPage {
     initialFormSnapshot = ''
     initialCustomerInfoSnapshot = ''
     initialBomSnapshot = '[]'
-    projectSettings: ProjectSettingsCatalogSchema = {
-        jobType: [],
-        scopeType: [],
-        projectScope: [],
-        difficulty: [],
-        projectStatus: []
-    }
+    projectSettings: ProjectSettingsCatalogSchema = createEmptyProjectSettingsCatalog()
     docLibraryFiles: ProjectDocLibraryFileRecord[] = []
     docLibraryDirectories: ProjectDocLibraryDirectoryRecord[] = []
     deviceSets: DeviceSetSummary[] = []
-    categories: Category[] = []
     bomSections: SalesBomSection[] = []
     bomFilter = ''
     bomSortKey: SalesBomSortKey = 'partNbr'
     bomSortDirection: 'asc' | 'desc' = 'asc'
     deviceRows: VwDevice[] = []
     deviceLookupLoaded = false
-    vendorPartRows: VwEddyPricelist[] = []
+    vendorPartRows: VwPart[] = []
     vendorPartLookupLoaded = false
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
@@ -205,14 +198,12 @@ export class SalesProjectPage {
 
         Promise.all([
             this.http.get<{ data?: FirewireProjectSchema }>(`/api/firewire/projects/firewire/${this.projectId}`).toPromise(),
-            this.http.get<{ rows?: DeviceSetSummary[] }>('/api/firewire/device-sets').toPromise(),
-            this.http.get<{ rows?: Category[] }>('/api/firewire/categories').toPromise()
-        ]).then(async([projectResponse, deviceSetsResponse, categoriesResponse]) => {
+            this.http.get<{ rows?: DeviceSetSummary[] }>('/api/firewire/device-sets').toPromise()
+        ]).then(async([projectResponse, deviceSetsResponse]) => {
             this.project = projectResponse?.data ? { ...projectResponse.data } : undefined
             this.deviceSets = Array.isArray(deviceSetsResponse?.rows)
                 ? [...deviceSetsResponse.rows].sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
                 : []
-            this.categories = Array.isArray(categoriesResponse?.rows) ? categoriesResponse.rows : []
             if (this.project) {
                 this.projectForm = this.buildForm(this.project)
                 this.customerInfo = this.buildCustomerInfo(this.project)
@@ -263,6 +254,7 @@ export class SalesProjectPage {
         if (!this.projectId || !this.project) {
             return
         }
+        this.syncFloorplanQuantitiesToBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
@@ -306,6 +298,7 @@ export class SalesProjectPage {
         if (!this.projectId || !this.project) {
             return
         }
+        this.syncFloorplanQuantitiesToBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
@@ -439,14 +432,14 @@ export class SalesProjectPage {
             for (const row of section.rows || []) {
                 const categoryName = String(row.type || '').trim()
                 const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
-                if (!categoryName || qty <= 0) {
+                if (!row.includeOnFloorplan || !categoryName) {
                     continue
                 }
 
                 const categoryKey = `category-${this.normalizeFloorplanSymbolKey(categoryName)}`
                 const partNumber = String(row.partNbr || '').trim()
                 const deviceName = String(row.description || row.partNbr || categoryName).trim()
-                const id = `${categoryKey}::${this.normalizeFloorplanSymbolKey(partNumber || deviceName)}`
+                const id = this.getFloorplanSymbolIdForBomRow(row)
                 const existing = bySymbol.get(id)
                 if (existing) {
                     existing.totalQty += qty
@@ -496,13 +489,33 @@ export class SalesProjectPage {
             const symbol = inventory.get(symbolId)
             if (!symbol) {
                 errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
-                continue
-            }
-            if (placedQty > symbol.totalQty) {
-                errors.push(`${symbol.label} (${symbol.partNumber || symbol.categoryName}) has ${placedQty} symbols placed across floorplans, but the BOM quantity is ${symbol.totalQty}. Remove ${placedQty - symbol.totalQty} placement${placedQty - symbol.totalQty === 1 ? '' : 's'} or increase the BOM quantity.`)
             }
         }
         return errors
+    }
+
+    private syncFloorplanQuantitiesToBom(): void {
+        const placedCounts = this.getFloorplanSymbolPlacementCounts()
+        const synchronized = new Set<string>()
+        for (const section of this.bomSections) {
+            for (const row of section.rows || []) {
+                if (!row.includeOnFloorplan || !String(row.type || '').trim()) {
+                    continue
+                }
+                const symbolId = this.getFloorplanSymbolIdForBomRow(row)
+                row.qty = synchronized.has(symbolId) ? 0 : (placedCounts.get(symbolId) || 0)
+                synchronized.add(symbolId)
+            }
+        }
+        this.bomSections = [...this.bomSections]
+    }
+
+    private getFloorplanSymbolIdForBomRow(row: SalesBomRow): string {
+        const categoryName = String(row.type || '').trim()
+        const categoryKey = `category-${this.normalizeFloorplanSymbolKey(categoryName)}`
+        const partNumber = String(row.partNbr || '').trim()
+        const deviceName = String(row.description || row.partNbr || categoryName).trim()
+        return `${categoryKey}::${this.normalizeFloorplanSymbolKey(partNumber || deviceName)}`
     }
 
     private showFloorplanSymbolBalanceErrors(errors: string[]): void {
@@ -616,11 +629,11 @@ export class SalesProjectPage {
     }
 
     getBomRowExtCost(row: SalesBomRow): number {
-        return Number(row.qty || 0) * Number(row.cost || 0)
+        return Number(row.qty || 0) * this.roundBomMoney(row.cost)
     }
 
     getBomRowExtLabor(row: SalesBomRow): number {
-        return Number(row.qty || 0) * Number(row.labor || 0)
+        return Number(row.qty || 0) * this.roundBomMoney(row.labor)
     }
 
     getBomSectionGrandTotal(section: SalesBomSection): number {
@@ -629,6 +642,10 @@ export class SalesProjectPage {
 
     getBomGrandTotal(): number {
         return this.bomSections.reduce((sum, section) => sum + this.getBomSectionGrandTotal(section), 0)
+    }
+
+    normalizeBomMoneyField(row: SalesBomRow, field: 'cost' | 'labor'): void {
+        row[field] = this.roundBomMoney(row[field])
     }
 
     getFilteredBomRows(section: SalesBomSection): SalesBomRow[] {
@@ -643,7 +660,8 @@ export class SalesProjectPage {
                     `${row.cost}`,
                     `${this.getBomRowExtCost(row)}`,
                     `${row.labor}`,
-                    `${this.getBomRowExtLabor(row)}`
+                    `${this.getBomRowExtLabor(row)}`,
+                    row.includeOnFloorplan ? 'floorplan fp yes' : 'no floorplan fp no'
                 ].join(' ').toLowerCase()
                 return haystack.includes(filterValue)
             })
@@ -666,6 +684,8 @@ export class SalesProjectPage {
                     return (left.labor - right.labor) * direction
                 case 'extLabor':
                     return (this.getBomRowExtLabor(left) - this.getBomRowExtLabor(right)) * direction
+                case 'includeOnFloorplan':
+                    return (Number(!!left.includeOnFloorplan) - Number(!!right.includeOnFloorplan)) * direction
                 case 'type':
                     return left.type.localeCompare(right.type) * direction
                 default:
@@ -738,7 +758,9 @@ export class SalesProjectPage {
     }
 
     onBomPartLookupBlur(section: SalesBomSection, row: SalesBomRow): void {
-        row.lookupQuery = String(row.lookupQuery || row.partNbr || '').trim()
+        const value = String(row.lookupQuery || row.partNbr || '').trim()
+        row.lookupQuery = value
+        row.partNbr = value
         globalThis.setTimeout(() => {
             if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row) {
                 this.closeBomPartLookup()
@@ -748,6 +770,7 @@ export class SalesProjectPage {
 
     onBomPartLookupChanged(section: SalesBomSection, row: SalesBomRow, value: string): void {
         row.lookupQuery = value
+        row.partNbr = value
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
         this.positionBomPartLookup()
@@ -757,7 +780,7 @@ export class SalesProjectPage {
         return this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow === row
     }
 
-    getBomPartLookupResults(section: SalesBomSection, row: SalesBomRow): VwEddyPricelist[] {
+    getBomPartLookupResults(section: SalesBomSection, row: SalesBomRow): VwPart[] {
         const activeSectionKey = String(section.sectionKey || '')
         const query = String(row.lookupQuery || '').trim().toLowerCase()
         if (this.activeBomLookupSectionKey !== activeSectionKey || query.length < 2) {
@@ -824,29 +847,28 @@ export class SalesProjectPage {
         return this.getBomDeviceLookupResults(section, row).length > 0 || this.getBomPartLookupResults(section, row).length > 0
     }
 
-    selectBomPart(section: SalesBomSection, row: SalesBomRow, part: VwEddyPricelist): void {
-        const category = this.getCategoryByName(String(part.Category || '').trim())
+    selectBomPart(section: SalesBomSection, row: SalesBomRow, part: VwPart): void {
+        const categoryName = String(part.Category || '').trim()
         row.partNbr = String(part.PartNumber || '').trim()
         row.lookupQuery = row.partNbr
         row.description = String(part.LongDescription || '').trim()
-        row.cost = Number(part.SalesPrice || part.MSRPPrice || 0)
-        row.type = category?.includeOnFloorplan ? String(category.name || part.Category || '').trim() : ''
-        row.labor = this.getDefaultLaborCost(category?.defaultLabor)
+        row.cost = this.roundBomMoney(part.SalesPrice || part.MSRPPrice || 0)
+        row.type = categoryName
+        row.includeOnFloorplan = false
+        row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
         this.closeBomPartLookup()
-        this.saveMessage = category
-            ? `Loaded ${row.partNbr} from vendor parts.`
-            : `Loaded ${row.partNbr}. Category ${String(part.Category || '').trim() || 'Unknown'} is not configured yet.`
+        this.saveMessage = `Loaded ${row.partNbr} from vendor parts.`
     }
 
     selectBomDevice(section: SalesBomSection, row: SalesBomRow, device: VwDevice): void {
-        const includeOnFloorplan = this.getCategoryIncludeOnFloorplan(device.categoryId, device.categoryName)
         const partNumber = String(device.partNumber || '').trim()
         row.partNbr = partNumber
         row.lookupQuery = partNumber
         row.description = String(device.name || device.shortName || '').trim()
-        row.cost = Number(device.cost || 0)
-        row.type = includeOnFloorplan ? String(device.categoryName || '').trim() : ''
-        row.labor = this.getDefaultLaborCost(device.defaultLabor)
+        row.cost = this.roundBomMoney(device.cost || 0)
+        row.type = String(device.categoryName || '').trim()
+        row.includeOnFloorplan = !!device.includeOnFloorplan
+        row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
     }
@@ -910,7 +932,7 @@ export class SalesProjectPage {
     }
 
     exportBomCsv(): void {
-        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'TYPE']
+        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'FP', 'TYPE']
         const csvLines = this.bomSections.flatMap((section) => {
             const rows = this.getFilteredBomRows(section)
             return [
@@ -921,10 +943,11 @@ export class SalesProjectPage {
                         this.toCsvCell(row.partNbr),
                         this.toCsvCell(row.description),
                         this.toCsvCell(`${row.qty}`),
-                        this.toCsvCell(Number(row.cost || 0).toFixed(2)),
-                        this.toCsvCell(this.getBomRowExtCost(row).toFixed(2)),
-                        this.toCsvCell(Number(row.labor || 0).toFixed(2)),
-                        this.toCsvCell(this.getBomRowExtLabor(row).toFixed(2)),
+                        this.toCsvCell(`${this.roundBomMoney(row.cost)}`),
+                        this.toCsvCell(`${this.getBomRowExtCost(row)}`),
+                        this.toCsvCell(`${this.roundBomMoney(row.labor)}`),
+                        this.toCsvCell(`${this.getBomRowExtLabor(row)}`),
+                        this.toCsvCell(row.includeOnFloorplan ? 'Yes' : 'No'),
                         this.toCsvCell(row.type)
                     ].join(',')
                 }),
@@ -1235,7 +1258,33 @@ export class SalesProjectPage {
         file.floorplanDesign = result.design
         file.updatedAt = new Date().toISOString()
         await this.persistDocLibraryWorkspace()
+        this.syncFloorplanQuantitiesToBom()
+        await this.persistBomAfterFloorplanSync()
         this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+    }
+
+    private async persistBomAfterFloorplanSync(): Promise<void> {
+        if (!this.projectId || !this.project) {
+            return
+        }
+        const worksheetData = {
+            ...(this.project.worksheetData || {}),
+            customerInfo: this.customerInfo,
+            bomSections: this.buildWorksheetBomSections()
+        }
+        const response: any = await firstValueFrom(this.http.patch(`/api/firewire/projects/firewire/${this.projectId}`, {
+            ...this.projectForm,
+            worksheetData
+        }))
+        if (response?.data) {
+            this.project = { ...response.data }
+            this.projectForm = this.buildForm(response.data)
+            this.customerInfo = this.buildCustomerInfo(response.data)
+            this.bomSections = this.cloneBomSections((response.data.worksheetData || worksheetData).bomSections)
+            this.captureInitialFormState()
+            this.captureInitialCustomerInfoState()
+            this.captureInitialBomState()
+        }
     }
 
     private async loadProjectSettings(): Promise<void> {
@@ -1274,9 +1323,9 @@ export class SalesProjectPage {
         return String(this.projectId || this.project?.uuid || '').trim()
     }
 
-    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwEddyPricelist>): SalesBomRow[] {
-        const includeOnFloorplan = this.getCategoryIncludeOnFloorplan(device.categoryId, device.categoryName)
-        const typeValue = includeOnFloorplan ? String(device.categoryName || '').trim() : ''
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): SalesBomRow[] {
+        const typeValue = String(device?.categoryName || '').trim()
+        const includeOnFloorplan = !!device?.includeOnFloorplan
 
         if (!materials.length) {
             const partNumber = String(device.partNumber || '').trim()
@@ -1285,8 +1334,9 @@ export class SalesProjectPage {
                 lookupQuery: partNumber,
                 description: String(device.name || '').trim(),
                 qty: 0,
-                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0)),
-                labor: this.getDefaultLaborCost(device.defaultLabor),
+                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0))),
+                labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
+                includeOnFloorplan,
                 type: typeValue
             }]
         }
@@ -1298,8 +1348,9 @@ export class SalesProjectPage {
                 lookupQuery: partNumber,
                 description: String(material.materialName || material.deviceName || device.name || '').trim(),
                 qty: 0,
-                cost: this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0)),
-                labor: index === 0 ? this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor) : 0,
+                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0))),
+                labor: index === 0 ? this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor)) : 0,
+                includeOnFloorplan,
                 type: typeValue
             }
         })
@@ -1321,13 +1372,9 @@ export class SalesProjectPage {
         return Number(installationRate?.effectiveRate || installationRate?.payRate || this.defaultLaborHourlyRate)
     }
 
-    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwEddyPricelist> | undefined, fallbackCost: number): number {
+    private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwPart> | undefined, fallbackCost: number): number {
         const vendorPart = vendorPartMap?.get(this.devicePartPriceSync.normalizePartNumber(partNumber))
         return vendorPart ? this.devicePartPriceSync.getVendorPartPrice(vendorPart) : Number(fallbackCost || 0)
-    }
-
-    private getCategoryIncludeOnFloorplan(categoryId: string | null | undefined, categoryName: string | null | undefined): boolean {
-        return Boolean(this.getCategoryMatch(categoryId, categoryName)?.includeOnFloorplan)
     }
 
     private createUniqueBomSectionTitle(baseTitle: string): string {
@@ -1551,8 +1598,9 @@ export class SalesProjectPage {
                     lookupQuery: String(row?.partNbr || '').trim(),
                     description: String(row?.description || '').trim(),
                     qty: Number(row?.qty || 0),
-                    cost: Number(row?.cost || 0),
-                    labor: Number(row?.labor || 0),
+                    cost: this.roundBomMoney(row?.cost),
+                    labor: this.roundBomMoney(row?.labor),
+                    includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
                     type: String(row?.type || '').trim()
                 }))
                 : [this.createEmptyBomRow()]
@@ -1567,6 +1615,7 @@ export class SalesProjectPage {
             qty: 0,
             cost: 0,
             labor: 0,
+            includeOnFloorplan: false,
             type: ''
         }
     }
@@ -1581,23 +1630,24 @@ export class SalesProjectPage {
                 partNbr: String(row.partNbr || '').trim(),
                 description: String(row.description || '').trim(),
                 qty: Number(row.qty || 0),
-                cost: Number(row.cost || 0),
-                labor: Number(row.labor || 0),
+                cost: this.roundBomMoney(row.cost),
+                labor: this.roundBomMoney(row.labor),
+                includeOnFloorplan: !!row.includeOnFloorplan,
                 type: String(row.type || '').trim()
             }))
         }))
     }
 
-    private getCategoryByName(categoryName: string): Category | undefined {
-        return this.getCategoryMatch(undefined, categoryName)
+    private normalizeBomRowFloorplanFlag(row: any): boolean {
+        if (typeof row?.includeOnFloorplan === 'boolean') {
+            return row.includeOnFloorplan
+        }
+        return false
     }
 
-    private getCategoryMatch(categoryId?: string | null, categoryName?: string | null): Category | undefined {
-        const normalizedCategoryId = String(categoryId || '').trim().toLowerCase()
-        const normalizedCategoryName = String(categoryName || '').trim().toLowerCase()
-        return this.categories.find((category) =>
-            String(category.categoryId || '').trim().toLowerCase() === normalizedCategoryId
-            || String(category.name || '').trim().toLowerCase() === normalizedCategoryName)
+    private roundBomMoney(value: unknown): number {
+        const numeric = Number(value || 0)
+        return Number.isFinite(numeric) && numeric > 0 ? Math.ceil(numeric) : 0
     }
 
     private async ensureVendorPartLookupLoaded(): Promise<void> {
@@ -1610,7 +1660,7 @@ export class SalesProjectPage {
             const [partsResponse, devicesResponse] = await Promise.all([
                 this.vendorPartLookupLoaded
                     ? Promise.resolve({ rows: this.vendorPartRows })
-                    : firstValueFrom(this.http.get<{ rows?: VwEddyPricelist[] }>('/api/firewire/vweddypricelist')),
+                    : firstValueFrom(this.http.get<{ rows?: VwPart[] }>('/api/firewire/parts')),
                 this.deviceLookupLoaded
                     ? Promise.resolve({ rows: this.deviceRows })
                     : firstValueFrom(this.http.get<{ rows?: VwDevice[] }>('/api/firewire/vwdevices'))

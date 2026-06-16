@@ -7,50 +7,26 @@
             </div>
             <div class="device-detail-toolbar__actions">
                 <span *ngIf="statusText" class="device-detail-status">{{statusText}}</span>
-                <div *ngIf="editMode" class="device-detail-edit-tabs">
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        class="device-detail-edit-tab"
-                        [class.device-detail-edit-tab--active]="activeEditView === 'details'"
-                        (click)="setEditView('details')">
-                        <mat-icon>tune</mat-icon>
-                        <span>Details</span>
-                    </button>
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        class="device-detail-edit-tab"
-                        [class.device-detail-edit-tab--active]="activeEditView === 'vendor-parts'"
-                        (click)="setEditView('vendor-parts')">
-                        <mat-icon>inventory_2</mat-icon>
-                        <span>Vendor Parts</span>
-                    </button>
-                </div>
-                <button *ngIf="!editMode" mat-flat-button type="button" class="device-detail-primary-action" (click)="startEdit()">
+                <button *ngIf="!editMode" mat-flat-button type="button" class="device-detail-action-button" (click)="startEdit()">
                     <mat-icon>edit_note</mat-icon>
                     <span>Edit Details</span>
                 </button>
-                <button *ngIf="!editMode" mat-stroked-button type="button" class="device-detail-secondary-action" (click)="startVendorPartsEdit()">
-                    <mat-icon>inventory_2</mat-icon>
-                    <span>Edit Vendor Parts</span>
-                </button>
-                <button *ngIf="!editMode" mat-stroked-button type="button" class="device-detail-secondary-action" [disabled]="saveWorking" (click)="deleteDevice()">
+                <button *ngIf="!editMode" mat-flat-button type="button" color="warn" class="device-detail-action-button fw-delete-button" [disabled]="saveWorking" (click)="deleteDevice()">
                     <mat-icon>delete</mat-icon>
                     <span>Delete Device</span>
                 </button>
-                <button *ngIf="editMode" mat-flat-button type="button" class="device-detail-primary-action" [disabled]="saveWorking" (click)="save()">
+                <button *ngIf="editMode" mat-flat-button type="button" class="device-detail-action-button" [disabled]="saveWorking" (click)="save()">
                     <mat-icon>save</mat-icon>
                     <span>Save Changes</span>
                 </button>
-                <button *ngIf="editMode" mat-stroked-button type="button" class="device-detail-secondary-action" [disabled]="saveWorking" (click)="cancelEdit()">
+                <button *ngIf="editMode" mat-stroked-button type="button" class="device-detail-action-button" [disabled]="saveWorking" (click)="cancelEdit()">
                     <mat-icon>close</mat-icon>
                     <span>Cancel</span>
                 </button>
             </div>
         </div>
 
-        <div class="component-group-container" [class.component-group-container--vendor-edit]="isVendorPartsEditView()">
+        <div class="component-group-container">
             <section class="component-group">
                 <h4>DETAILS</h4>
                 <table *ngIf="!isDetailsEditView()" class="device-detail-table">
@@ -66,17 +42,161 @@
                             </span>
                         </td>
                     </tr>
-                    <tr><td>Category</td><td>{{device.categoryName}}</td></tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Category</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for device category"
+                                matTooltip="Used as the BOM category/type text for this device. When Include on Floorplan is enabled, floorplan drops and downstream install task labels use this category with the device name."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #categoryReadHelp="matTooltip"
+                                (click)="categoryReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{device.categoryName}}</td>
+                    </tr>
+                    <tr class="device-detail-floorplan-row device-detail-floorplan-row--start">
+                        <td>
+                            <span class="device-detail-help-label">Short Name</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for device short name"
+                                matTooltip="Compact device label used in device lists, device set search, import/device resolution, and Fieldwire install task names. BOM descriptions use the full device name first and short name only as a fallback."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #shortNameReadHelp="matTooltip"
+                                (click)="shortNameReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{device.shortName}}</td>
+                    </tr>
+                    <tr class="device-detail-floorplan-row device-detail-floorplan-row--end">
+                        <td>
+                            <span class="device-detail-help-label">Include on Floorplan</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for include on floorplan"
+                                matTooltip="Controls whether this device is available for floorplan placement. Enabled devices use the category and device name in floorplan/BOM workflows."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #includeFloorplanReadHelp="matTooltip"
+                                (click)="includeFloorplanReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{device.includeOnFloorplan ? 'Yes' : 'No'}}</td>
+                    </tr>
                     <tr><td>Vendor</td><td>{{device.vendorName}}</td></tr>
-                    <tr><td>Cost</td><td>{{getDisplayedDeviceCost() | currency}}</td></tr>
-                    <tr *ngIf="getShowDefaultLabor()"><td>Default Labor</td><td>{{getReadOnlyDefaultLabor()}}</td></tr>
-                    <tr *ngIf="getShowCalculatedLaborCost()"><td>Labor Rate</td><td>{{getDeviceLaborRate() | currency}}</td></tr>
-                    <tr *ngIf="getShowCalculatedLaborCost()"><td>Calculated Labor Cost</td><td>{{getCalculatedLaborCost() | currency}}</td></tr>
-                    <tr><td>Short Name</td><td>{{device.shortName}}</td></tr>
-                    <tr><td>Serial Number</td><td>{{displaySetting(device.serialNumber)}}</td></tr>
-                    <tr><td>SLC Address</td><td>{{displaySetting(device.slcAddress)}}</td></tr>
-                    <tr><td>Speaker Address</td><td>{{displaySetting(device.speakerAddress)}}</td></tr>
-                    <tr><td>Strobe Address</td><td>{{displaySetting(device.strobeAddress)}}</td></tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Cost</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for device cost"
+                                matTooltip="Overwritable aggregated parts cost. This value should come from the cost column of linked parts, not MSRP."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #costReadHelp="matTooltip"
+                                (click)="costReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{getDisplayedDeviceCost() | currency}}</td>
+                    </tr>
+                    <tr *ngIf="getShowDefaultLabor()">
+                        <td>
+                            <span class="device-detail-help-label">Default Labor Cost</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for default labor cost"
+                                matTooltip="Default install labor cost. The baseline is $56 per hour times 2 hours, but this total cost can be overwritten. BOM labor hours are calculated by dividing this cost by the default labor rate."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #defaultLaborReadHelp="matTooltip"
+                                (click)="defaultLaborReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{getReadOnlyDefaultLabor()}}</td>
+                    </tr>
+                    <tr *ngIf="getShowCalculatedLaborCost()">
+                        <td>
+                            <span class="device-detail-help-label">Labor Rate</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for labor rate"
+                                matTooltip="Used with Labor Breakdown sub tasks. The total sub task hours are multiplied by this device labor rate to calculate labor cost."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #laborRateReadHelp="matTooltip"
+                                (click)="laborRateReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{getDeviceLaborRate() | currency}}</td>
+                    </tr>
+                    <tr *ngIf="getShowCalculatedLaborCost()">
+                        <td>
+                            <span class="device-detail-help-label">Calculated Labor Cost</span>
+                            <button
+                                mat-icon-button
+                                class="fw-control-help-button device-detail-help-button"
+                                type="button"
+                                aria-label="Help for calculated labor cost"
+                                matTooltip="Calculated from Labor Breakdown hours times the device labor rate. BOM labor hours are calculated by dividing this cost by the device labor rate."
+                                matTooltipPosition="right"
+                                matTooltipClass="fw-control-help-tooltip"
+                                #calculatedLaborReadHelp="matTooltip"
+                                (click)="calculatedLaborReadHelp.toggle(); $event.stopPropagation()">
+                                <mat-icon>help_outline</mat-icon>
+                            </button>
+                        </td>
+                        <td>{{getCalculatedLaborCost() | currency}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Serial Number</span>
+                            <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for serial number" matTooltip="Controls whether this device records a serial number during install." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #serialReadHelp="matTooltip" (click)="serialReadHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </td>
+                        <td>{{displaySetting(device.serialNumber)}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">SLC Address</span>
+                            <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for SLC address" matTooltip="Controls whether this device has Signal Line address requirements that must be captured." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #slcReadHelp="matTooltip" (click)="slcReadHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </td>
+                        <td>{{displaySetting(device.slcAddress)}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Speaker Address</span>
+                            <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for speaker address" matTooltip="Controls whether this device captures an outbound signal address for audio." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #speakerReadHelp="matTooltip" (click)="speakerReadHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </td>
+                        <td>{{displaySetting(device.speakerAddress)}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Strobe Address</span>
+                            <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for strobe address" matTooltip="Controls whether this device captures an outbound signal address for optical signals." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #strobeReadHelp="matTooltip" (click)="strobeReadHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </td>
+                        <td>{{displaySetting(device.strobeAddress)}}</td>
+                    </tr>
                 </table>
 
                 <div *ngIf="isDetailsEditView()" class="device-detail-form-grid">
@@ -85,64 +205,83 @@
                         <input matInput [(ngModel)]="editDevice.name" />
                     </mat-form-field>
                     <mat-form-field>
-                        <mat-label>Short Name</mat-label>
-                        <input matInput [(ngModel)]="editDevice.shortName" />
-                    </mat-form-field>
-                    <mat-form-field>
                         <mat-label>Part Number</mat-label>
                         <input matInput [(ngModel)]="editDevice.partNumber" />
                     </mat-form-field>
-                    <mat-form-field>
+                    <mat-form-field class="device-detail-form-field--wide">
                         <mat-label>Category</mat-label>
-                        <mat-select [(ngModel)]="editDevice.categoryId">
-                            <mat-option *ngFor="let category of categories" [value]="category.categoryId">{{category.name}}</mat-option>
-                        </mat-select>
+                        <input matInput [(ngModel)]="editDevice.categoryName" />
+                        <mat-hint>BOM/floorplan category text.</mat-hint>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for device category" matTooltip="This is free text on the device. It defaults from the first part subcategory, then can be edited for BOM, floorplan, and install task language." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #categoryEditHelp="matTooltip" (click)="categoryEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
+                    <div class="device-detail-floorplan-field-group">
+                        <mat-form-field>
+                            <mat-label>Short Name</mat-label>
+                            <input matInput [(ngModel)]="editDevice.shortName" />
+                            <mat-hint>Compact operational label.</mat-hint>
+                            <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for device short name" matTooltip="Used in device lists, device set search, import/device resolution, and Fieldwire install task names. BOM descriptions prefer the full device name and use short name only as a fallback." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #shortNameEditHelp="matTooltip" (click)="shortNameEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </mat-form-field>
+                        <div class="device-detail-form-toggle-block">
+                            <mat-slide-toggle class="device-detail-form-toggle" [(ngModel)]="editDevice.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
+                            <div class="device-detail-field-hint">Allows floorplan placement.</div>
+                        </div>
+                    </div>
                     <mat-form-field>
                         <mat-label>Cost</mat-label>
                         <input matInput type="number" [(ngModel)]="editDevice.cost" />
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for device cost" matTooltip="Overwritable aggregated parts cost. This value should come from the cost column of linked parts, not MSRP." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #costEditHelp="matTooltip" (click)="costEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field *ngIf="getShowDefaultLabor()">
-                        <mat-label>Default Labor</mat-label>
+                        <mat-label>Default Labor Cost</mat-label>
                         <input matInput type="number" [(ngModel)]="editDevice.defaultLabor" />
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for default labor cost" matTooltip="Default install labor cost. The baseline is $56 per hour times 2 hours, but this total cost can be overwritten. BOM labor hours are calculated by dividing this cost by the default labor rate." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #defaultLaborEditHelp="matTooltip" (click)="defaultLaborEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field *ngIf="getShowCalculatedLaborCost()">
                         <mat-label>Labor Rate</mat-label>
                         <input matInput type="number" min="0" step="0.01" [(ngModel)]="editDevice.laborRate" />
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for labor rate" matTooltip="Used with Labor Breakdown sub tasks. The total sub task hours are multiplied by this device labor rate to calculate labor cost." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #laborRateEditHelp="matTooltip" (click)="laborRateEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field *ngIf="getShowCalculatedLaborCost()">
                         <mat-label>Calculated Labor Cost</mat-label>
                         <input matInput [value]="getCalculatedLaborCost() | currency" readonly />
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for calculated labor cost" matTooltip="Calculated from Labor Breakdown hours times the device labor rate. BOM labor hours are calculated by dividing this cost by the device labor rate." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #calculatedLaborEditHelp="matTooltip" (click)="calculatedLaborEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>Serial Number</mat-label>
                         <mat-select [(ngModel)]="editDevice.serialNumber" (selectionChange)="onAddressSettingChanged()">
                             <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
                         </mat-select>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for serial number" matTooltip="Controls whether this device records a serial number during install." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #serialEditHelp="matTooltip" (click)="serialEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>SLC Address</mat-label>
                         <mat-select [(ngModel)]="editDevice.slcAddress" (selectionChange)="onAddressSettingChanged()">
                             <mat-option *ngFor="let option of slcOptions" [value]="option.value">{{option.label}}</mat-option>
                         </mat-select>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for SLC address" matTooltip="Controls whether this device has Signal Line address requirements that must be captured." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #slcEditHelp="matTooltip" (click)="slcEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>Speaker Address</mat-label>
                         <mat-select [(ngModel)]="editDevice.speakerAddress" (selectionChange)="onAddressSettingChanged()">
                             <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
                         </mat-select>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for speaker address" matTooltip="Controls whether this device captures an outbound signal address for audio." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #speakerEditHelp="matTooltip" (click)="speakerEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                     <mat-form-field>
                         <mat-label>Strobe Address</mat-label>
                         <mat-select [(ngModel)]="editDevice.strobeAddress" (selectionChange)="onAddressSettingChanged()">
                             <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
                         </mat-select>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for strobe address" matTooltip="Controls whether this device captures an outbound signal address for optical signals." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #strobeEditHelp="matTooltip" (click)="strobeEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
                 </div>
             </section>
 
             <section class="component-group">
-                <h4>ATTRIBUTES</h4>
+                <h4>
+                    <span>ATTRIBUTES</span>
+                    <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for attributes" matTooltip="Attributes are custom fields that can be captured for a device on the floorplan during install." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #attributesHelp="matTooltip" (click)="attributesHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                </h4>
                 <ng-container *ngIf="!isDetailsEditView(); else attributeEdit">
                     <mat-list *ngIf="deviceAttributes.length > 0; else emptyAttributes">
                         <mat-list-item *ngFor="let attribute of sortAttributes()">
@@ -185,7 +324,10 @@
             </section>
 
             <section class="component-group">
-                <h4>SUB TASKS</h4>
+                <h4>
+                    <span>SUB TASKS</span>
+                    <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for sub tasks" matTooltip="Sub Tasks provide a labor breakdown by task type, such as Install, Pre-Wire, Trimout, and Test. Their hours drive Calculated Labor Cost when a breakdown exists." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #subTasksHelp="matTooltip" (click)="subTasksHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                </h4>
                 <ng-container *ngIf="!isDetailsEditView(); else subTaskEdit">
                     <mat-list *ngIf="deviceSubTasks.length > 0; else emptySubTasks">
                         <mat-list-item *ngFor="let subtask of sortSubTasks()">
@@ -221,112 +363,78 @@
             </section>
 
             <section class="component-group">
-                <h4>VENDOR PARTS</h4>
-                <mat-list *ngIf="!isVendorPartsEditView() && deviceMaterials.length > 0; else partsEdit" class="device-detail-vendor-parts-list">
-                    <mat-list-item *ngFor="let material of deviceMaterials" class="device-detail-vendor-part-item">
-                        <mat-icon *ngIf="!partImagePath || partImageFailed" class="device-detail-vendor-part-icon">inventory_2</mat-icon>
-                        <img *ngIf="partImagePath && !partImageFailed" [src]="partImagePath" class="device-detail-part-image" (error)="onPartImageError()" />
-                        <div class="device-detail-vendor-part-content">
-                            <button
-                                *ngIf="material.materialId; else vendorPartNameOnly"
-                                type="button"
-                                class="device-detail-part-link device-detail-vendor-part-number"
-                                (click)="openVendorPartDetail(material)">
-                                {{material.materialPartNumber}}
-                            </button>
-                            <ng-template #vendorPartNameOnly>
-                                <span class="device-detail-vendor-part-number">{{material.materialPartNumber}}</span>
-                            </ng-template>
-                            <div class="device-detail-vendor-part-description">{{material.materialName}}</div>
-                            <div class="device-detail-vendor-part-meta">
-                                <span *ngIf="getVendorPartCategory(material)">{{getVendorPartCategory(material)}}</span>
-                                <span>{{material.materialCost | currency}}</span>
-                                <span *ngIf="getLinkedPartIssue(material.materialPartNumber) as issue" class="device-detail-issue">
-                                    Missing vendor link
-                                    <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
-                                    <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
-                                </span>
-                            </div>
-                        </div>
-                    </mat-list-item>
-                </mat-list>
-                <ng-template #partsEdit>
-                    <div *ngIf="isVendorPartsEditView(); else partsReadOnlyEmpty" class="device-detail-edit-list">
-                        <div *ngFor="let partNumber of editLinkedPartNumbers; let index = index" class="device-detail-edit-row device-detail-edit-row--part">
-                            <div class="device-detail-linked-part" *ngIf="getLinkedPartDisplayRow(partNumber) as linkedPart">
-                                <div class="device-detail-linked-part__eyebrow">Linked Part Number</div>
-                                <div class="device-detail-linked-part__part">{{linkedPart.partNumber}}</div>
-                                <div *ngIf="linkedPart.description" class="device-detail-linked-part__description">{{linkedPart.description}}</div>
-                                <div class="device-detail-linked-part__meta">
-                                    <span *ngIf="linkedPart.category">{{linkedPart.category}}</span>
-                                    <span *ngIf="linkedPart.cost !== null">{{linkedPart.cost | currency}}</span>
-                                </div>
-                            </div>
-                            <button mat-icon-button type="button" (click)="removeLinkedPart(index)">
-                                <mat-icon>delete</mat-icon>
-                            </button>
-                        </div>
-
-                        <div class="device-detail-part-picker">
-                            <div class="device-detail-part-picker__toolbar">
-                                <mat-form-field class="device-detail-part-picker__filter">
-                                    <mat-label>Find Vendor Part</mat-label>
-                                    <input matInput [(ngModel)]="vendorPartFilter" (ngModelChange)="onVendorPartFilterChanged()" placeholder="Type part number, description, or category" />
-                                </mat-form-field>
-
-                                <button
-                                    *ngIf="selectedVendorPartCategories.length > 0"
-                                    mat-icon-button
-                                    type="button"
-                                    class="device-detail-part-picker__clear"
-                                    (click)="clearVendorPartCategoryFilter()"
-                                    aria-label="Clear category filter">
-                                    <mat-icon>filter_alt_off</mat-icon>
-                                </button>
-
-                                <mat-form-field class="device-detail-part-picker__category">
-                                    <mat-label>Category</mat-label>
-                                    <mat-select [(ngModel)]="selectedVendorPartCategories" multiple (selectionChange)="onVendorPartCategoryFilterChanged()">
-                                        <mat-option *ngFor="let option of getVendorPartCategoryOptions()" [value]="option">
-                                            {{option}}
-                                        </mat-option>
-                                    </mat-select>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="device-detail-part-picker__hint">{{getVendorPartSearchHint()}}</div>
-
-                            <div *ngIf="vendorPartResults.length > 0" class="device-detail-part-picker__results">
-                                <div class="device-detail-part-picker__header">
-                                    <span>Part Number</span>
-                                    <span>Description</span>
-                                    <span>Price</span>
-                                    <span>Category</span>
-                                    <span></span>
-                                </div>
-                                <div *ngFor="let row of vendorPartResults" class="device-detail-part-picker__row">
-                                    <span class="device-detail-part-picker__part">{{row.PartNumber}}</span>
-                                    <span class="device-detail-part-picker__description">{{row.LongDescription}}</span>
-                                    <span class="device-detail-part-picker__price">{{(row.SalesPrice || row.MSRPPrice || 0) | currency}}</span>
-                                    <span class="device-detail-part-picker__category-pill">{{row.Category || row.ParentCategory}}</span>
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="isLinkedPartSelected(row.PartNumber)"
-                                        (click)="addLinkedPart(row.PartNumber)">
-                                        {{isLinkedPartSelected(row.PartNumber) ? 'Selected' : 'Select'}}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div *ngIf="editLinkedPartNumbers.length <= 0" class="device-detail-empty">
-                            No vendor parts linked yet.
-                        </div>
+                <div class="device-detail-panel-heading">
+                    <h4>VENDOR PARTS</h4>
+                    <button mat-stroked-button type="button" class="device-detail-action-button" (click)="openVendorPartsDialog()">
+                        <mat-icon>inventory_2</mat-icon>
+                        <span>Edit Vendor Parts</span>
+                    </button>
+                </div>
+                <div *ngIf="getVisibleVendorPartRows().length > 0; else partsReadOnlyEmpty" class="device-detail-data-table device-detail-vendor-parts-table">
+                    <div class="device-detail-data-table__header">
+                        <span>Part Number</span>
+                        <span>Description</span>
+                        <span>Category</span>
+                        <span>Cost</span>
+                        <span>MSRP</span>
                     </div>
-                </ng-template>
+                    <div *ngFor="let part of getVisibleVendorPartRows()" class="device-detail-data-table__row">
+                        <span>
+                            <span class="device-detail-vendor-part-number">{{part.partNumber}}</span>
+                        </span>
+                        <span class="device-detail-data-table__description">{{part.description || 'None'}}</span>
+                        <span>{{part.category || 'None'}}</span>
+                        <span class="device-detail-data-table__money">{{part.cost !== null ? (part.cost | currency) : 'None'}}</span>
+                        <span class="device-detail-data-table__money">{{part.msrp !== null ? (part.msrp | currency) : 'Unavailable'}}</span>
+                        <span *ngIf="getLinkedPartIssue(part.partNumber) as issue" class="device-detail-issue">
+                            Missing vendor link
+                            <button *ngIf="!issue.ignored" mat-button type="button" (click)="ignoreIssue(issue)">Ignore</button>
+                            <button *ngIf="issue.ignored" mat-button type="button" (click)="unignoreIssue(issue)">Reattempt</button>
+                        </span>
+                    </div>
+                </div>
                 <ng-template #partsReadOnlyEmpty>
                     <div class="device-detail-empty">No vendor parts linked yet.</div>
+                </ng-template>
+            </section>
+
+            <section class="component-group">
+                <div class="device-detail-panel-heading">
+                    <h4>DEVICE MEDIA</h4>
+                    <input #deviceMediaUploadInput type="file" hidden (change)="onDeviceMediaSelected($event)" />
+                    <button mat-stroked-button type="button" class="device-detail-action-button" [disabled]="mediaUploadWorking" (click)="deviceMediaUploadInput.click()">
+                        <mat-icon>upload_file</mat-icon>
+                        <span>Upload</span>
+                    </button>
+                </div>
+                <div *ngIf="deviceMediaFiles.length > 0; else noDeviceMedia" class="device-detail-data-table device-detail-media-table">
+                    <div class="device-detail-data-table__header">
+                        <span>Filename</span>
+                        <span>MIME Type</span>
+                        <span>File Size</span>
+                        <span>Uploaded</span>
+                        <span>Actions</span>
+                    </div>
+                    <div *ngFor="let file of deviceMediaFiles" class="device-detail-data-table__row">
+                        <span class="device-detail-data-table__description">{{file.fileName}}</span>
+                        <span>{{file.mimeType}}</span>
+                        <span>{{formatFileSize(file.sizeBytes)}}</span>
+                        <span>{{file.uploadedAt | date:'medium'}}</span>
+                        <span class="device-detail-media-actions">
+                            <button mat-icon-button type="button" [disabled]="mediaUploadWorking" [attr.aria-label]="'Preview ' + file.fileName" matTooltip="Preview" (click)="previewDeviceMedia(file)">
+                                <mat-icon>visibility</mat-icon>
+                            </button>
+                            <button mat-icon-button type="button" [disabled]="mediaUploadWorking" [attr.aria-label]="'Download ' + file.fileName" matTooltip="Download" (click)="downloadDeviceMedia(file)">
+                                <mat-icon>download</mat-icon>
+                            </button>
+                            <button mat-icon-button type="button" class="device-detail-media-delete" [disabled]="mediaUploadWorking" [attr.aria-label]="'Delete ' + file.fileName" matTooltip="Delete" (click)="deleteDeviceMedia(file)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </span>
+                    </div>
+                </div>
+                <ng-template #noDeviceMedia>
+                    <div class="device-detail-empty">No device media uploaded yet.</div>
                 </ng-template>
             </section>
         </div>

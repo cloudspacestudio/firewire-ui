@@ -4,6 +4,32 @@
             <div class="floorplan-designer__kicker">Floorplan Designer</div>
             <div class="floorplan-designer__title">{{title}}</div>
         </div>
+        <div class="floorplan-designer__header-tools" aria-label="Floorplan designer tools">
+            <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'symbol'" (click)="setTool('symbol')">
+                <mat-icon fontIcon="add_location_alt"></mat-icon>
+                Symbol
+            </button>
+            <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'select'" (click)="setTool('select')">
+                <mat-icon fontIcon="near_me"></mat-icon>
+                Select
+            </button>
+            <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'pan'" (click)="setTool('pan')">
+                <mat-icon fontIcon="pan_tool"></mat-icon>
+                Pan
+            </button>
+            <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'note'" (click)="setTool('note')">
+                <mat-icon fontIcon="notes"></mat-icon>
+                Note
+            </button>
+            <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'sticky'" (click)="setTool('sticky')">
+                <mat-icon fontIcon="sticky_note_2"></mat-icon>
+                Sticky
+            </button>
+        </div>
+        <button type="button" class="floorplan-designer__reset-action" (click)="resetView()">
+            <mat-icon fontIcon="center_focus_strong"></mat-icon>
+            Reset View
+        </button>
         <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
             <mat-icon fontIcon="close"></mat-icon>
         </button>
@@ -11,61 +37,31 @@
 
     <div class="floorplan-designer">
         <aside class="floorplan-designer__sidebar">
-            <div class="floorplan-designer__section">
-                <div class="floorplan-designer__label">Tools</div>
-                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'select'" (click)="setTool('select')">
-                    <mat-icon fontIcon="near_me"></mat-icon>
-                    Select
-                </button>
-                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'pan'" (click)="setTool('pan')">
-                    <mat-icon fontIcon="pan_tool"></mat-icon>
-                    Pan
-                </button>
-                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'symbol'" (click)="setTool('symbol')">
-                    <mat-icon fontIcon="add_location_alt"></mat-icon>
-                    Symbol
-                </button>
-                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'note'" (click)="setTool('note')">
-                    <mat-icon fontIcon="notes"></mat-icon>
-                    Note
-                </button>
-                <button type="button" class="floorplan-designer__tool" [class.is-active]="tool === 'sticky'" (click)="setTool('sticky')">
-                    <mat-icon fontIcon="sticky_note_2"></mat-icon>
-                    Sticky
-                </button>
-            </div>
-
             <div class="floorplan-designer__section" *ngIf="tool === 'symbol'">
                 <div class="floorplan-designer__label">Symbol</div>
                 <div *ngIf="symbols.length <= 0" class="floorplan-designer__empty-panel">
-                    Add category-assigned devices to the BOM to place symbols.
+                    Add BOM rows with FP enabled to place symbols.
                 </div>
                 <button
                     *ngFor="let symbol of symbols"
                     type="button"
                     class="floorplan-designer__symbol-option"
                     [class.is-active]="selectedSymbol?.id === symbol.id"
-                    [class.is-depleted]="getSymbolRemaining(symbol) <= 0"
                     (click)="selectSymbol(symbol)">
                     <span [style.background]="symbol.color">{{symbol.code}}</span>
-                    <strong>{{symbol.label}}</strong>
-                    <small>{{getSymbolRemaining(symbol)}} left · {{getSymbolPlacedText(symbol)}} placed</small>
+                    <strong>{{getSymbolPrimaryText(symbol)}}</strong>
+                    <small class="floorplan-designer__symbol-description">{{getSymbolDescriptionText(symbol)}}</small>
+                    <small class="floorplan-designer__symbol-count">{{getSymbolPlacedText(symbol)}}</small>
                 </button>
-            </div>
-
-            <div class="floorplan-designer__section">
-                <div class="floorplan-designer__label">View</div>
-                <div class="floorplan-designer__zoom-row">
-                    <button mat-stroked-button type="button" (click)="zoomOut()"><mat-icon fontIcon="remove"></mat-icon></button>
-                    <strong>{{zoomLevel.toFixed(2)}}x</strong>
-                    <button mat-stroked-button type="button" (click)="zoomIn()"><mat-icon fontIcon="add"></mat-icon></button>
-                </div>
-                <button mat-stroked-button type="button" (click)="resetView()">Reset View</button>
             </div>
 
             <div class="floorplan-designer__section" *ngIf="selectedAnnotation">
                 <div class="floorplan-designer__label">Selected</div>
-                <input class="floorplan-designer__input" [(ngModel)]="selectedAnnotation.label" placeholder="Label" />
+                <input
+                    *ngIf="selectedAnnotation.kind !== 'sticky'"
+                    class="floorplan-designer__input"
+                    [(ngModel)]="selectedAnnotation.label"
+                    placeholder="Label" />
                 <div *ngIf="selectedAnnotation.kind === 'symbol'" class="floorplan-designer__selected-meta">
                     <span>{{selectedAnnotation.categoryName || 'BOM Symbol'}}</span>
                     <strong>{{selectedAnnotation.partNumber || selectedAnnotation.deviceName || selectedAnnotation.label}}</strong>
@@ -79,6 +75,12 @@
                 <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
             </div>
         </aside>
+
+        <div class="floorplan-designer__floating-zoom" aria-label="Floorplan zoom controls" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            <button type="button" aria-label="Zoom out" (click)="zoomOut()"><mat-icon fontIcon="remove"></mat-icon></button>
+            <strong>{{zoomLevel.toFixed(2)}}x</strong>
+            <button type="button" aria-label="Zoom in" (click)="zoomIn()"><mat-icon fontIcon="add"></mat-icon></button>
+        </div>
 
         <section
             #stage
@@ -111,9 +113,8 @@
                     </ng-template>
                 </ng-container>
 
-                <button
+                <div
                     *ngFor="let annotation of annotations"
-                    type="button"
                     class="floorplan-designer__annotation"
                     [class.is-selected]="selectedAnnotation?.id === annotation.id"
                     [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
@@ -127,11 +128,21 @@
                         [style.background]="annotation.color">
                         {{annotation.symbol}}
                     </span>
-                    <span *ngIf="annotation.kind !== 'symbol'" class="floorplan-designer__note-card">
-                        <strong>{{annotation.label || (annotation.kind === 'sticky' ? 'Sticky' : 'Note')}}</strong>
+                    <span *ngIf="annotation.kind === 'note'" class="floorplan-designer__note-card">
+                        <strong>{{annotation.label || 'Note'}}</strong>
                         <span>{{annotation.text || 'Add text...'}}</span>
                     </span>
-                </button>
+                    <textarea
+                        *ngIf="annotation.kind === 'sticky'"
+                        class="floorplan-designer__sticky-note"
+                        [(ngModel)]="annotation.text"
+                        [style.fontSize.px]="getStickyFontSize(annotation.text)"
+                        placeholder="Type..."
+                        aria-label="Sticky note text"
+                        (click)="$event.stopPropagation()"
+                        (mousedown)="$event.stopPropagation()"
+                        (focus)="selectedAnnotation = annotation"></textarea>
+                </div>
             </div>
 
             <div *ngIf="pdfRenderWorking" class="floorplan-designer__overlay">Rendering PDF...</div>

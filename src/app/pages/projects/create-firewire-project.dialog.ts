@@ -16,12 +16,14 @@ import { MatInputModule } from '@angular/material/input'
 import { MatSelectModule } from '@angular/material/select'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectUpsert } from '../../schemas/firewire-project.schema'
 import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
-import { ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
+import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { ProjectSettingsApi } from './project-settings.api'
 
 interface CreateFirewireProjectDialogData {
-    fieldwireProject: ProjectListItemSchema
+    fieldwireProject: Partial<ProjectListItemSchema>
     projectSettings: ProjectSettingsCatalogSchema
+    suggestedProjectStatus?: string
+    suggestedSalesman?: string
 }
 
 @Component({
@@ -59,13 +61,7 @@ export class CreateFirewireProjectDialog {
             return
         }
 
-        this.data.projectSettings = {
-            jobType: [],
-            scopeType: [],
-            projectScope: [],
-            difficulty: [],
-            projectStatus: []
-        }
+        this.data.projectSettings = createEmptyProjectSettingsCatalog()
 
         this.projectSettingsApi.getCatalog().subscribe({
             next: (catalog) => {
@@ -122,9 +118,9 @@ export class CreateFirewireProjectDialog {
             projectNbr: fieldwireProject.projectNbr || '',
             address: fieldwireProject.address || '',
             bidDueDate: defaultBidDate.toISOString().slice(0, 10),
-            projectStatus: 'Estimation',
+            projectStatus: this.data.suggestedProjectStatus || 'Estimation',
             projectType: 'Fire Alarm',
-            salesman: '',
+            salesman: this.data.suggestedSalesman || '',
             jobType: '',
             scopeType: '',
             projectScope: '',

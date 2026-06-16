@@ -55,7 +55,7 @@ import { MatMenuModule } from '@angular/material/menu'
     template: `
     <div class="button-bar">
         @for (item of navItems; track item) {
-        <button *ngIf="isActiveItem(item)" mat-flat-button class="active">{{item.caption}}</button>
+        <button *ngIf="isActiveItem(item)" mat-flat-button class="active" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
         <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
         }
     </div>
@@ -105,9 +105,8 @@ export class NavToolbar {
     static DeviceNavItems = [
         {id: 'devices', caption: 'DEVICES', route: `/devices`},
         //{id: 'materials', caption: 'MATERIALS', route: `/materials`},
-        {id: 'parts', caption: 'PARTS', route: `/parts/edwards`},
+        {id: 'parts', caption: 'PARTS', route: `/parts`},
         {id: 'device-sets', caption: 'DEVICE SETS', route: `/device-sets`},
-        {id: 'categories', caption: 'CATEGORIES', route: `/categories`},
         {id: 'vendors', caption: 'VENDORS', route: `/vendors`}
     ]
 

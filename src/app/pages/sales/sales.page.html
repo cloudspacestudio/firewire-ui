@@ -6,16 +6,17 @@
     </div>
 </page-toolbar>
 
-<div *ngIf="!pageWorking" class="page-root">
+<div class="page-root">
     <div class="page-content">
         <div class="tabstrip">
             <div class="sales-actions">
-                <mat-form-field>
+                <mat-form-field class="sales-filter-field">
                     <mat-label>Filter</mat-label>
                     <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Project, address, status" />
                 </mat-form-field>
-                <button mat-flat-button type="button" (click)="toggleCreatePanel()">
-                    {{createPanelOpen ? 'CLOSE QUICK START' : 'CREATE PROJECT'}}
+                <button mat-flat-button type="button" class="sales-action-button" [disabled]="saveWorking" (click)="createProject()">
+                    <mat-icon>add_box</mat-icon>
+                    <span>Create Project</span>
                 </button>
                 <span *ngIf="createStatusText" class="sales-create-status">{{createStatusText}}</span>
                 <span class="sales-actions-spacer"></span>
@@ -37,71 +38,11 @@
             </div>
         </div>
 
-        <div class="content-root with-tabstrip">
-            <div *ngIf="createPanelOpen" class="sales-create-panel">
-                <div class="sales-create-grid">
-                    <mat-form-field>
-                        <mat-label>Name</mat-label>
-                        <input matInput [(ngModel)]="createModel.name" />
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Bid Due Date</mat-label>
-                        <input matInput type="date" [(ngModel)]="createModel.bidDueDate" />
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Project Type</mat-label>
-                        <mat-select [(ngModel)]="createModel.projectType">
-                            <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Total Sq Ft</mat-label>
-                        <input matInput type="number" min="0" [(ngModel)]="createModel.totalSqFt" />
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Salesman</mat-label>
-                        <input matInput [(ngModel)]="createModel.salesman" />
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Job Type</mat-label>
-                        <mat-select [(ngModel)]="createModel.jobType">
-                            <mat-option [value]="''">None</mat-option>
-                            <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Scope Type</mat-label>
-                        <mat-select [(ngModel)]="createModel.scopeType">
-                            <mat-option [value]="''">None</mat-option>
-                            <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Difficulty</mat-label>
-                        <mat-select [(ngModel)]="createModel.difficulty">
-                            <mat-option [value]="''">None</mat-option>
-                            <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                    <mat-form-field class="sales-create-grid__span-2">
-                        <mat-label>Address</mat-label>
-                        <input matInput [(ngModel)]="createModel.address" />
-                    </mat-form-field>
-                    <mat-form-field class="sales-create-grid__span-2">
-                        <mat-label>Project Scope</mat-label>
-                        <mat-select [(ngModel)]="createModel.projectScope">
-                            <mat-option [value]="''">None</mat-option>
-                            <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                </div>
-                <div class="sales-create-actions">
-                    <button mat-flat-button type="button" (click)="createProject()" [disabled]="saveWorking">CREATE PROJECT</button>
-                    <button mat-button type="button" (click)="toggleCreatePanel()" [disabled]="saveWorking">CANCEL</button>
-                </div>
-            </div>
+        <div *ngIf="errText" class="sales-page-status">{{errText}}</div>
 
+        <div class="content-root with-tabstrip">
             <table
+                class="sales-table"
                 mat-table
                 [dataSource]="datasource"
                 matSort

@@ -1,9 +1,9 @@
-<div mat-dialog-title style="display:flex;align-items:flex-start;gap:12px;">
-    <div style="flex:1 1 auto;min-width:0;">
+<div mat-dialog-title class="fw-dialog-titlebar">
+    <div class="fw-dialog-titlebar__text">
         <h2 style="margin:0;">Create Firewire Project</h2>
-        <div>{{data.fieldwireProject.name}}</div>
+        <div>{{data.fieldwireProject.name || 'Sales Project'}}</div>
     </div>
-    <button mat-icon-button aria-label="Close dialog" mat-dialog-close [disabled]="saveWorking">
+    <button mat-icon-button class="fw-dialog-titlebar__close" aria-label="Cancel create project" mat-dialog-close [disabled]="saveWorking">
         <mat-icon>close</mat-icon>
     </button>
 </div>
@@ -78,7 +78,7 @@
     <div *ngIf="saveError" class="project-create-status">{{saveError}}</div>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-    <button mat-button type="button" mat-dialog-close [disabled]="saveWorking">Cancel</button>
+<mat-dialog-actions align="end">
+    <button mat-stroked-button type="button" mat-dialog-close [disabled]="saveWorking">Cancel</button>
     <button mat-flat-button type="button" (click)="submit()" [disabled]="saveWorking">Create</button>
 </mat-dialog-actions>

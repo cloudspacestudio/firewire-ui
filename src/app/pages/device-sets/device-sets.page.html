@@ -13,6 +13,12 @@
                 <mat-label>Filter</mat-label>
                 <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Ex. Edwards" #input>
             </mat-form-field>
+            <mat-form-field class="device-sets-visibility-field">
+                <mat-label>Visibility</mat-label>
+                <mat-select multiple [(ngModel)]="selectedVisibilityFilters" (selectionChange)="onVisibilityFilterChange()">
+                    <mat-option *ngFor="let option of visibilityOptions" [value]="option.value">{{option.label}}</mat-option>
+                </mat-select>
+            </mat-form-field>
             <div class="device-sets-tabstrip-actions">
                 <button mat-flat-button type="button" (click)="createDeviceSet()">
                     <mat-icon>library_add</mat-icon>
@@ -28,6 +34,11 @@
                     <td mat-cell *matCellDef="let row">
                         <a class="device-sets-name-link" [routerLink]="['/device-sets', row.deviceSetId]">{{row.name}}</a>
                     </td>
+                </ng-container>
+
+                <ng-container matColumnDef="visibility">
+                    <th mat-header-cell *matHeaderCellDef>Visibility</th>
+                    <td mat-cell *matCellDef="let row">{{getVisibilitySummary(row)}}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="vendors">
@@ -62,7 +73,7 @@
                 <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
                 <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
                 <tr class="mat-row" *matNoDataRow>
-                    <td class="mat-cell" colspan="5">{{getNoDataRowText(input.value)}}</td>
+                    <td class="mat-cell" colspan="6">{{getNoDataRowText(textFilter)}}</td>
                 </tr>
             </table>
 

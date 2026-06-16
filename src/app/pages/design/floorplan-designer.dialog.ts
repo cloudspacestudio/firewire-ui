@@ -140,7 +140,7 @@ export class FloorplanDesignerDialog {
     template: `
         <h2 mat-dialog-title>Floorplan Symbol Counts</h2>
         <mat-dialog-content>
-            <p>The design cannot be saved because floorplan symbols exceed the BOM quantities.</p>
+            <p>The design cannot be saved because some floorplan symbols no longer match BOM rows.</p>
             <ul>
                 <li *ngFor="let error of data.errors">{{error}}</li>
             </ul>
