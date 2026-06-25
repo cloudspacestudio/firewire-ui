@@ -375,6 +375,7 @@
                         <span>Part Number</span>
                         <span>Description</span>
                         <span>Category</span>
+                        <span>Qty</span>
                         <span>Cost</span>
                         <span>MSRP</span>
                     </div>
@@ -384,6 +385,7 @@
                         </span>
                         <span class="device-detail-data-table__description">{{part.description || 'None'}}</span>
                         <span>{{part.category || 'None'}}</span>
+                        <span class="device-detail-data-table__money">{{part.quantityPerDevice}}</span>
                         <span class="device-detail-data-table__money">{{part.cost !== null ? (part.cost | currency) : 'None'}}</span>
                         <span class="device-detail-data-table__money">{{part.msrp !== null ? (part.msrp | currency) : 'Unavailable'}}</span>
                         <span *ngIf="getLinkedPartIssue(part.partNumber) as issue" class="device-detail-issue">

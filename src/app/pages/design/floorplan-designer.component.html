@@ -26,24 +26,59 @@
                 Sticky
             </button>
         </div>
-        <button type="button" class="floorplan-designer__reset-action" (click)="resetView()">
-            <mat-icon fontIcon="center_focus_strong"></mat-icon>
-            Reset View
-        </button>
-        <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
-            <mat-icon fontIcon="close"></mat-icon>
-        </button>
+        <div class="floorplan-designer__header-actions">
+            <div class="floorplan-designer__context">
+                <button type="button" class="floorplan-designer__reset-action" (click)="toggleLayerMenu()" aria-haspopup="menu" [attr.aria-expanded]="showLayerMenu">
+                    <mat-icon fontIcon="layers"></mat-icon>
+                    Layers
+                </button>
+                <div *ngIf="showLayerMenu" class="floorplan-designer__layer-menu" role="menu">
+                    <button
+                        type="button"
+                        class="floorplan-designer__layer-menu-fixed"
+                        role="menuitem"
+                        aria-disabled="true"
+                        title="Base image is always visible">
+                        <mat-icon fontIcon="lock"></mat-icon>
+                        Base Image
+                    </button>
+                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showSymbolLayer" (click)="setLayerVisibility('symbols', !showSymbolLayer)">
+                        <mat-icon [fontIcon]="showSymbolLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                        Symbols
+                    </button>
+                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showNoteLayer" (click)="setLayerVisibility('notes', !showNoteLayer)">
+                        <mat-icon [fontIcon]="showNoteLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                        Notes
+                    </button>
+                    <div class="floorplan-designer__layer-divider"></div>
+                    <button type="button" role="menuitem" (click)="openVersionDialog()">
+                        <mat-icon fontIcon="drive_folder_upload"></mat-icon>
+                        Version Control
+                    </button>
+                </div>
+            </div>
+            <button type="button" class="floorplan-designer__reset-action" (click)="resetView()">
+                <mat-icon fontIcon="center_focus_strong"></mat-icon>
+                Reset View
+            </button>
+            <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
+                <mat-icon fontIcon="close"></mat-icon>
+            </button>
+        </div>
     </div>
 
     <div class="floorplan-designer">
         <aside class="floorplan-designer__sidebar">
             <div class="floorplan-designer__section" *ngIf="tool === 'symbol'">
                 <div class="floorplan-designer__label">Symbol</div>
-                <div *ngIf="symbols.length <= 0" class="floorplan-designer__empty-panel">
+                <div *ngIf="!showSymbolLayer" class="floorplan-designer__empty-panel floorplan-designer__empty-panel--warning">
+                    Symbol layer is hidden. Open Layers and show Symbols before placing or editing symbols.
+                </div>
+                <div *ngIf="showSymbolLayer && symbols.length <= 0" class="floorplan-designer__empty-panel">
                     Add BOM rows with FP enabled to place symbols.
                 </div>
                 <button
-                    *ngFor="let symbol of symbols"
+                    *ngFor="let symbol of (showSymbolLayer ? symbols : [])"
                     type="button"
                     class="floorplan-designer__symbol-option"
                     [class.is-active]="selectedSymbol?.id === symbol.id"
@@ -114,7 +149,7 @@
                 </ng-container>
 
                 <div
-                    *ngFor="let annotation of annotations"
+                    *ngFor="let annotation of visibleAnnotations"
                     class="floorplan-designer__annotation"
                     [class.is-selected]="selectedAnnotation?.id === annotation.id"
                     [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
@@ -150,6 +185,39 @@
             <ng-template #emptySource>
                 <div class="floorplan-designer__empty">Select or upload a floorplan to begin.</div>
             </ng-template>
+        </section>
+    </div>
+
+    <div *ngIf="versionDialogOpen" class="floorplan-designer__modal-backdrop" (mousedown)="$event.stopPropagation()" (click)="closeVersionDialog()">
+        <section class="floorplan-designer__version-dialog" role="dialog" aria-modal="true" aria-labelledby="floorplan-version-title" (click)="$event.stopPropagation()">
+            <header>
+                <div>
+                    <div class="floorplan-designer__kicker">Base Layer Version</div>
+                    <h2 id="floorplan-version-title">Version Control</h2>
+                </div>
+                <button mat-icon-button type="button" aria-label="Close version control" (click)="closeVersionDialog()">
+                    <mat-icon fontIcon="close"></mat-icon>
+                </button>
+            </header>
+            <p>
+                Upload a replacement base layer. The current image remains the previous version, while marks stay on their normalized floorplan positions.
+            </p>
+            <label class="floorplan-designer__file-pick">
+                <input type="file" accept="image/*,application/pdf" (change)="onVersionFileSelected($event)" />
+                <span>{{versionFile?.name || 'Choose replacement floorplan'}}</span>
+            </label>
+            <label class="floorplan-designer__field">
+                <span>Version Name</span>
+                <input class="floorplan-designer__input" [(ngModel)]="versionName" />
+            </label>
+            <label class="floorplan-designer__field">
+                <span>Version Notes</span>
+                <textarea class="floorplan-designer__textarea" rows="4" [(ngModel)]="versionNotes" placeholder="Optional notes for this base layer version"></textarea>
+            </label>
+            <footer>
+                <button mat-button type="button" (click)="closeVersionDialog()">Cancel</button>
+                <button mat-flat-button type="button" [disabled]="!versionFile" (click)="submitVersionRequest()">Create Version</button>
+            </footer>
         </section>
     </div>
 

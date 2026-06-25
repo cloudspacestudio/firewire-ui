@@ -24,7 +24,7 @@
             </thead>
             <tbody>
                 <tr *ngFor="let row of matrix.rows">
-                    <td class="fw-takeoff-area-cell fw-takeoff-row-label">{{row}}</td>
+                    <td class="fw-takeoff-area-cell fw-takeoff-row-label">{{getRowLabel(row)}}</td>
                     <td *ngFor="let column of columns" class="fw-takeoff-count-cell">
                         <span class="fw-takeoff-cell-value" [class.is-empty]="!getCellValue(row, column.key)">
                             {{getCellValue(row, column.key)}}

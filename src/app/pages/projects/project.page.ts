@@ -36,6 +36,7 @@ import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
+    ProjectFloorplanDesignAnnotation,
     ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from "../../common/services/project-doc-library-storage.service"
@@ -64,7 +65,24 @@ import { DeviceSetDetail, DeviceSetSummary } from "../../schemas/device-set.sche
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from "../design/floorplan-designer.dialog"
 import { FloorplanDesignerSymbolOption } from "../design/floorplan-designer.component"
 
+interface ProjectBomRowPart {
+    bomRowPartId: string
+    deviceId?: string | null
+    devicePartId?: string | null
+    partId?: string | null
+    vendorId?: string | null
+    vendorName?: string | null
+    partNumber: string
+    description: string
+    parentCategory?: string | null
+    category?: string | null
+    msrp?: number | null
+    cost?: number | null
+    quantityPerDevice: number
+}
+
 interface ProjectBomRow {
+    id: string
     partNbr: string
     description: string
     qty: number
@@ -73,6 +91,7 @@ interface ProjectBomRow {
     includeOnFloorplan: boolean
     type: string
     lookupQuery?: string
+    bomRowParts?: ProjectBomRowPart[]
 }
 
 interface ProjectBomSection {
@@ -111,6 +130,7 @@ type TakeoffValue = number | null
 interface TakeoffMatrix {
     title: string
     rows: string[]
+    rowLabels?: Record<string, string>
     values: Record<string, Record<string, TakeoffValue>>
 }
 
@@ -385,6 +405,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     systemMapHost?: ElementRef<HTMLDivElement>
 
     pageWorking = true
+    projectRecordMissing = false
     project?: AccountProjectSchema
     firewireProject?: FirewireProjectSchema
     fieldwireProjectId: string | null = null
@@ -504,6 +525,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     docLibraryStatusMessage = ''
     floorplanStatusMessage = ''
     floorplanUploadBusy = false
+    floorplanSavingFileIds: string[] = []
     takeoffMatrices: TakeoffMatrix[] = [
         this.createTakeoffMatrix('Matrix 1', [])
     ]
@@ -1254,7 +1276,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 sizeBytes: latestVersion?.sizeBytes || 0,
                 modifiedAt: latestVersion?.uploadedAt || file.updatedAt,
                 modifiedBy: latestVersion?.uploadedBy || 'Current User',
-                sourceFileName: latestVersion?.sourceFileName || file.name,
+                sourceFileName: file.sourceFileName || latestVersion?.sourceFileName || file.name,
                 versionCount: file.versions?.length || 0
             }
         })
@@ -1653,6 +1675,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row[field] = this.roundBomMoney(row[field])
     }
 
+    syncBomLaborToInstallLaborEstimate(): void {
+        this.baseManHourEstimate = this.getBomBaseManHourEstimate()
+    }
+
     getBomBaseManHourEstimate(): number {
         const laborCost = this.bomSections.reduce((sum, section) => {
             return sum + section.rows.reduce((rowSum, row) => rowSum + this.getBomRowExtLabor(row), 0)
@@ -1810,6 +1836,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     removeBomSection(sectionIndex: number): void {
         this.bomSections = this.bomSections.filter((_, idx) => idx !== sectionIndex)
         this.refreshTakeoffColumnDefinitions()
+        this.syncBomLaborToInstallLaborEstimate()
     }
 
     addBomRow(section: ProjectBomSection) {
@@ -1861,6 +1888,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
             this.bomSections = [...this.bomSections, nextSection]
             this.selectedDeviceSetId = ''
             this.refreshTakeoffColumnDefinitions()
+            this.syncBomLaborToInstallLaborEstimate()
             this.firewireSaveMessage = `Added ${detail.name} to BOM.`
         } catch (err: any) {
             this.firewireSaveMessage = err?.error?.message || err?.message || 'Unable to add device set to BOM.'
@@ -1877,6 +1905,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         section.rows = (section.rows || []).filter((item) => item !== row)
         this.bomSections = [...this.bomSections]
         this.refreshTakeoffColumnDefinitions()
+        this.syncBomLaborToInstallLaborEstimate()
         this.closeBomPartLookup()
     }
 
@@ -1985,18 +2014,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
             return []
         }
 
-        const allowedVendorIds = new Set((section.vendorIds || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
-        const allowedVendorNames = new Set((section.vendorNames || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
-
         return this.deviceRows
-            .filter((device) => {
-                if (allowedVendorIds.size <= 0 && allowedVendorNames.size <= 0) {
-                    return true
-                }
-                const deviceVendorId = String(device.vendorId || '').trim().toLowerCase()
-                const deviceVendorName = String(device.vendorName || '').trim().toLowerCase()
-                return allowedVendorIds.has(deviceVendorId) || allowedVendorNames.has(deviceVendorName)
-            })
             .filter((device) => {
                 const haystack = [
                     device.name,
@@ -2023,12 +2041,20 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.type = categoryName
         row.includeOnFloorplan = false
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
+        row.bomRowParts = this.createBomRowPartsFromVendorPart(part)
         this.refreshTakeoffColumnDefinitions()
+        this.syncBomLaborToInstallLaborEstimate()
         this.closeBomPartLookup()
     }
 
-    selectBomDevice(section: ProjectBomSection, row: ProjectBomRow, device: VwDevice): void {
+    async selectBomDevice(section: ProjectBomSection, row: ProjectBomRow, device: VwDevice): Promise<void> {
         const partNumber = String(device.partNumber || '').trim()
+        let materials: VwDeviceMaterial[] = []
+        try {
+            materials = await firstValueFrom(this.http.get<VwDeviceMaterial[]>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+        } catch {
+            materials = []
+        }
         row.partNbr = partNumber
         row.lookupQuery = partNumber
         row.description = String(device.name || device.shortName || '').trim()
@@ -2036,41 +2062,83 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.type = String(device.categoryName || '').trim()
         row.includeOnFloorplan = !!device.includeOnFloorplan
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
+        row.bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
         this.refreshTakeoffColumnDefinitions()
+        this.syncBomLaborToInstallLaborEstimate()
         this.closeBomPartLookup()
     }
 
     private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): ProjectBomRow[] {
         const typeValue = String(device?.categoryName || '').trim()
         const includeOnFloorplan = !!device?.includeOnFloorplan
+        const partNumber = String(device.partNumber || '').trim()
+        const bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
+        const snapshotCost = bomRowParts.length > 0
+            ? bomRowParts.reduce((sum, part) => sum + (Number(part.cost || 0) * Math.max(1, Number(part.quantityPerDevice || 1))), 0)
+            : Number(device.cost || 0)
 
-        if (!materials.length) {
-            const partNumber = String(device.partNumber || '').trim()
-            return [{
-                partNbr: partNumber,
-                lookupQuery: partNumber,
-                description: String(device.name || '').trim(),
-                qty: 0,
-                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0))),
-                labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
-                includeOnFloorplan,
-                type: typeValue
-            }]
+        return [{
+            id: this.createClientId(),
+            partNbr: partNumber,
+            lookupQuery: partNumber,
+            description: String(device.name || '').trim(),
+            qty: 0,
+            cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, snapshotCost)),
+            labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
+            includeOnFloorplan,
+            type: typeValue,
+            bomRowParts
+        }]
+    }
+
+    private createBomRowPartsFromVendorPart(part: VwPart): ProjectBomRowPart[] {
+        const partNumber = String(part.PartNumber || part.partNumber || '').trim()
+        if (!partNumber) {
+            return []
         }
+        const cost = this.roundBomMoney(part.SalesPrice ?? part.cost ?? 0)
+        return [{
+            bomRowPartId: this.createClientId(),
+            deviceId: null,
+            devicePartId: null,
+            partId: String(part.partId || part.ProductID || '').trim() || null,
+            vendorId: String(part.vendorId || '').trim() || null,
+            vendorName: String(part.vendorName || part.sourceVendorName || part.brand || '').trim() || null,
+            partNumber,
+            description: String(part.LongDescription || part.description || '').trim(),
+            parentCategory: String(part.ParentCategory || part.parentCategory || '').trim() || null,
+            category: String(part.Category || part.category || '').trim() || null,
+            msrp: Number(part.MSRPPrice ?? part.msrp ?? 0),
+            cost,
+            quantityPerDevice: 1
+        }]
+    }
 
-        return materials.map((material, index) => {
-            const partNumber = String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim()
-            return {
-                partNbr: partNumber,
-                lookupQuery: partNumber,
-                description: String(material.materialName || material.deviceName || device.name || '').trim(),
-                qty: 0,
-                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0))),
-                labor: index === 0 ? this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor)) : 0,
-                includeOnFloorplan,
-                type: typeValue
+    private createBomRowPartsFromDeviceMaterials(device: any, materials: VwDeviceMaterial[]): ProjectBomRowPart[] {
+        return (materials || []).map((material) => {
+            const row = material as VwDeviceMaterial & {
+                partNumber?: string
+                description?: string
+                materialCategoryName?: string
+                msrp?: number
+                cost?: number
             }
-        })
+            return {
+                bomRowPartId: this.createClientId(),
+                deviceId: String(device?.deviceId || '').trim() || null,
+                devicePartId: String(row.devicePartId || row.materialId || '').trim() || null,
+                partId: String(row.partId || '').trim() || null,
+                vendorId: String(row.vendorId || device?.vendorId || '').trim() || null,
+                vendorName: String(row.vendorName || row.org || device?.vendorName || '').trim() || null,
+                partNumber: String(row.materialPartNumber || row.partNumber || '').trim(),
+                description: String(row.materialName || row.description || '').trim(),
+                parentCategory: String(row.parentCategory || '').trim() || null,
+                category: String(row.category || row.materialCategoryName || '').trim() || null,
+                msrp: Number(row.materialMsrp ?? row.msrp ?? 0),
+                cost: Number(row.materialCost ?? row.cost ?? 0),
+                quantityPerDevice: Math.max(1, Math.floor(Number(row.quantityPerDevice || 1)))
+            }
+        }).filter((part) => !!part.partNumber)
     }
 
     private getCurrentVendorPrice(partNumber: string, vendorPartMap: Map<string, VwPart> | undefined, fallbackCost: number): number {
@@ -2698,10 +2766,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
         const rowEntries = this.getTakeoffFloorplanRowEntries()
         const rows = rowEntries.map((entry) => entry.rowKey)
+        const rowLabels: Record<string, string> = {}
         const placementCounts = this.getFloorplanCategoryPlacementCounts()
         const hasSymbolPlacements = placementCounts.size > 0
         const nextValues: Record<string, Record<string, TakeoffValue>> = {}
         rowEntries.forEach((entry, rowIndex) => {
+            rowLabels[entry.rowKey] = entry.rowLabel
             nextValues[entry.rowKey] = {}
             const rowCounts = placementCounts.get(entry.file.id)
             for (const column of columns) {
@@ -2714,26 +2784,29 @@ export class ProjectPage implements OnChanges, OnDestroy {
         })
 
         matrix.rows = rows
+        matrix.rowLabels = rowLabels
         matrix.values = nextValues
         this.takeoffMatrices = [matrix]
         this.takeoffColumnDefinitionCache = columns
     }
 
     private getTakeoffFloorplanRows(): string[] {
-        return this.getTakeoffFloorplanRowEntries().map((entry) => entry.rowKey)
+        return this.getTakeoffFloorplanRowEntries().map((entry) => entry.rowLabel)
     }
 
-    private getTakeoffFloorplanRowEntries(): Array<{ file: ProjectDocLibraryFileRecord; rowKey: string }> {
-        const counts = new Map<string, number>()
+    private getTakeoffFloorplanRowEntries(): Array<{ file: ProjectDocLibraryFileRecord; rowKey: string; rowLabel: string }> {
         return this.getFloorplanFiles().map((file) => {
-            const baseName = String(file.name || 'Floorplan').replace(/\.[^/.]+$/, '').trim() || 'Floorplan'
-            const count = (counts.get(baseName.toLowerCase()) || 0) + 1
-            counts.set(baseName.toLowerCase(), count)
             return {
                 file,
-                rowKey: count === 1 ? baseName : `${baseName} ${count}`
+                rowKey: file.id,
+                rowLabel: this.getFloorplanTakeoffLabel(file)
             }
         })
+    }
+
+    private getFloorplanTakeoffLabel(file: ProjectDocLibraryFileRecord): string {
+        return String(file.name || '').trim()
+            || this.projectDocLibraryStorage.getDisplayNameFromSourceFileName(this.projectDocLibraryStorage.getSourceFileName(file))
     }
 
     private getFloorplanCategoryPlacementCounts(): Map<string, Map<string, number>> {
@@ -2757,6 +2830,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     private getFloorplanDesignerSymbols(): FloorplanDesignerSymbolOption[] {
+        this.syncFloorplanAnnotationsToBomRows()
         const inventory = this.getFloorplanSymbolInventory()
         const placedCounts = this.getFloorplanSymbolPlacementCounts()
         return inventory.map((symbol) => {
@@ -2770,12 +2844,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     private getFloorplanSymbolInventory(): FloorplanDesignerSymbolOption[] {
+        this.ensureBomRowIds()
         const bySymbol = new Map<string, FloorplanDesignerSymbolOption>()
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
-                const categoryName = String(row.type || '').trim()
+                const categoryName = this.getFloorplanSymbolCategoryName(row)
                 const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
-                if (!row.includeOnFloorplan || !categoryName) {
+                if (!row.includeOnFloorplan) {
                     continue
                 }
 
@@ -2791,6 +2866,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
                 bySymbol.set(id, {
                     id,
+                    bomRowId: row.id,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
                     label: deviceName,
                     color: this.getFloorplanSymbolColor(categoryKey),
@@ -2825,6 +2901,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     private getFloorplanSymbolBalanceErrors(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): string[] {
+        this.syncFloorplanAnnotationsToBomRows(overrideFileId, overrideDesign)
         const inventory = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
         const placedCounts = this.getFloorplanSymbolPlacementCounts(overrideFileId, overrideDesign)
         const errors: string[] = []
@@ -2838,11 +2915,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     private syncFloorplanQuantitiesToBom(): void {
+        this.syncFloorplanAnnotationsToBomRows()
         const placedCounts = this.getFloorplanSymbolPlacementCounts()
         const synchronized = new Set<string>()
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
-                if (!row.includeOnFloorplan || !String(row.type || '').trim()) {
+                if (!row.includeOnFloorplan) {
                     continue
                 }
                 const symbolId = this.getFloorplanSymbolIdForBomRow(row)
@@ -2852,14 +2930,86 @@ export class ProjectPage implements OnChanges, OnDestroy {
         }
         this.bomSections = [...this.bomSections]
         this.refreshTakeoffColumnDefinitions()
+        this.syncBomLaborToInstallLaborEstimate()
     }
 
     private getFloorplanSymbolIdForBomRow(row: ProjectBomRow): string {
-        const categoryName = String(row.type || '').trim()
-        const categoryKey = `category-${this.normalizeTakeoffColumnKey(categoryName)}`
-        const partNumber = String(row.partNbr || '').trim()
-        const deviceName = String(row.description || row.partNbr || categoryName).trim()
-        return `${categoryKey}::${this.normalizeTakeoffColumnKey(partNumber || deviceName)}`
+        if (!String(row.id || '').trim()) {
+            row.id = this.createClientId()
+        }
+        return `bom-row-${row.id}`
+    }
+
+    private getFloorplanSymbolCategoryName(row: ProjectBomRow): string {
+        return String(row.type || row.description || row.partNbr || 'BOM Item').trim() || 'BOM Item'
+    }
+
+    private ensureBomRowIds(): void {
+        for (const section of this.bomSections || []) {
+            for (const row of section.rows || []) {
+                if (!String(row.id || '').trim()) {
+                    row.id = this.createClientId()
+                }
+            }
+        }
+    }
+
+    private syncFloorplanAnnotationsToBomRows(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): void {
+        const symbolsById = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
+        const syncDesign = (design?: ProjectFloorplanDesignState): boolean => {
+            let changed = false
+            for (const annotation of design?.annotations || []) {
+                if (annotation.kind !== 'symbol') {
+                    continue
+                }
+                const symbol = symbolsById.get(annotation.symbolId || '')
+                    || (annotation.bomRowId ? symbolsById.get(`bom-row-${annotation.bomRowId}`) : undefined)
+                if (!symbol) {
+                    continue
+                }
+                const updates: Partial<ProjectFloorplanDesignAnnotation> = {
+                    bomRowId: symbol.bomRowId,
+                    symbolId: symbol.id,
+                    categoryKey: symbol.categoryKey,
+                    categoryName: symbol.categoryName,
+                    partNumber: symbol.partNumber,
+                    deviceName: symbol.deviceName,
+                    materialCost: symbol.materialCost,
+                    laborHours: symbol.laborHours,
+                    customAttributes: symbol.customAttributes ? [...symbol.customAttributes] : undefined,
+                    symbol: symbol.code,
+                    label: symbol.label,
+                    color: symbol.color
+                }
+                for (const [key, value] of Object.entries(updates) as [keyof ProjectFloorplanDesignAnnotation, any][]) {
+                    if (key === 'customAttributes') {
+                        if (JSON.stringify(annotation.customAttributes || []) !== JSON.stringify(value || [])) {
+                            annotation.customAttributes = value
+                            changed = true
+                        }
+                        continue
+                    }
+                    if ((annotation as any)[key] !== value) {
+                        ;(annotation as any)[key] = value
+                        changed = true
+                    }
+                }
+            }
+            return changed
+        }
+
+        if (overrideDesign) {
+            syncDesign(overrideDesign)
+        }
+
+        for (const file of this.getFloorplanFiles()) {
+            if (overrideFileId && file.id === overrideFileId) {
+                continue
+            }
+            if (syncDesign(file.floorplanDesign)) {
+                file.updatedAt = new Date().toISOString()
+            }
+        }
     }
 
     private showFloorplanSymbolBalanceErrors(errors: string[]): void {
@@ -3498,6 +3648,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private createEmptyBomRow(): ProjectBomRow {
         return {
+            id: this.createClientId(),
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -3505,7 +3656,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             cost: 0,
             labor: 0,
             includeOnFloorplan: false,
-            type: ''
+            type: '',
+            bomRowParts: []
         }
     }
 
@@ -3521,6 +3673,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             vendorNames: Array.isArray(section?.vendorNames) ? section.vendorNames.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
             rows: Array.isArray(section?.rows) && section.rows.length > 0
                 ? section.rows.map((row: any) => ({
+                    id: String(row?.id || this.createClientId()),
                     partNbr: String(row?.partNbr || '').trim(),
                     lookupQuery: String(row?.partNbr || '').trim(),
                     description: String(row?.description || '').trim(),
@@ -3528,28 +3681,53 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                     cost: this.roundBomMoney(row?.cost),
                     labor: this.roundBomMoney(row?.labor),
                     includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
-                    type: String(row?.type || '').trim()
+                    type: String(row?.type || '').trim(),
+                    bomRowParts: this.cloneBomRowParts(row?.bomRowParts)
                 }))
                 : [this.createEmptyBomRow()]
         }))
     }
 
     private buildBomSectionSnapshot(): ProjectBomSection[] {
+        this.ensureBomRowIds()
         return (this.bomSections || []).map((section) => ({
             title: String(section.title || '').trim(),
             sectionKey: String(section.sectionKey || this.createClientId()),
             vendorIds: Array.isArray(section.vendorIds) ? [...section.vendorIds] : [],
             vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
             rows: (section.rows || []).map((row) => ({
+                id: String(row.id || this.createClientId()),
                 partNbr: String(row.partNbr || '').trim(),
                 description: String(row.description || '').trim(),
                 qty: Number(row.qty || 0),
                 cost: this.roundBomMoney(row.cost),
                 labor: this.roundBomMoney(row.labor),
                 includeOnFloorplan: !!row.includeOnFloorplan,
-                type: String(row.type || '').trim()
+                type: String(row.type || '').trim(),
+                bomRowParts: this.cloneBomRowParts(row.bomRowParts)
             }))
         }))
+    }
+
+    private cloneBomRowParts(input: unknown): ProjectBomRowPart[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((part: any) => ({
+            bomRowPartId: String(part?.bomRowPartId || this.createClientId()),
+            deviceId: String(part?.deviceId || '').trim() || null,
+            devicePartId: String(part?.devicePartId || '').trim() || null,
+            partId: String(part?.partId || '').trim() || null,
+            vendorId: String(part?.vendorId || '').trim() || null,
+            vendorName: String(part?.vendorName || '').trim() || null,
+            partNumber: String(part?.partNumber || '').trim(),
+            description: String(part?.description || '').trim(),
+            parentCategory: String(part?.parentCategory || '').trim() || null,
+            category: String(part?.category || '').trim() || null,
+            msrp: typeof part?.msrp === 'undefined' || part?.msrp === null ? null : Number(part.msrp),
+            cost: typeof part?.cost === 'undefined' || part?.cost === null ? null : Number(part.cost),
+            quantityPerDevice: Math.max(1, Math.floor(Number(part?.quantityPerDevice || 1)))
+        })).filter((part) => !!part.partNumber)
     }
 
     private normalizeBomRowFloorplanFlag(row: any): boolean {
@@ -3880,6 +4058,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
         this.docLibraryFiles = this.mergeDocLibraryFiles(workspace.files || [])
+        this.syncFloorplanQuantitiesToBom()
+        this.refreshTakeoffColumnDefinitions()
+        await firstValueFrom(this.saveFirewireProjectRequest({ silent: true }))
         this.floorplanStatusMessage = `Deleted ${file.name}.`
     }
 
@@ -3893,13 +4074,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             && item.name.toLowerCase() === normalizedFileName.toLowerCase())
 
         if (duplicate) {
-            const version = await this.projectDocLibraryStorage.uploadFileVersion(this.getDocLibraryStorageKey(), generatedFile, {
+            const duplicateStorageKey = String(duplicate.storageKey || this.getDocLibraryStorageKey()).trim() || this.getDocLibraryStorageKey()
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(duplicateStorageKey, generatedFile, {
                 fileId: duplicate.id,
                 versionId: this.createClientId(),
                 folderId: duplicate.folderId,
                 versionNumber: duplicate.versions.length + 1,
                 lastModified: generatedFile.lastModified
             })
+            duplicate.storageKey = duplicateStorageKey
             duplicate.versions.push(version)
             duplicate.updatedAt = now
         } else {
@@ -3976,11 +4159,12 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     private async uploadDocLibraryFileToFolder(file: File, folderId: string, confirmVersion: boolean, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
             item.folderId === folderId
-            && item.name.toLowerCase() === file.name.toLowerCase())
+            && this.projectDocLibraryStorage.hasSourceFileName(item, file.name))
         const now = new Date().toISOString()
         const projectKey = this.getDocLibraryStorageKey()
 
         if (duplicate) {
+            const duplicateStorageKey = String(duplicate.storageKey || projectKey).trim() || projectKey
             if (confirmVersion) {
                 const dialogRef = this.dialog.open(ProjectDocLibraryOverwriteDialog, {
                     panelClass: 'fw-medium-dialog-pane',
@@ -3995,7 +4179,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 }
             }
 
-            const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(duplicateStorageKey, file, {
                 fileId: duplicate.id,
                 versionId: this.createClientId(),
                 folderId,
@@ -4003,6 +4187,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 lastModified: file.lastModified
             })
             version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+            duplicate.storageKey = duplicateStorageKey
             duplicate.versions.push(version)
             duplicate.updatedAt = now
             return 'versioned'
@@ -4023,7 +4208,10 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             folderId,
             storageKey: projectKey,
             documentKind: this.projectDocLibraryStorage.getDocumentKindForFolder(folderId),
-            name: file.name,
+            sourceFileName: file.name,
+            name: folderId === this.floorplansFolderId
+                ? this.projectDocLibraryStorage.getDisplayNameFromSourceFileName(file.name)
+                : file.name,
             extension: this.getDocLibraryExtension(file.name),
             createdAt: now,
             updatedAt: now,
@@ -4131,7 +4319,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         const byKey = new Map<string, ProjectDocLibraryFileRecord>()
 
         for (const file of files) {
-            const fileKey = `${String(file.folderId || '').toLowerCase()}::${String(file.name || '').toLowerCase()}`
+            const fileKey = String(file.id || '').trim()
+                || `${String(file.folderId || '').toLowerCase()}::${String(file.sourceFileName || file.versions?.[0]?.sourceFileName || file.name || '').toLowerCase()}`
             const existing = byKey.get(fileKey)
             if (!existing) {
                 byKey.set(fileKey, {
@@ -4225,6 +4414,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private resetPageState() {
         this.pageWorking = true
+        this.projectRecordMissing = false
         this.project = undefined
         this.firewireProject = undefined
         this.fieldwireProjectId = null
@@ -4345,6 +4535,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.http.get(`/api/firewire/projects/firewire/${this.projectId}`).subscribe({
             next: (response: any) => {
                 if (response?.data) {
+                    this.projectRecordMissing = false
                     this.applyFirewireProject(response.data)
                     this.applyWorksheetState(response.data.worksheetData)
                     this.captureInitialProjectState()
@@ -4353,12 +4544,17 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                         this.loadLinkedFieldwireProject(response.data.fieldwireId)
                         return
                     }
+                } else {
+                    this.projectRecordMissing = true
                 }
                 this.ensureValidWorkspaceTabRoute()
                 this.pageWorking = false
             },
             error: (err: any) => {
-                this.firewireSaveMessage = err?.error?.message || err?.message || 'Unable to load project.'
+                this.projectRecordMissing = Number(err?.status || 0) === 404
+                this.firewireSaveMessage = this.projectRecordMissing
+                    ? ''
+                    : err?.error?.message || err?.message || 'Unable to load project.'
                 this.pageWorking = false
                 console.error(err)
             }
@@ -4990,11 +5186,15 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     async renameFloorplanFile(file: ProjectDocLibraryFileRecord): Promise<void> {
-        file.name = String(file.name || '').trim() || 'Floorplan'
-        file.extension = this.getDocLibraryExtension(file.name) || file.extension
-        file.updatedAt = new Date().toISOString()
-        await this.persistDocLibraryWorkspace()
-        this.floorplanStatusMessage = `Renamed ${file.name}.`
+        this.setFloorplanSaving(file.id, true)
+        try {
+            file.name = String(file.name || '').trim() || 'Floorplan'
+            file.updatedAt = new Date().toISOString()
+            await this.persistDocLibraryWorkspace()
+            this.floorplanStatusMessage = `Renamed ${file.name}.`
+        } finally {
+            this.setFloorplanSaving(file.id, false)
+        }
     }
 
     async openFloorplanDesigner(file: ProjectDocLibraryFileRecord): Promise<void> {
@@ -5014,13 +5214,31 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             return
         }
 
-        file.floorplanDesign = result.design
-        file.updatedAt = new Date().toISOString()
-        this.syncFloorplanQuantitiesToBom()
-        this.refreshTakeoffColumnDefinitions()
-        await this.persistDocLibraryWorkspace()
-        await firstValueFrom(this.saveFirewireProjectRequest({ silent: true }))
-        this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+        this.setFloorplanSaving(file.id, true)
+        try {
+            file.floorplanDesign = result.design
+            file.updatedAt = new Date().toISOString()
+            this.syncFloorplanQuantitiesToBom()
+            this.refreshTakeoffColumnDefinitions()
+            await this.persistDocLibraryWorkspace()
+            await firstValueFrom(this.saveFirewireProjectRequest({ silent: true }))
+            this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+        } finally {
+            this.setFloorplanSaving(file.id, false)
+        }
+    }
+
+    private setFloorplanSaving(fileId: string, saving: boolean): void {
+        if (!fileId) {
+            return
+        }
+        const ids = new Set(this.floorplanSavingFileIds)
+        if (saving) {
+            ids.add(fileId)
+        } else {
+            ids.delete(fileId)
+        }
+        this.floorplanSavingFileIds = [...ids]
     }
 
     private defaultBaseManHourEstimateFromBom(): void {
@@ -5191,12 +5409,12 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         return `"${escaped}"`
     }
 
-    private createTakeoffMatrix(title: string, rows: string[]): TakeoffMatrix {
+    private createTakeoffMatrix(title: string, rows: string[], rowLabels: Record<string, string> = {}): TakeoffMatrix {
         const values: Record<string, Record<string, TakeoffValue>> = {}
         for (const row of rows) {
             values[row] = {}
         }
-        return { title, rows, values }
+        return { title, rows, rowLabels, values }
     }
 
     private isGuidValue(value: any): boolean {

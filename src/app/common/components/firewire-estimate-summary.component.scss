@@ -1,0 +1,205 @@
+:host {
+    display: block;
+    min-width: 0;
+}
+
+.fw-estimate-summary {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.fw-estimate-summary__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+}
+
+.fw-estimate-summary__toolbar h4 {
+    margin: 6px 0 0;
+    color: #eaf6ff;
+    font-size: 1.05rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary__eyebrow {
+    color: #55d8ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.fw-estimate-summary__grand-total {
+    min-width: 210px;
+    border: 1px solid rgba(121, 255, 176, 0.26);
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: rgba(7, 33, 32, 0.78);
+}
+
+.fw-estimate-summary__grand-total--pretax {
+    background: rgba(12, 58, 37, 0.78);
+}
+
+.fw-estimate-summary__grand-total span {
+    display: block;
+    color: #8bc6af;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary__grand-total strong {
+    display: block;
+    margin-top: 5px;
+    color: #b7ffd0;
+    font-size: 1.1rem;
+}
+
+.fw-estimate-summary__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.fw-estimate-summary-card {
+    min-width: 0;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(10, 29, 45, 0.76);
+}
+
+.fw-estimate-summary-card--wide {
+    grid-column: 1 / -1;
+}
+
+.fw-estimate-summary-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.fw-estimate-summary-card__header h5 {
+    margin: 0;
+    color: #70d9ff;
+    font-size: 0.98rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary-card__header span {
+    color: #8faabd;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+}
+
+.fw-estimate-summary-table {
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(3, 10, 18, 0.62);
+}
+
+.fw-estimate-summary-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.fw-estimate-summary-table th,
+.fw-estimate-summary-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(168, 199, 217, 0.08);
+    color: #cbd9e6;
+    text-align: left;
+}
+
+.fw-estimate-summary-table th {
+    color: #70d9ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary-table .right-align {
+    text-align: right;
+}
+
+.fw-estimate-summary-table__total td {
+    background: rgba(72, 221, 255, 0.06);
+    color: #eaf6ff;
+    font-weight: 800;
+}
+
+.fw-estimate-summary__quote-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.fw-estimate-summary__quote-group {
+    display: grid;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(3, 10, 18, 0.62);
+}
+
+.fw-estimate-summary__quote-title {
+    color: #70d9ff;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.fw-estimate-summary__quote-row,
+.fw-estimate-summary__metric-list div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.fw-estimate-summary__quote-row span,
+.fw-estimate-summary__metric-list span {
+    color: #9eb6c8;
+}
+
+.fw-estimate-summary__quote-row strong,
+.fw-estimate-summary__metric-list strong {
+    color: #eaf6ff;
+}
+
+.fw-estimate-summary__metric-list {
+    display: grid;
+    gap: 9px;
+}
+
+@media (max-width: 900px) {
+    .fw-estimate-summary__toolbar,
+    .fw-estimate-summary__badges {
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    .fw-estimate-summary__toolbar,
+    .fw-estimate-summary__grid,
+    .fw-estimate-summary__quote-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fw-estimate-summary__toolbar {
+        display: grid;
+    }
+}

@@ -1,0 +1,180 @@
+<section class="fw-estimate-summary">
+    <div class="fw-estimate-summary__toolbar">
+        <div>
+            <div class="fw-estimate-summary__eyebrow">{{eyebrow}}</div>
+            <h4>{{title}}</h4>
+        </div>
+        <div class="fw-estimate-summary__badges">
+            <div class="fw-estimate-summary__grand-total fw-estimate-summary__grand-total--pretax">
+                <span>Pre-Tax</span>
+                <strong>{{summary.preTax | currency}}</strong>
+            </div>
+            <div class="fw-estimate-summary__grand-total">
+                <span>Quoted Price w/ Tax</span>
+                <strong>{{summary.quotedPriceWithTax | currency}}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="fw-estimate-summary__grid">
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Project Support</h5>
+                <span>Total Costs</span>
+            </div>
+            <div class="fw-estimate-summary-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Support</th>
+                            <th class="right-align">Hours</th>
+                            <th class="right-align">Cost</th>
+                            <th class="right-align">Est %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let row of summary.projectSupport">
+                            <td>{{row.label}}</td>
+                            <td class="right-align">{{(row.hours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{row.cost | currency}}</td>
+                            <td class="right-align">{{percentOfTotal(row.cost).toFixed(2)}}%</td>
+                        </tr>
+                        <tr class="fw-estimate-summary-table__total">
+                            <td>{{projectSupportTotal.label}}</td>
+                            <td class="right-align">{{(projectSupportTotal.hours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{projectSupportTotal.cost | currency}}</td>
+                            <td class="right-align">{{percentOfTotal(projectSupportTotal.cost).toFixed(2)}}%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Total Costs</h5>
+                <span>% Total Cost</span>
+            </div>
+            <div class="fw-estimate-summary-table">
+                <table>
+                    <tbody>
+                        <tr *ngFor="let row of summary.costs">
+                            <td>{{row.label}}</td>
+                            <td class="right-align">{{row.cost | currency}}</td>
+                            <td class="right-align">{{percentOfTotal(row.cost).toFixed(2)}}%</td>
+                        </tr>
+                        <tr class="fw-estimate-summary-table__total">
+                            <td>Total Job Cost</td>
+                            <td class="right-align">{{summary.totalCost | currency}}</td>
+                            <td class="right-align">100.00%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Installation Labor Summary</h5>
+                <span>Costs</span>
+            </div>
+            <div class="fw-estimate-summary-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Labor</th>
+                            <th class="right-align">Hours</th>
+                            <th class="right-align">OT Hours</th>
+                            <th class="right-align">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let row of summary.installationLabor">
+                            <td>{{row.label}}</td>
+                            <td class="right-align">{{(row.hours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{(row.overtimeHours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{row.cost | currency}}</td>
+                        </tr>
+                        <tr class="fw-estimate-summary-table__total">
+                            <td>{{laborTotal.label}}</td>
+                            <td class="right-align">{{(laborTotal.hours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{(laborTotal.overtimeHours || 0).toFixed(2)}}</td>
+                            <td class="right-align">{{laborTotal.cost | currency}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Material and Equipment Summary</h5>
+                <span>Tax + Totals</span>
+            </div>
+            <div class="fw-estimate-summary-table">
+                <table>
+                    <tbody>
+                        <tr><td>Installation Material Total</td><td class="right-align">{{summary.installationMaterialTotal | currency}}</td></tr>
+                        <tr><td>Equipment Material Total</td><td class="right-align">{{summary.equipmentMaterialTotal | currency}}</td></tr>
+                        <tr><td>Material Total</td><td class="right-align">{{totalMaterial | currency}}</td></tr>
+                        <tr><td>Material Tax</td><td class="right-align">{{summary.materialTaxAmount | currency}}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card fw-estimate-summary-card--wide">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Quote Summary</h5>
+                <span>{{summary.scopeLabel}}</span>
+            </div>
+            <div class="fw-estimate-summary__quote-grid">
+                <div class="fw-estimate-summary__quote-group">
+                    <div class="fw-estimate-summary__quote-title">Total Cost</div>
+                    <div class="fw-estimate-summary__quote-row"><span>Material</span><strong>{{totalMaterial | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Labor</span><strong>{{laborTotal.cost + projectSupportTotal.cost | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Total Job Cost</span><strong>{{summary.totalCost | currency}}</strong></div>
+                </div>
+                <div class="fw-estimate-summary__quote-group">
+                    <div class="fw-estimate-summary__quote-title">Pricing</div>
+                    <div class="fw-estimate-summary__quote-row"><span>Pre-Tax</span><strong>{{summary.preTax | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Margin $</span><strong>{{summary.marginAmount | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Quoted Price</span><strong>{{summary.quotedPrice | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Quoted Price w/ Tax</span><strong>{{summary.quotedPriceWithTax | currency}}</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Device Metrics</h5>
+                <span>Estimate</span>
+            </div>
+            <div class="fw-estimate-summary__metric-list">
+                <div><span>Device Count</span><strong>{{summary.deviceCount}}</strong></div>
+                <div><span>Engineering Hours / Per</span><strong>{{perDevice(summary.engineeringHours).toFixed(2)}}</strong></div>
+                <div><span>Engineering Dollars / Per</span><strong>{{perDevice(summary.engineeringDollars) | currency}}</strong></div>
+                <div><span>Field Hours / Per</span><strong>{{perDevice(summary.fieldHours).toFixed(2)}}</strong></div>
+                <div><span>Field Dollars / Per</span><strong>{{perDevice(summary.fieldDollars) | currency}}</strong></div>
+                <div><span>Material / Per</span><strong>{{perDevice(summary.installationMaterialTotal) | currency}}</strong></div>
+                <div><span>Contract Amount / Per</span><strong>{{perDevice(summary.quotedPriceWithTax) | currency}}</strong></div>
+            </div>
+        </div>
+
+        <div class="fw-estimate-summary-card">
+            <div class="fw-estimate-summary-card__header">
+                <h5>Square Feet Metrics</h5>
+                <span>Estimate</span>
+            </div>
+            <div class="fw-estimate-summary__metric-list">
+                <div><span>Square Feet</span><strong>{{summary.totalSqFt || 0}}</strong></div>
+                <div><span>Engineering Hours / Per</span><strong>{{perSqFt(summary.engineeringHours).toFixed(2)}}</strong></div>
+                <div><span>Engineering Dollars / Per</span><strong>{{perSqFt(summary.engineeringDollars) | currency}}</strong></div>
+                <div><span>Field Hours / Per</span><strong>{{perSqFt(summary.fieldHours).toFixed(2)}}</strong></div>
+                <div><span>Field Dollars / Per</span><strong>{{perSqFt(summary.fieldDollars) | currency}}</strong></div>
+                <div><span>Material / Per</span><strong>{{perSqFt(summary.installationMaterialTotal) | currency}}</strong></div>
+                <div><span>Contract Amount / Per</span><strong>{{perSqFt(summary.quotedPriceWithTax) | currency}}</strong></div>
+            </div>
+        </div>
+    </div>
+</section>

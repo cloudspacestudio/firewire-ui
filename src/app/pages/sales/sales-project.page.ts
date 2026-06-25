@@ -16,6 +16,7 @@ import { MatSelectModule } from '@angular/material/select'
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from '../../common/components/firewire-bom-worksheet.component'
 import { FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
+import { FirewireEstimateSummaryComponent, FirewireEstimateSummaryModel } from '../../common/components/firewire-estimate-summary.component'
 import { FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
 import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectType } from '../../schemas/firewire-project.schema'
@@ -24,6 +25,7 @@ import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
+    ProjectFloorplanDesignAnnotation,
     ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from '../../common/services/project-doc-library-storage.service'
@@ -36,10 +38,27 @@ import { VwPart } from '../../schemas/vwpart.schema'
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from '../design/floorplan-designer.dialog'
 import { FloorplanDesignerSymbolOption } from '../design/floorplan-designer.component'
 
-type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'FLOORPLANS' | 'DOC LIBRARY'
+type SalesWorkspaceTab = 'PROJECT DETAILS' | 'CUSTOMER INFO' | 'BOM' | 'FLOORPLANS' | 'DOC LIBRARY' | 'QUICK ESTIMATE'
 type SalesBomSortKey = 'partNbr' | 'description' | 'qty' | 'cost' | 'extCost' | 'labor' | 'extLabor' | 'includeOnFloorplan' | 'type'
 
+interface SalesBomRowPart {
+    bomRowPartId: string
+    deviceId?: string | null
+    devicePartId?: string | null
+    partId?: string | null
+    vendorId?: string | null
+    vendorName?: string | null
+    partNumber: string
+    description: string
+    parentCategory?: string | null
+    category?: string | null
+    msrp?: number | null
+    cost?: number | null
+    quantityPerDevice: number
+}
+
 interface SalesBomRow {
+    id: string
     partNbr: string
     description: string
     qty: number
@@ -48,6 +67,7 @@ interface SalesBomRow {
     includeOnFloorplan: boolean
     type: string
     lookupQuery?: string
+    bomRowParts?: SalesBomRowPart[]
 }
 
 interface SalesBomSection {
@@ -107,6 +127,7 @@ interface SalesFloorplanDeleteDialogData {
         PageToolbar,
         FirewireBomWorksheetComponent,
         FirewireDocLibraryExplorerComponent,
+        FirewireEstimateSummaryComponent,
         FirewireFloorplansComponent,
     ],
     providers: [HttpClient],
@@ -130,7 +151,7 @@ export class SalesProjectPage {
     private readonly devicePartPriceSync = inject(DevicePartPriceSyncService)
     private readonly dialog = inject(MatDialog)
     readonly projectTypeOptions = FIREWIRE_PROJECT_TYPE_OPTIONS
-    readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'FLOORPLANS', 'DOC LIBRARY']
+    readonly workspaceTabs: SalesWorkspaceTab[] = ['PROJECT DETAILS', 'CUSTOMER INFO', 'BOM', 'FLOORPLANS', 'DOC LIBRARY', 'QUICK ESTIMATE']
     readonly docLibraryImageTileMaxBytes = 4 * 1024 * 1024
 
     get bomWorksheetHost(): SalesProjectPage {
@@ -144,6 +165,7 @@ export class SalesProjectPage {
     docLibraryStatusMessage = ''
     docLibraryUploadBusy = false
     floorplanStatusMessage = ''
+    floorplanSavingFileIds: string[] = []
     floorplanUploadBusy = false
     activeTab: SalesWorkspaceTab = 'PROJECT DETAILS'
     selectedDocLibraryFolder = 'all'
@@ -228,6 +250,14 @@ export class SalesProjectPage {
         if (tab !== 'FLOORPLANS') {
             this.floorplanStatusMessage = ''
         }
+    }
+
+    getSalesProjectTitle(): string {
+        return this.projectForm.name?.trim() || this.project?.name?.trim() || 'Sales Project'
+    }
+
+    getSalesProjectStatus(): string {
+        return this.projectForm.projectStatus?.trim() || this.project?.projectStatus?.trim() || ''
     }
 
     onUploadFloorplansClick(): void {
@@ -414,6 +444,7 @@ export class SalesProjectPage {
     }
 
     private getFloorplanDesignerSymbols(): FloorplanDesignerSymbolOption[] {
+        this.syncFloorplanAnnotationsToBomRows()
         const inventory = this.getFloorplanSymbolInventory()
         const placedCounts = this.getFloorplanSymbolPlacementCounts()
         return inventory.map((symbol) => {
@@ -427,12 +458,13 @@ export class SalesProjectPage {
     }
 
     private getFloorplanSymbolInventory(): FloorplanDesignerSymbolOption[] {
+        this.ensureBomRowIds()
         const bySymbol = new Map<string, FloorplanDesignerSymbolOption>()
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
-                const categoryName = String(row.type || '').trim()
+                const categoryName = this.getFloorplanSymbolCategoryName(row)
                 const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
-                if (!row.includeOnFloorplan || !categoryName) {
+                if (!row.includeOnFloorplan) {
                     continue
                 }
 
@@ -448,6 +480,7 @@ export class SalesProjectPage {
 
                 bySymbol.set(id, {
                     id,
+                    bomRowId: row.id,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
                     label: deviceName,
                     color: this.getFloorplanSymbolColor(categoryKey),
@@ -482,6 +515,7 @@ export class SalesProjectPage {
     }
 
     private getFloorplanSymbolBalanceErrors(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): string[] {
+        this.syncFloorplanAnnotationsToBomRows(overrideFileId, overrideDesign)
         const inventory = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
         const placedCounts = this.getFloorplanSymbolPlacementCounts(overrideFileId, overrideDesign)
         const errors: string[] = []
@@ -495,11 +529,12 @@ export class SalesProjectPage {
     }
 
     private syncFloorplanQuantitiesToBom(): void {
+        this.syncFloorplanAnnotationsToBomRows()
         const placedCounts = this.getFloorplanSymbolPlacementCounts()
         const synchronized = new Set<string>()
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
-                if (!row.includeOnFloorplan || !String(row.type || '').trim()) {
+                if (!row.includeOnFloorplan) {
                     continue
                 }
                 const symbolId = this.getFloorplanSymbolIdForBomRow(row)
@@ -511,11 +546,82 @@ export class SalesProjectPage {
     }
 
     private getFloorplanSymbolIdForBomRow(row: SalesBomRow): string {
-        const categoryName = String(row.type || '').trim()
-        const categoryKey = `category-${this.normalizeFloorplanSymbolKey(categoryName)}`
-        const partNumber = String(row.partNbr || '').trim()
-        const deviceName = String(row.description || row.partNbr || categoryName).trim()
-        return `${categoryKey}::${this.normalizeFloorplanSymbolKey(partNumber || deviceName)}`
+        if (!String(row.id || '').trim()) {
+            row.id = this.createClientId()
+        }
+        return `bom-row-${row.id}`
+    }
+
+    private getFloorplanSymbolCategoryName(row: SalesBomRow): string {
+        return String(row.type || row.description || row.partNbr || 'BOM Item').trim() || 'BOM Item'
+    }
+
+    private ensureBomRowIds(): void {
+        for (const section of this.bomSections || []) {
+            for (const row of section.rows || []) {
+                if (!String(row.id || '').trim()) {
+                    row.id = this.createClientId()
+                }
+            }
+        }
+    }
+
+    private syncFloorplanAnnotationsToBomRows(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): void {
+        const symbolsById = new Map(this.getFloorplanSymbolInventory().map((symbol) => [symbol.id, symbol]))
+        const syncDesign = (design?: ProjectFloorplanDesignState): boolean => {
+            let changed = false
+            for (const annotation of design?.annotations || []) {
+                if (annotation.kind !== 'symbol') {
+                    continue
+                }
+                const symbol = symbolsById.get(annotation.symbolId || '')
+                    || (annotation.bomRowId ? symbolsById.get(`bom-row-${annotation.bomRowId}`) : undefined)
+                if (!symbol) {
+                    continue
+                }
+                const updates: Partial<ProjectFloorplanDesignAnnotation> = {
+                    bomRowId: symbol.bomRowId,
+                    symbolId: symbol.id,
+                    categoryKey: symbol.categoryKey,
+                    categoryName: symbol.categoryName,
+                    partNumber: symbol.partNumber,
+                    deviceName: symbol.deviceName,
+                    materialCost: symbol.materialCost,
+                    laborHours: symbol.laborHours,
+                    customAttributes: symbol.customAttributes ? [...symbol.customAttributes] : undefined,
+                    symbol: symbol.code,
+                    label: symbol.label,
+                    color: symbol.color
+                }
+                for (const [key, value] of Object.entries(updates) as [keyof ProjectFloorplanDesignAnnotation, any][]) {
+                    if (key === 'customAttributes') {
+                        if (JSON.stringify(annotation.customAttributes || []) !== JSON.stringify(value || [])) {
+                            annotation.customAttributes = value
+                            changed = true
+                        }
+                        continue
+                    }
+                    if ((annotation as any)[key] !== value) {
+                        ;(annotation as any)[key] = value
+                        changed = true
+                    }
+                }
+            }
+            return changed
+        }
+
+        if (overrideDesign) {
+            syncDesign(overrideDesign)
+        }
+
+        for (const file of this.getFloorplanFiles()) {
+            if (overrideFileId && file.id === overrideFileId) {
+                continue
+            }
+            if (syncDesign(file.floorplanDesign)) {
+                file.updatedAt = new Date().toISOString()
+            }
+        }
     }
 
     private showFloorplanSymbolBalanceErrors(errors: string[]): void {
@@ -642,6 +748,113 @@ export class SalesProjectPage {
 
     getBomGrandTotal(): number {
         return this.bomSections.reduce((sum, section) => sum + this.getBomSectionGrandTotal(section), 0)
+    }
+
+    getQuickEstimateSummary(): FirewireEstimateSummaryModel {
+        const installationMaterialTotal = this.getQuickEstimateInstallationMaterialTotal()
+        const installationLaborTotal = this.getQuickEstimateInstallationLaborTotal()
+        const projectSupportRows = [
+            { label: 'Project Management', hours: 0, cost: 0 },
+            { label: 'CAD Design', hours: 0, cost: 0 },
+            { label: 'Technical Labor', hours: 0, cost: 0 }
+        ]
+        const installationLaborRows = [
+            { label: 'Pipe & Wire Labor', hours: this.getQuickEstimateLaborHours(), overtimeHours: 0, cost: installationLaborTotal },
+            { label: 'Supervision Labor', hours: 0, overtimeHours: 0, cost: 0 },
+            { label: 'Mobilization Labor', hours: 0, overtimeHours: 0, cost: 0 }
+        ]
+        const totalCost = installationMaterialTotal + installationLaborTotal
+        const riskMultiplier = 1 + (this.getWorksheetSummaryNumber('summaryRiskProficiencyPercent', 0) / 100)
+        const preTax = totalCost * riskMultiplier
+        const marginPercent = this.getWorksheetSummaryNumber('summaryMarginPercent', this.getDefaultSummaryMarginPercent())
+        const marginAmount = preTax * (marginPercent / 100)
+        const quotedPrice = preTax + marginAmount
+        const materialTaxAmount = this.getQuickEstimateMaterialTaxAmount(installationMaterialTotal)
+        const quotedPriceWithTax = quotedPrice + materialTaxAmount
+
+        return {
+            projectSupport: projectSupportRows,
+            installationLabor: installationLaborRows,
+            costs: [
+                { label: 'Project Support', cost: 0 },
+                { label: 'Installation Labor', cost: installationLaborTotal },
+                { label: 'Installation Material', cost: installationMaterialTotal },
+                { label: 'Equipment', cost: 0 },
+                { label: 'Expenses', cost: 0 },
+                { label: 'Subcontracts', cost: 0 },
+                { label: 'Special Markup Items', cost: 0 }
+            ],
+            installationMaterialTotal,
+            equipmentMaterialTotal: 0,
+            materialTaxAmount,
+            totalCost,
+            preTax,
+            marginAmount,
+            quotedPrice,
+            quotedPriceWithTax,
+            scopeLabel: this.isQuickEstimateTurnkeyScope() ? 'Turnkey' : 'Smarts & Parts',
+            deviceCount: this.getQuickEstimateDeviceCount(),
+            totalSqFt: Number(this.projectForm.totalSqFt || 0),
+            engineeringHours: 0,
+            engineeringDollars: 0,
+            fieldHours: this.getQuickEstimateLaborHours(),
+            fieldDollars: installationLaborTotal
+        }
+    }
+
+    private getQuickEstimateInstallationMaterialTotal(): number {
+        return this.bomSections.reduce((sectionSum, section) => {
+            return sectionSum + (section.rows || []).reduce((rowSum, row) => rowSum + this.getBomRowExtCost(row), 0)
+        }, 0)
+    }
+
+    private getQuickEstimateInstallationLaborTotal(): number {
+        return this.bomSections.reduce((sectionSum, section) => {
+            return sectionSum + (section.rows || []).reduce((rowSum, row) => rowSum + this.getBomRowExtLabor(row), 0)
+        }, 0)
+    }
+
+    private getQuickEstimateLaborHours(): number {
+        return this.bomSections.reduce((sectionSum, section) => {
+            return sectionSum + (section.rows || []).reduce((rowSum, row) => {
+                const rowLabor = this.getBomRowExtLabor(row)
+                return rowSum + (this.defaultLaborHourlyRate > 0 ? rowLabor / this.defaultLaborHourlyRate : 0)
+            }, 0)
+        }, 0)
+    }
+
+    private getQuickEstimateDeviceCount(): number {
+        return this.bomSections.reduce((sectionSum, section) => {
+            return sectionSum + (section.rows || []).reduce((rowSum, row) => rowSum + Math.max(0, Math.trunc(Number(row.qty || 0))), 0)
+        }, 0)
+    }
+
+    private getQuickEstimateMaterialTaxAmount(installationMaterialTotal: number): number {
+        const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
+        const useInstallationMaterialTax = Boolean(
+            worksheetData['summaryUseInstallationMaterialTax']
+            ?? worksheetData['summaryUseMaterialTax']
+            ?? false
+        )
+        if (!useInstallationMaterialTax) {
+            return 0
+        }
+        const taxRate = this.getWorksheetSummaryNumber('summaryInstallationMaterialTaxRate', Number(worksheetData['summaryMaterialTaxRate'] ?? 8.25))
+        return installationMaterialTotal * (taxRate / 100)
+    }
+
+    private getWorksheetSummaryNumber(key: string, fallback: number): number {
+        const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
+        const value = Number(worksheetData[key])
+        return Number.isFinite(value) ? value : fallback
+    }
+
+    private getDefaultSummaryMarginPercent(): number {
+        return this.isQuickEstimateTurnkeyScope() ? 35 : 20
+    }
+
+    private isQuickEstimateTurnkeyScope(): boolean {
+        return String(this.projectForm.projectScope || '').toLowerCase().includes('turnkey')
     }
 
     normalizeBomMoneyField(row: SalesBomRow, field: 'cost' | 'labor'): void {
@@ -818,18 +1031,7 @@ export class SalesProjectPage {
             return []
         }
 
-        const allowedVendorIds = new Set((section.vendorIds || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
-        const allowedVendorNames = new Set((section.vendorNames || []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean))
-
         return this.deviceRows
-            .filter((device) => {
-                if (allowedVendorIds.size <= 0 && allowedVendorNames.size <= 0) {
-                    return true
-                }
-                const deviceVendorId = String(device.vendorId || '').trim().toLowerCase()
-                const deviceVendorName = String(device.vendorName || '').trim().toLowerCase()
-                return allowedVendorIds.has(deviceVendorId) || allowedVendorNames.has(deviceVendorName)
-            })
             .filter((device) => {
                 const haystack = [
                     device.name,
@@ -856,12 +1058,19 @@ export class SalesProjectPage {
         row.type = categoryName
         row.includeOnFloorplan = false
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
+        row.bomRowParts = this.createBomRowPartsFromVendorPart(part)
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr} from vendor parts.`
     }
 
-    selectBomDevice(section: SalesBomSection, row: SalesBomRow, device: VwDevice): void {
+    async selectBomDevice(section: SalesBomSection, row: SalesBomRow, device: VwDevice): Promise<void> {
         const partNumber = String(device.partNumber || '').trim()
+        let materials: VwDeviceMaterial[] = []
+        try {
+            materials = await firstValueFrom(this.http.get<VwDeviceMaterial[]>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+        } catch {
+            materials = []
+        }
         row.partNbr = partNumber
         row.lookupQuery = partNumber
         row.description = String(device.name || device.shortName || '').trim()
@@ -869,6 +1078,7 @@ export class SalesProjectPage {
         row.type = String(device.categoryName || '').trim()
         row.includeOnFloorplan = !!device.includeOnFloorplan
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
+        row.bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
     }
@@ -1054,6 +1264,8 @@ export class SalesProjectPage {
         const workspace = await this.projectDocLibraryStorage.deleteFile(file.storageKey || this.getDocLibraryStorageKey(), fileId)
         this.docLibraryFiles = [...(workspace.files || [])]
         this.docLibraryDirectories = [...(workspace.directories || this.docLibraryDirectories)]
+        this.syncFloorplanQuantitiesToBom()
+        await this.persistBomAfterFloorplanSync()
         this.floorplanStatusMessage = `Deleted ${file.name}.`
     }
 
@@ -1230,12 +1442,16 @@ export class SalesProjectPage {
     }
 
     async renameFloorplanFile(file: ProjectDocLibraryFileRecord): Promise<void> {
-        const normalizedName = String(file.name || '').trim() || 'Floorplan'
-        file.name = normalizedName
-        file.extension = this.getDocLibraryExtension(normalizedName) || file.extension
-        file.updatedAt = new Date().toISOString()
-        await this.persistDocLibraryWorkspace()
-        this.floorplanStatusMessage = `Renamed ${file.name}.`
+        this.setFloorplanSaving(file.id, true)
+        try {
+            const normalizedName = String(file.name || '').trim() || 'Floorplan'
+            file.name = normalizedName
+            file.updatedAt = new Date().toISOString()
+            await this.persistDocLibraryWorkspace()
+            this.floorplanStatusMessage = `Renamed ${file.name}.`
+        } finally {
+            this.setFloorplanSaving(file.id, false)
+        }
     }
 
     async openFloorplanDesigner(file: ProjectDocLibraryFileRecord): Promise<void> {
@@ -1255,12 +1471,30 @@ export class SalesProjectPage {
             return
         }
 
-        file.floorplanDesign = result.design
-        file.updatedAt = new Date().toISOString()
-        await this.persistDocLibraryWorkspace()
-        this.syncFloorplanQuantitiesToBom()
-        await this.persistBomAfterFloorplanSync()
-        this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+        this.setFloorplanSaving(file.id, true)
+        try {
+            file.floorplanDesign = result.design
+            file.updatedAt = new Date().toISOString()
+            await this.persistDocLibraryWorkspace()
+            this.syncFloorplanQuantitiesToBom()
+            await this.persistBomAfterFloorplanSync()
+            this.floorplanStatusMessage = `Saved design markup for ${file.name}.`
+        } finally {
+            this.setFloorplanSaving(file.id, false)
+        }
+    }
+
+    private setFloorplanSaving(fileId: string, saving: boolean): void {
+        if (!fileId) {
+            return
+        }
+        const ids = new Set(this.floorplanSavingFileIds)
+        if (saving) {
+            ids.add(fileId)
+        } else {
+            ids.delete(fileId)
+        }
+        this.floorplanSavingFileIds = [...ids]
     }
 
     private async persistBomAfterFloorplanSync(): Promise<void> {
@@ -1326,34 +1560,74 @@ export class SalesProjectPage {
     private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): SalesBomRow[] {
         const typeValue = String(device?.categoryName || '').trim()
         const includeOnFloorplan = !!device?.includeOnFloorplan
+        const partNumber = String(device.partNumber || '').trim()
+        const bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
+        const snapshotCost = bomRowParts.length > 0
+            ? bomRowParts.reduce((sum, part) => sum + (Number(part.cost || 0) * Math.max(1, Number(part.quantityPerDevice || 1))), 0)
+            : Number(device.cost || 0)
 
-        if (!materials.length) {
-            const partNumber = String(device.partNumber || '').trim()
-            return [{
-                partNbr: partNumber,
-                lookupQuery: partNumber,
-                description: String(device.name || '').trim(),
-                qty: 0,
-                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(device.cost || 0))),
-                labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
-                includeOnFloorplan,
-                type: typeValue
-            }]
+        return [{
+            id: this.createClientId(),
+            partNbr: partNumber,
+            lookupQuery: partNumber,
+            description: String(device.name || '').trim(),
+            qty: 0,
+            cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, snapshotCost)),
+            labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
+            includeOnFloorplan,
+            type: typeValue,
+            bomRowParts
+        }]
+    }
+
+    private createBomRowPartsFromVendorPart(part: VwPart): SalesBomRowPart[] {
+        const partNumber = String(part.PartNumber || part.partNumber || '').trim()
+        if (!partNumber) {
+            return []
         }
+        const cost = this.roundBomMoney(part.SalesPrice ?? part.cost ?? 0)
+        return [{
+            bomRowPartId: this.createClientId(),
+            deviceId: null,
+            devicePartId: null,
+            partId: String(part.partId || part.ProductID || '').trim() || null,
+            vendorId: String(part.vendorId || '').trim() || null,
+            vendorName: String(part.vendorName || part.sourceVendorName || part.brand || '').trim() || null,
+            partNumber,
+            description: String(part.LongDescription || part.description || '').trim(),
+            parentCategory: String(part.ParentCategory || part.parentCategory || '').trim() || null,
+            category: String(part.Category || part.category || '').trim() || null,
+            msrp: Number(part.MSRPPrice ?? part.msrp ?? 0),
+            cost,
+            quantityPerDevice: 1
+        }]
+    }
 
-        return materials.map((material, index) => {
-            const partNumber = String(material.materialPartNumber || material.partNumber || device.partNumber || '').trim()
-            return {
-                partNbr: partNumber,
-                lookupQuery: partNumber,
-                description: String(material.materialName || material.deviceName || device.name || '').trim(),
-                qty: 0,
-                cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, Number(material.materialCost || material.cost || device.cost || 0))),
-                labor: index === 0 ? this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor ?? material.materialDefaultLabor)) : 0,
-                includeOnFloorplan,
-                type: typeValue
+    private createBomRowPartsFromDeviceMaterials(device: any, materials: VwDeviceMaterial[]): SalesBomRowPart[] {
+        return (materials || []).map((material) => {
+            const row = material as VwDeviceMaterial & {
+                partNumber?: string
+                description?: string
+                materialCategoryName?: string
+                msrp?: number
+                cost?: number
             }
-        })
+            return {
+                bomRowPartId: this.createClientId(),
+                deviceId: String(device?.deviceId || '').trim() || null,
+                devicePartId: String(row.devicePartId || row.materialId || '').trim() || null,
+                partId: String(row.partId || '').trim() || null,
+                vendorId: String(row.vendorId || device?.vendorId || '').trim() || null,
+                vendorName: String(row.vendorName || row.org || device?.vendorName || '').trim() || null,
+                partNumber: String(row.materialPartNumber || row.partNumber || '').trim(),
+                description: String(row.materialName || row.description || '').trim(),
+                parentCategory: String(row.parentCategory || '').trim() || null,
+                category: String(row.category || row.materialCategoryName || '').trim() || null,
+                msrp: Number(row.materialMsrp ?? row.msrp ?? 0),
+                cost: Number(row.materialCost ?? row.cost ?? 0),
+                quantityPerDevice: Math.max(1, Math.floor(Number(row.quantityPerDevice || 1)))
+            }
+        }).filter((part) => !!part.partNumber)
     }
 
     private getDefaultLaborCost(value: unknown): number {
@@ -1397,12 +1671,13 @@ export class SalesProjectPage {
 
     private async uploadFileToDocLibraryFolder(file: File, folderId: string, confirmVersion = false, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
-            item.folderId === folderId && item.name.toLowerCase() === file.name.toLowerCase())
+            item.folderId === folderId && this.projectDocLibraryStorage.hasSourceFileName(item, file.name))
         const now = new Date().toISOString()
         const projectKey = this.getDocLibraryStorageKey()
 
         if (duplicate) {
-            const version = await this.projectDocLibraryStorage.uploadFileVersion(projectKey, file, {
+            const duplicateStorageKey = String(duplicate.storageKey || projectKey).trim() || projectKey
+            const version = await this.projectDocLibraryStorage.uploadFileVersion(duplicateStorageKey, file, {
                 fileId: duplicate.id,
                 versionId: this.createClientId(),
                 folderId,
@@ -1410,6 +1685,7 @@ export class SalesProjectPage {
                 lastModified: file.lastModified
             })
             version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
+            duplicate.storageKey = duplicateStorageKey
             duplicate.versions.push(version)
             duplicate.updatedAt = now
             return 'versioned'
@@ -1431,7 +1707,10 @@ export class SalesProjectPage {
                 folderId,
                 storageKey: projectKey,
                 documentKind: this.projectDocLibraryStorage.getDocumentKindForFolder(folderId),
-                name: file.name,
+                sourceFileName: file.name,
+                name: folderId === this.floorplansFolderId
+                    ? this.projectDocLibraryStorage.getDisplayNameFromSourceFileName(file.name)
+                    : file.name,
                 extension: this.getDocLibraryExtension(file.name),
                 createdAt: now,
                 updatedAt: now,
@@ -1594,6 +1873,7 @@ export class SalesProjectPage {
             vendorNames: Array.isArray(section?.vendorNames) ? section.vendorNames.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
             rows: Array.isArray(section?.rows) && section.rows.length > 0
                 ? section.rows.map((row: any) => ({
+                    id: String(row?.id || this.createClientId()),
                     partNbr: String(row?.partNbr || '').trim(),
                     lookupQuery: String(row?.partNbr || '').trim(),
                     description: String(row?.description || '').trim(),
@@ -1601,7 +1881,8 @@ export class SalesProjectPage {
                     cost: this.roundBomMoney(row?.cost),
                     labor: this.roundBomMoney(row?.labor),
                     includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
-                    type: String(row?.type || '').trim()
+                    type: String(row?.type || '').trim(),
+                    bomRowParts: this.cloneBomRowParts(row?.bomRowParts)
                 }))
                 : [this.createEmptyBomRow()]
         }))
@@ -1609,6 +1890,7 @@ export class SalesProjectPage {
 
     private createEmptyBomRow(): SalesBomRow {
         return {
+            id: this.createClientId(),
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -1616,26 +1898,51 @@ export class SalesProjectPage {
             cost: 0,
             labor: 0,
             includeOnFloorplan: false,
-            type: ''
+            type: '',
+            bomRowParts: []
         }
     }
 
     private buildWorksheetBomSections(source: SalesBomSection[] = this.bomSections): SalesBomSection[] {
+        this.ensureBomRowIds()
         return (source || []).map((section) => ({
             title: String(section.title || '').trim(),
             sectionKey: String(section.sectionKey || this.createClientId()),
             vendorIds: Array.isArray(section.vendorIds) ? [...section.vendorIds] : [],
             vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
             rows: (section.rows || []).map((row) => ({
+                id: String(row.id || this.createClientId()),
                 partNbr: String(row.partNbr || '').trim(),
                 description: String(row.description || '').trim(),
                 qty: Number(row.qty || 0),
                 cost: this.roundBomMoney(row.cost),
                 labor: this.roundBomMoney(row.labor),
                 includeOnFloorplan: !!row.includeOnFloorplan,
-                type: String(row.type || '').trim()
+                type: String(row.type || '').trim(),
+                bomRowParts: this.cloneBomRowParts(row.bomRowParts)
             }))
         }))
+    }
+
+    private cloneBomRowParts(input: unknown): SalesBomRowPart[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((part: any) => ({
+            bomRowPartId: String(part?.bomRowPartId || this.createClientId()),
+            deviceId: String(part?.deviceId || '').trim() || null,
+            devicePartId: String(part?.devicePartId || '').trim() || null,
+            partId: String(part?.partId || '').trim() || null,
+            vendorId: String(part?.vendorId || '').trim() || null,
+            vendorName: String(part?.vendorName || '').trim() || null,
+            partNumber: String(part?.partNumber || '').trim(),
+            description: String(part?.description || '').trim(),
+            parentCategory: String(part?.parentCategory || '').trim() || null,
+            category: String(part?.category || '').trim() || null,
+            msrp: typeof part?.msrp === 'undefined' || part?.msrp === null ? null : Number(part.msrp),
+            cost: typeof part?.cost === 'undefined' || part?.cost === null ? null : Number(part.cost),
+            quantityPerDevice: Math.max(1, Math.floor(Number(part?.quantityPerDevice || 1)))
+        })).filter((part) => !!part.partNumber)
     }
 
     private normalizeBomRowFloorplanFlag(row: any): boolean {

@@ -14,14 +14,26 @@
 }
 
 .project-toolbar-nav button {
+    flex: 0 0 auto;
     margin-right: 0 !important;
     border-radius: var(--fw-control-radius) !important;
     min-height: 38px;
-    min-width: 0;
-    padding-inline: 12px;
+    min-width: max-content;
+    width: auto;
+    padding-inline: 14px;
     letter-spacing: 0.12em;
     font-size: 0.72rem;
+    line-height: 1;
     text-transform: uppercase;
+    white-space: nowrap;
+}
+
+:host ::ng-deep .project-toolbar-nav button .mdc-button__label {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    overflow: visible;
+    white-space: nowrap;
 }
 
 .project-toolbar-nav button.active {
@@ -139,6 +151,76 @@
 
 .project-delete-menu-item mat-icon {
     color: rgba(255, 112, 112, 0.92);
+}
+
+.project-not-found-panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 620px);
+    gap: 20px;
+    align-items: start;
+    max-width: 860px;
+    margin: 76px auto 0;
+    padding: 24px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 0;
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.10), rgba(255, 164, 61, 0.07)),
+        rgba(8, 14, 25, 0.94);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.project-not-found-panel__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border: 1px solid rgba(72, 221, 255, 0.32);
+    background: rgba(72, 221, 255, 0.08);
+    color: var(--fw-accent-2);
+}
+
+.project-not-found-panel__icon mat-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 30px;
+}
+
+.project-not-found-panel__kicker {
+    color: var(--fw-accent-2);
+    font-size: 0.74rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.project-not-found-panel h2 {
+    margin: 8px 0;
+    color: var(--fw-text);
+    font-size: 1.7rem;
+}
+
+.project-not-found-panel p {
+    margin: 0;
+    max-width: 560px;
+    color: rgba(230, 246, 255, 0.74);
+    line-height: 1.5;
+}
+
+.project-not-found-panel__actions {
+    display: flex;
+    margin-top: 18px;
+}
+
+.project-not-found-panel__actions button {
+    border-radius: 0 !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+    .project-not-found-panel {
+        grid-template-columns: 1fr;
+        margin-top: 32px;
+    }
 }
 
 .project-upload-toast {

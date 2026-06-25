@@ -172,8 +172,9 @@ export class FieldwireProjectsPage implements OnInit, AfterViewInit {
         }
 
         const dialogRef = this.dialog.open(CreateFirewireProjectDialog, {
-            width: '860px',
-            maxWidth: '95vw',
+            width: 'min(980px, calc(100vw - 48px))',
+            maxWidth: 'min(980px, calc(100vw - 48px))',
+            panelClass: 'fw-create-firewire-project-dialog-pane',
             data: {
                 fieldwireProject: row,
                 projectSettings: this.projectSettings

@@ -54,11 +54,31 @@ interface EditableSubTask {
 type DeviceEditView = 'details' | 'vendor-parts'
 
 interface LinkedPartDisplayRow {
+    devicePartId?: string | null
+    partId?: string | null
+    vendorId?: string
+    vendorName?: string | null
     partNumber: string
     description: string
+    parentCategory?: string | null
     category: string
     cost: number | null
     msrp: number | null
+    quantityPerDevice: number
+}
+
+interface EditableDevicePart {
+    devicePartId?: string | null
+    partId?: string | null
+    vendorId: string
+    vendorName?: string | null
+    partNumber: string
+    description: string
+    parentCategory?: string | null
+    category?: string | null
+    msrp?: number | null
+    cost?: number | null
+    quantityPerDevice: number
 }
 
 interface DeviceMediaFile {
@@ -125,6 +145,7 @@ export class DeviceDetailComponent implements OnChanges {
 
     editDevice: Partial<VwDevice> = {}
     editLinkedPartNumbers: string[] = []
+    editDeviceParts: EditableDevicePart[] = []
     editAttributes: EditableAttribute[] = []
     editSubTasks: EditableSubTask[] = []
     vendorPartFilter = ''
@@ -212,7 +233,10 @@ export class DeviceDetailComponent implements OnChanges {
                 strobeAddress: this.readBooleanMode(this.device.strobeAddress),
                 laborRate: this.getDeviceLaborRate()
             }
-            this.editLinkedPartNumbers = this.deviceMaterials.map((row) => String(row.materialPartNumber || '').trim()).filter(Boolean)
+            this.editDeviceParts = this.deviceMaterials
+                .map((row) => this.createEditableDevicePartFromMaterial(row))
+                .filter((row) => !!row.partNumber && !!row.vendorId)
+            this.editLinkedPartNumbers = this.editDeviceParts.map((row) => row.partNumber)
             this.editAttributes = this.sortAttributes().map((attribute) => ({
                 name: attribute.name,
                 statusId: attribute.statusId,
@@ -262,24 +286,28 @@ export class DeviceDetailComponent implements OnChanges {
             data: {
                 vendors: this.vendors,
                 initialPartNumbers: [...this.editLinkedPartNumbers],
+                initialDeviceParts: this.editDeviceParts.map((part) => ({ ...part })),
                 defaultVendorId: this.resolveDefaultVendorPartVendorId(this.device),
                 deviceMaterials: this.deviceMaterials
             }
         })
         const result = await firstValueFrom(dialogRef.afterClosed())
-        if (!result || !Array.isArray(result.partNumbers)) {
+        if (!result || !Array.isArray(result.deviceParts)) {
             this.activeEditView = 'details'
             return
         }
         const mergedParts = new Map<string, VwPart>()
         for (const row of this.vendorPartRows) {
-            mergedParts.set(String(row.PartNumber || '').trim(), row)
+            mergedParts.set(this.getVendorPartKey(String((row as any).vendorId || this.selectedVendorPartVendorId || ''), String(row.PartNumber || '')), row)
         }
         for (const row of Array.isArray(result.parts) ? result.parts : []) {
-            mergedParts.set(String(row.PartNumber || '').trim(), row)
+            mergedParts.set(this.getVendorPartKey(String((row as any).vendorId || this.selectedVendorPartVendorId || ''), String(row.PartNumber || '')), row)
         }
         this.vendorPartRows = [...mergedParts.values()].filter((row) => String(row.PartNumber || '').trim())
-        this.editLinkedPartNumbers = result.partNumbers.map((value: unknown) => String(value || '').trim()).filter(Boolean)
+        this.editDeviceParts = result.deviceParts
+            .map((part: EditableDevicePart) => this.normalizeEditableDevicePart(part))
+            .filter((part: EditableDevicePart) => !!part.vendorId && !!part.partNumber)
+        this.editLinkedPartNumbers = this.editDeviceParts.map((part) => part.partNumber)
         this.syncDeviceCostFromLinkedParts()
         this.activeEditView = 'details'
     }
@@ -387,6 +415,10 @@ export class DeviceDetailComponent implements OnChanges {
                 laborRate: this.getDeviceLaborRate()
             },
             partNumbers: [...this.editLinkedPartNumbers],
+            deviceParts: this.editDeviceParts.map((part, index) => ({
+                ...this.normalizeEditableDevicePart(part),
+                sortOrder: index
+            })),
             attributes: this.editAttributes.map((attribute, index) => ({
                 ...attribute,
                 ordinal: index,
@@ -414,20 +446,25 @@ export class DeviceDetailComponent implements OnChanges {
         }
     }
 
-    addLinkedPart(partNumber: string) {
-        const normalizedPartNumber = String(partNumber || '').trim()
-        if (!normalizedPartNumber) {
+    addLinkedPart(part: VwPart | string) {
+        const nextPart = typeof part === 'string'
+            ? this.createEditableDevicePartFromLookup(part)
+            : this.createEditableDevicePartFromVendorPart(part, this.selectedVendorPartVendorId)
+        if (!nextPart?.partNumber || !nextPart.vendorId) {
             return
         }
-        if (!this.editLinkedPartNumbers.includes(normalizedPartNumber)) {
-            this.editLinkedPartNumbers = [...this.editLinkedPartNumbers, normalizedPartNumber]
+        const key = this.getVendorPartKey(nextPart.vendorId, nextPart.partNumber)
+        if (!this.editDeviceParts.some((row) => this.getVendorPartKey(row.vendorId, row.partNumber) === key)) {
+            this.editDeviceParts = [...this.editDeviceParts, nextPart]
         }
+        this.editLinkedPartNumbers = this.editDeviceParts.map((row) => row.partNumber)
         this.syncDeviceCostFromLinkedParts()
         this.applyVendorPartFilters()
     }
 
     removeLinkedPart(index: number) {
-        this.editLinkedPartNumbers = this.editLinkedPartNumbers.filter((_, rowIndex) => rowIndex !== index)
+        this.editDeviceParts = this.editDeviceParts.filter((_, rowIndex) => rowIndex !== index)
+        this.editLinkedPartNumbers = this.editDeviceParts.map((row) => row.partNumber)
         this.syncDeviceCostFromLinkedParts()
         this.applyVendorPartFilters()
     }
@@ -572,33 +609,56 @@ export class DeviceDetailComponent implements OnChanges {
     }
 
     isLinkedPartSelected(partNumber: string): boolean {
-        return this.editLinkedPartNumbers.includes(String(partNumber || '').trim())
+        const key = this.getVendorPartKey(this.selectedVendorPartVendorId, partNumber)
+        return this.editDeviceParts.some((part) => this.getVendorPartKey(part.vendorId, part.partNumber) === key)
     }
 
-    getLinkedPartDisplayRow(partNumber: string): LinkedPartDisplayRow {
-        const normalizedPartNumber = String(partNumber || '').trim()
+    getLinkedPartDisplayRow(part: string | EditableDevicePart): LinkedPartDisplayRow {
+        if (typeof part !== 'string') {
+            const normalized = this.normalizeEditableDevicePart(part)
+            return {
+                ...normalized,
+                category: String(normalized.category || normalized.parentCategory || '').trim(),
+                cost: Number.isFinite(Number(normalized.cost)) ? Number(normalized.cost) : null,
+                msrp: Number.isFinite(Number(normalized.msrp)) ? Number(normalized.msrp) : null
+            }
+        }
+
+        const normalizedPartNumber = String(part || '').trim()
         const linkedMaterial = this.deviceMaterials.find((row) => String(row.materialPartNumber || '').trim() === normalizedPartNumber)
         const vendorPart = this.vendorPartRows.find((row) => String(row.PartNumber || '').trim() === normalizedPartNumber)
 
         return {
+            devicePartId: linkedMaterial?.devicePartId || linkedMaterial?.materialId || null,
+            partId: linkedMaterial?.partId || null,
+            vendorId: linkedMaterial?.vendorId || this.selectedVendorPartVendorId,
+            vendorName: linkedMaterial?.vendorName || this.getVendorName(linkedMaterial?.vendorId || this.selectedVendorPartVendorId),
             partNumber: normalizedPartNumber,
             description: String(linkedMaterial?.materialName || vendorPart?.LongDescription || '').trim(),
-            category: String(vendorPart?.Category || vendorPart?.ParentCategory || linkedMaterial?.deviceCategoryName || '').trim(),
+            parentCategory: String(linkedMaterial?.parentCategory || vendorPart?.ParentCategory || '').trim(),
+            category: String(linkedMaterial?.category || vendorPart?.Category || vendorPart?.ParentCategory || linkedMaterial?.deviceCategoryName || '').trim(),
             cost: linkedMaterial?.materialCost ?? vendorPart?.SalesPrice ?? null,
-            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null
+            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null,
+            quantityPerDevice: this.normalizeQuantity(linkedMaterial?.quantityPerDevice)
         }
     }
 
     getVisibleVendorPartRows(): LinkedPartDisplayRow[] {
         if (this.editMode) {
-            return this.editLinkedPartNumbers.map((partNumber) => this.getLinkedPartDisplayRow(partNumber))
+            return this.editDeviceParts.map((part) => this.getLinkedPartDisplayRow(part))
         }
         return this.deviceMaterials.map((material) => ({
+            devicePartId: material.devicePartId || material.materialId || null,
+            partId: material.partId || null,
+            vendorId: material.vendorId,
+            vendorName: material.vendorName || this.getVendorName(material.vendorId),
             partNumber: String(material.materialPartNumber || '').trim(),
             description: String(material.materialName || '').trim(),
+            parentCategory: String(material.parentCategory || '').trim(),
             category: this.getVendorPartCategory(material),
             cost: Number.isFinite(Number(material.materialCost)) ? Number(material.materialCost) : null,
-            msrp: Number.isFinite(Number(material.materialMsrp)) ? Number(material.materialMsrp) : null
+            msrp: Number.isFinite(Number(material.materialMsrp)) ? Number(material.materialMsrp) : null,
+            quantityPerDevice: this.normalizeQuantity(material.quantityPerDevice)
         }))
     }
 
@@ -935,7 +995,10 @@ export class DeviceDetailComponent implements OnChanges {
         if (!this.editMode) {
             return
         }
-        const total = this.editLinkedPartNumbers.reduce((sum, partNumber) => sum + this.getLinkedPartUnitCost(partNumber), 0)
+        const parts = this.editDeviceParts.length > 0
+            ? this.editDeviceParts
+            : this.editLinkedPartNumbers.map((partNumber) => this.createEditableDevicePartFromLookup(partNumber)).filter((part): part is EditableDevicePart => !!part)
+        const total = parts.reduce((sum, part) => sum + (Number(part.cost || 0) * this.normalizeQuantity(part.quantityPerDevice)), 0)
         this.editDevice.cost = Number(total.toFixed(2))
     }
 
@@ -960,6 +1023,10 @@ export class DeviceDetailComponent implements OnChanges {
                 strobeAddress: String(this.editDevice.strobeAddress || '').trim()
             },
             partNumbers: [...this.editLinkedPartNumbers],
+            deviceParts: this.editDeviceParts.map((part, index) => ({
+                ...this.normalizeEditableDevicePart(part),
+                sortOrder: index
+            })),
             attributes: this.editAttributes.map((attribute) => ({
                 name: String(attribute.name || '').trim(),
                 statusId: String(attribute.statusId || '').trim(),
@@ -977,9 +1044,15 @@ export class DeviceDetailComponent implements OnChanges {
         })
     }
 
-    private getLinkedPartUnitCost(partNumber: string): number {
+    private getLinkedPartUnitCost(partNumber: string, vendorId = ''): number {
         const normalizedPartNumber = String(partNumber || '').trim()
-        const linkedMaterial = this.deviceMaterials.find((row) => String(row.materialPartNumber || '').trim() === normalizedPartNumber)
+        const linkedMaterial = this.deviceMaterials.find((row) => {
+            const partMatches = String(row.materialPartNumber || '').trim() === normalizedPartNumber
+            if (!vendorId) {
+                return partMatches
+            }
+            return partMatches && String(row.vendorId || '').trim() === vendorId
+        })
         if (linkedMaterial && Number.isFinite(Number(linkedMaterial.materialCost))) {
             return Number(linkedMaterial.materialCost || 0)
         }
@@ -991,6 +1064,97 @@ export class DeviceDetailComponent implements OnChanges {
         }
 
         return 0
+    }
+
+    private createEditableDevicePartFromMaterial(material: VwDeviceMaterial): EditableDevicePart {
+        const vendorId = String(material.vendorId || this.device?.vendorId || '').trim()
+        return this.normalizeEditableDevicePart({
+            devicePartId: material.devicePartId || material.materialId || null,
+            partId: material.partId || null,
+            vendorId,
+            vendorName: material.vendorName || this.getVendorName(vendorId),
+            partNumber: String(material.materialPartNumber || '').trim(),
+            description: String(material.materialName || '').trim(),
+            parentCategory: String(material.parentCategory || '').trim(),
+            category: this.getVendorPartCategory(material),
+            msrp: Number.isFinite(Number(material.materialMsrp)) ? Number(material.materialMsrp) : null,
+            cost: Number.isFinite(Number(material.materialCost)) ? Number(material.materialCost) : null,
+            quantityPerDevice: this.normalizeQuantity(material.quantityPerDevice)
+        })
+    }
+
+    private createEditableDevicePartFromVendorPart(part: VwPart, vendorId = ''): EditableDevicePart {
+        const resolvedVendorId = String(vendorId || (part as any).vendorId || '').trim()
+        return this.normalizeEditableDevicePart({
+            partId: String((part as any).partId || '').trim() || null,
+            vendorId: resolvedVendorId,
+            vendorName: this.getVendorName(resolvedVendorId),
+            partNumber: String(part.PartNumber || (part as any).partNumber || '').trim(),
+            description: String(part.LongDescription || (part as any).description || '').trim(),
+            parentCategory: String(part.ParentCategory || (part as any).parentCategory || '').trim(),
+            category: String(part.Category || (part as any).category || '').trim(),
+            msrp: Number.isFinite(Number(part.MSRPPrice ?? (part as any).msrp)) ? Number(part.MSRPPrice ?? (part as any).msrp) : null,
+            cost: Number.isFinite(Number(part.SalesPrice ?? (part as any).cost)) ? Number(part.SalesPrice ?? (part as any).cost) : null,
+            quantityPerDevice: 1
+        })
+    }
+
+    private createEditableDevicePartFromLookup(partNumber: string): EditableDevicePart | null {
+        const normalizedPartNumber = String(partNumber || '').trim()
+        if (!normalizedPartNumber) {
+            return null
+        }
+        const material = this.deviceMaterials.find((row) => String(row.materialPartNumber || '').trim() === normalizedPartNumber)
+        if (material) {
+            return this.createEditableDevicePartFromMaterial(material)
+        }
+        const vendorPart = this.vendorPartRows.find((row) => String(row.PartNumber || '').trim() === normalizedPartNumber)
+            || this.vendorPartResults.find((row) => String(row.PartNumber || '').trim() === normalizedPartNumber)
+        if (vendorPart) {
+            return this.createEditableDevicePartFromVendorPart(vendorPart, this.selectedVendorPartVendorId)
+        }
+        const vendorId = String(this.selectedVendorPartVendorId || this.device?.vendorId || '').trim()
+        return this.normalizeEditableDevicePart({
+            vendorId,
+            vendorName: this.getVendorName(vendorId),
+            partNumber: normalizedPartNumber,
+            description: '',
+            category: '',
+            cost: 0,
+            msrp: null,
+            quantityPerDevice: 1
+        })
+    }
+
+    private normalizeEditableDevicePart(part: EditableDevicePart): EditableDevicePart {
+        const vendorId = String(part.vendorId || '').trim()
+        return {
+            devicePartId: part.devicePartId || null,
+            partId: part.partId || null,
+            vendorId,
+            vendorName: part.vendorName || this.getVendorName(vendorId),
+            partNumber: String(part.partNumber || '').trim(),
+            description: String(part.description || '').trim(),
+            parentCategory: String(part.parentCategory || '').trim() || null,
+            category: String(part.category || '').trim() || null,
+            msrp: Number.isFinite(Number(part.msrp)) ? Number(part.msrp) : null,
+            cost: Number.isFinite(Number(part.cost)) ? Number(part.cost) : null,
+            quantityPerDevice: this.normalizeQuantity(part.quantityPerDevice)
+        }
+    }
+
+    private normalizeQuantity(value: unknown): number {
+        const quantity = Math.floor(Number(value || 1))
+        return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+    }
+
+    private getVendorName(vendorId: string | undefined | null): string {
+        const normalizedVendorId = String(vendorId || '').trim()
+        return this.vendors.find((vendor) => vendor.vendorId === normalizedVendorId)?.name || ''
+    }
+
+    private getVendorPartKey(vendorId: string | undefined | null, partNumber: string | undefined | null): string {
+        return `${String(vendorId || '').trim().toLowerCase()}::${String(partNumber || '').trim().toLowerCase()}`
     }
 
     private releaseFocusedElementBeforeDialog(): void {
@@ -1075,12 +1239,14 @@ interface VendorPartDetailDialogData {
 interface DeviceVendorPartsDialogData {
     vendors: Vendor[]
     initialPartNumbers: string[]
+    initialDeviceParts?: EditableDevicePart[]
     defaultVendorId: string
     deviceMaterials: VwDeviceMaterial[]
 }
 
 interface DeviceVendorPartsDialogResult {
     partNumbers: string[]
+    deviceParts: EditableDevicePart[]
     parts: VwPart[]
 }
 
@@ -1146,7 +1312,7 @@ interface DeviceVendorPartsDialogResult {
         .vendor-parts-dialog__row,
         .vendor-parts-dialog__header {
             display: grid;
-            grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.45fr) minmax(110px, 0.75fr) minmax(100px, 0.6fr) minmax(100px, 0.6fr) 40px;
+            grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.45fr) minmax(110px, 0.75fr) 72px minmax(100px, 0.6fr) minmax(100px, 0.6fr) 48px;
             gap: 12px;
             align-items: center;
             padding: 10px 12px;
@@ -1162,7 +1328,8 @@ interface DeviceVendorPartsDialogResult {
         }
 
         .vendor-parts-dialog__header span:nth-child(4),
-        .vendor-parts-dialog__header span:nth-child(5) {
+        .vendor-parts-dialog__header span:nth-child(5),
+        .vendor-parts-dialog__header span:nth-child(6) {
             text-align: right;
         }
 
@@ -1183,6 +1350,18 @@ interface DeviceVendorPartsDialogResult {
 
         .vendor-parts-dialog__money {
             text-align: right;
+        }
+
+        .vendor-parts-dialog__quantity {
+            width: 100%;
+            height: 34px;
+            padding: 0 8px;
+            text-align: right;
+            color: var(--fw-text);
+            border: 1px solid rgba(72, 221, 255, 0.28);
+            border-radius: 0;
+            background: rgba(3, 10, 20, 0.72);
+            box-sizing: border-box;
         }
 
         .vendor-parts-dialog__hint,
@@ -1211,21 +1390,23 @@ interface DeviceVendorPartsDialogResult {
             </button>
         </div>
         <mat-dialog-content class="vendor-parts-dialog__content">
-            <div *ngIf="linkedPartNumbers.length > 0; else noLinkedParts" class="vendor-parts-dialog__table">
+            <div *ngIf="linkedParts.length > 0; else noLinkedParts" class="vendor-parts-dialog__table">
                 <div class="vendor-parts-dialog__header">
                     <span>Part Number</span>
                     <span>Description</span>
                     <span>Category</span>
+                    <span>Qty</span>
                     <span>Cost</span>
                     <span>MSRP</span>
                     <span></span>
                 </div>
-                <div *ngFor="let partNumber of linkedPartNumbers; let index = index" class="vendor-parts-dialog__row">
-                    <span class="vendor-parts-dialog__part">{{getLinkedPartDisplayRow(partNumber).partNumber}}</span>
-                    <span class="vendor-parts-dialog__description">{{getLinkedPartDisplayRow(partNumber).description || 'None'}}</span>
-                    <span>{{getLinkedPartDisplayRow(partNumber).category || 'None'}}</span>
-                    <span class="vendor-parts-dialog__money">{{getLinkedPartDisplayRow(partNumber).cost !== null ? (getLinkedPartDisplayRow(partNumber).cost | currency) : 'None'}}</span>
-                    <span class="vendor-parts-dialog__money">{{getLinkedPartDisplayRow(partNumber).msrp !== null ? (getLinkedPartDisplayRow(partNumber).msrp | currency) : 'None'}}</span>
+                <div *ngFor="let part of linkedParts; let index = index" class="vendor-parts-dialog__row">
+                    <span class="vendor-parts-dialog__part">{{part.partNumber}}</span>
+                    <span class="vendor-parts-dialog__description">{{part.description || 'None'}}</span>
+                    <span>{{part.category || part.parentCategory || 'None'}}</span>
+                    <input class="vendor-parts-dialog__quantity" type="number" min="1" step="1" [(ngModel)]="part.quantityPerDevice" (blur)="normalizeLinkedPartQuantity(part)" aria-label="Quantity per device" />
+                    <span class="vendor-parts-dialog__money">{{part.cost !== null && part.cost !== undefined ? (part.cost | currency) : 'None'}}</span>
+                    <span class="vendor-parts-dialog__money">{{part.msrp !== null && part.msrp !== undefined ? (part.msrp | currency) : 'None'}}</span>
                     <button mat-icon-button type="button" aria-label="Remove linked part" (click)="removeLinkedPart(index)">
                         <mat-icon>delete</mat-icon>
                     </button>
@@ -1263,6 +1444,7 @@ interface DeviceVendorPartsDialogResult {
                     <span>Part Number</span>
                     <span>Description</span>
                     <span>Category</span>
+                    <span>Qty</span>
                     <span>Cost</span>
                     <span>MSRP</span>
                     <span></span>
@@ -1271,10 +1453,11 @@ interface DeviceVendorPartsDialogResult {
                     <span class="vendor-parts-dialog__part">{{row.PartNumber}}</span>
                     <span class="vendor-parts-dialog__description">{{row.LongDescription}}</span>
                     <span>{{row.Category || row.ParentCategory || 'None'}}</span>
+                    <span class="vendor-parts-dialog__money">1</span>
                     <span class="vendor-parts-dialog__money">{{(row.SalesPrice || 0) | currency}}</span>
                     <span class="vendor-parts-dialog__money">{{(row.MSRPPrice || 0) | currency}}</span>
-                    <button mat-stroked-button type="button" [disabled]="isLinkedPartSelected(row.PartNumber)" (click)="addLinkedPart(row.PartNumber)">
-                        {{isLinkedPartSelected(row.PartNumber) ? 'Selected' : 'Select'}}
+                    <button mat-stroked-button type="button" [disabled]="isLinkedPartSelected(row)" (click)="addLinkedPart(row)">
+                        {{isLinkedPartSelected(row) ? 'Selected' : 'Select'}}
                     </button>
                 </div>
             </div>
@@ -1292,8 +1475,8 @@ export class DeviceVendorPartsDialog {
     private http = inject(HttpClient)
 
     vendors = [...(this.data.vendors || [])]
-    linkedPartNumbers = [...(this.data.initialPartNumbers || [])]
     selectedVendorId = this.data.defaultVendorId || this.vendors[0]?.vendorId || ''
+    linkedParts: EditableDevicePart[] = this.createInitialLinkedParts()
     selectedCategories: string[] = []
     rows: VwPart[] = []
     results: VwPart[] = []
@@ -1340,21 +1523,30 @@ export class DeviceVendorPartsDialog {
         this.applyFilters()
     }
 
-    addLinkedPart(partNumber: string): void {
-        const normalized = String(partNumber || '').trim()
-        if (normalized && !this.linkedPartNumbers.includes(normalized)) {
-            this.linkedPartNumbers = [...this.linkedPartNumbers, normalized]
+    addLinkedPart(part: VwPart): void {
+        const nextPart = this.createEditableDevicePartFromVendorPart(part, this.selectedVendorId)
+        if (!nextPart.partNumber || !nextPart.vendorId) {
+            return
+        }
+        const key = this.getVendorPartKey(nextPart.vendorId, nextPart.partNumber)
+        if (!this.linkedParts.some((row) => this.getVendorPartKey(row.vendorId, row.partNumber) === key)) {
+            this.linkedParts = [...this.linkedParts, nextPart]
         }
         this.applyFilters()
     }
 
     removeLinkedPart(index: number): void {
-        this.linkedPartNumbers = this.linkedPartNumbers.filter((_, rowIndex) => rowIndex !== index)
+        this.linkedParts = this.linkedParts.filter((_, rowIndex) => rowIndex !== index)
         this.applyFilters()
     }
 
-    isLinkedPartSelected(partNumber: string): boolean {
-        return this.linkedPartNumbers.includes(String(partNumber || '').trim())
+    normalizeLinkedPartQuantity(part: EditableDevicePart): void {
+        part.quantityPerDevice = this.normalizeQuantity(part.quantityPerDevice)
+    }
+
+    isLinkedPartSelected(part: VwPart): boolean {
+        const key = this.getVendorPartKey(this.selectedVendorId, String(part?.PartNumber || ''))
+        return this.linkedParts.some((row) => this.getVendorPartKey(row.vendorId, row.partNumber) === key)
     }
 
     getCategoryOptions(): string[] {
@@ -1393,11 +1585,16 @@ export class DeviceVendorPartsDialog {
         const vendorPart = this.rows.find((row) => String(row.PartNumber || '').trim() === normalized)
             || this.results.find((row) => String(row.PartNumber || '').trim() === normalized)
         return {
+            devicePartId: linkedMaterial?.devicePartId || linkedMaterial?.materialId || null,
+            partId: linkedMaterial?.partId || null,
+            vendorId: linkedMaterial?.vendorId || this.selectedVendorId,
+            vendorName: linkedMaterial?.vendorName || this.getVendorName(linkedMaterial?.vendorId || this.selectedVendorId),
             partNumber: normalized,
             description: String(linkedMaterial?.materialName || vendorPart?.LongDescription || '').trim(),
             category: String(vendorPart?.Category || vendorPart?.ParentCategory || linkedMaterial?.deviceCategoryName || '').trim(),
             cost: linkedMaterial?.materialCost ?? vendorPart?.SalesPrice ?? null,
-            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null
+            msrp: linkedMaterial?.materialMsrp ?? vendorPart?.MSRPPrice ?? null,
+            quantityPerDevice: this.normalizeQuantity(linkedMaterial?.quantityPerDevice)
         }
     }
 
@@ -1405,12 +1602,15 @@ export class DeviceVendorPartsDialog {
         const selected = new Map<string, VwPart>()
         for (const row of [...this.rows, ...this.results]) {
             const partNumber = String(row.PartNumber || '').trim()
-            if (partNumber && this.linkedPartNumbers.includes(partNumber)) {
-                selected.set(partNumber, row)
+            const rowVendorId = String((row as any).vendorId || this.selectedVendorId || '').trim()
+            if (partNumber && this.linkedParts.some((part) => this.getVendorPartKey(part.vendorId, part.partNumber) === this.getVendorPartKey(rowVendorId, partNumber))) {
+                selected.set(this.getVendorPartKey(rowVendorId, partNumber), row)
             }
         }
+        const deviceParts = this.linkedParts.map((part) => this.normalizeEditableDevicePart(part))
         const result: DeviceVendorPartsDialogResult = {
-            partNumbers: [...this.linkedPartNumbers],
+            partNumbers: deviceParts.map((part) => part.partNumber),
+            deviceParts,
             parts: [...selected.values()]
         }
         this.dialogRef.close(result)
@@ -1462,6 +1662,98 @@ export class DeviceVendorPartsDialog {
 
     private normalizedFilter(): string {
         return String(this.filter || '').trim().toLowerCase()
+    }
+
+    private createInitialLinkedParts(): EditableDevicePart[] {
+        const initialRows = Array.isArray(this.data.initialDeviceParts) ? this.data.initialDeviceParts : []
+        if (initialRows.length > 0) {
+            return initialRows.map((part) => this.normalizeEditableDevicePart(part)).filter((part) => !!part.partNumber && !!part.vendorId)
+        }
+        return [...(this.data.initialPartNumbers || [])]
+            .map((partNumber) => this.createEditableDevicePartFromLookup(partNumber))
+            .filter((part): part is EditableDevicePart => !!part && !!part.partNumber && !!part.vendorId)
+    }
+
+    private createEditableDevicePartFromLookup(partNumber: string): EditableDevicePart | null {
+        const normalized = String(partNumber || '').trim()
+        if (!normalized) {
+            return null
+        }
+        const material = this.data.deviceMaterials.find((row) => String(row.materialPartNumber || '').trim() === normalized)
+        if (material) {
+            const vendorId = String(material.vendorId || this.selectedVendorId || '').trim()
+            return this.normalizeEditableDevicePart({
+                devicePartId: material.devicePartId || material.materialId || null,
+                partId: material.partId || null,
+                vendorId,
+                vendorName: material.vendorName || this.getVendorName(vendorId),
+                partNumber: normalized,
+                description: String(material.materialName || '').trim(),
+                parentCategory: String(material.parentCategory || '').trim(),
+                category: String(material.category || material.materialCategoryName || material.deviceCategoryName || '').trim(),
+                msrp: Number.isFinite(Number(material.materialMsrp)) ? Number(material.materialMsrp) : null,
+                cost: Number.isFinite(Number(material.materialCost)) ? Number(material.materialCost) : null,
+                quantityPerDevice: this.normalizeQuantity(material.quantityPerDevice)
+            })
+        }
+        const vendorId = String(this.selectedVendorId || this.data.defaultVendorId || '').trim()
+        return this.normalizeEditableDevicePart({
+            vendorId,
+            vendorName: this.getVendorName(vendorId),
+            partNumber: normalized,
+            description: '',
+            category: '',
+            cost: 0,
+            msrp: null,
+            quantityPerDevice: 1
+        })
+    }
+
+    private createEditableDevicePartFromVendorPart(part: VwPart, vendorId = ''): EditableDevicePart {
+        const resolvedVendorId = String(vendorId || (part as any).vendorId || '').trim()
+        return this.normalizeEditableDevicePart({
+            partId: String((part as any).partId || '').trim() || null,
+            vendorId: resolvedVendorId,
+            vendorName: this.getVendorName(resolvedVendorId),
+            partNumber: String(part.PartNumber || (part as any).partNumber || '').trim(),
+            description: String(part.LongDescription || (part as any).description || '').trim(),
+            parentCategory: String(part.ParentCategory || (part as any).parentCategory || '').trim(),
+            category: String(part.Category || (part as any).category || '').trim(),
+            msrp: Number.isFinite(Number(part.MSRPPrice ?? (part as any).msrp)) ? Number(part.MSRPPrice ?? (part as any).msrp) : null,
+            cost: Number.isFinite(Number(part.SalesPrice ?? (part as any).cost)) ? Number(part.SalesPrice ?? (part as any).cost) : null,
+            quantityPerDevice: 1
+        })
+    }
+
+    private normalizeEditableDevicePart(part: EditableDevicePart): EditableDevicePart {
+        const vendorId = String(part.vendorId || '').trim()
+        return {
+            devicePartId: part.devicePartId || null,
+            partId: part.partId || null,
+            vendorId,
+            vendorName: part.vendorName || this.getVendorName(vendorId),
+            partNumber: String(part.partNumber || '').trim(),
+            description: String(part.description || '').trim(),
+            parentCategory: String(part.parentCategory || '').trim() || null,
+            category: String(part.category || '').trim() || null,
+            msrp: Number.isFinite(Number(part.msrp)) ? Number(part.msrp) : null,
+            cost: Number.isFinite(Number(part.cost)) ? Number(part.cost) : null,
+            quantityPerDevice: this.normalizeQuantity(part.quantityPerDevice)
+        }
+    }
+
+    private normalizeQuantity(value: unknown): number {
+        const quantity = Math.floor(Number(value || 1))
+        return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+    }
+
+    private getVendorName(vendorId: string | undefined | null): string {
+        const normalizedVendorId = String(vendorId || '').trim()
+        return this.vendors.find((vendor) => vendor.vendorId === normalizedVendorId)?.name || ''
+    }
+
+    private getVendorPartKey(vendorId: string | undefined | null, partNumber: string | undefined | null): string {
+        return `${String(vendorId || '').trim().toLowerCase()}::${String(partNumber || '').trim().toLowerCase()}`
     }
 }
 

@@ -429,6 +429,8 @@
 }
 
 .project-briefing {
+    flex: 0 0 auto;
+    box-sizing: border-box;
     margin-bottom: 14px;
     padding: 16px 18px;
     border: 1px solid rgba(72, 221, 255, 0.2);
@@ -474,6 +476,11 @@
     color: var(--fw-text);
     font-size: 0.95rem;
     line-height: 1.6;
+    overflow-wrap: break-word;
+}
+
+.project-briefing--fieldwire .project-briefing__text {
+    max-width: none;
 }
 
 .project-create-grid {
@@ -522,6 +529,70 @@ td.mat-column-mappedFieldwireProjectName {
 
 .project-name-link:hover {
     color: #b9ebff;
+}
+
+.fieldwire-projects-content {
+    padding-right: 10px;
+}
+
+.fieldwire-projects-table {
+    width: 100%;
+    min-width: min(980px, 100%);
+}
+
+.fieldwire-projects-table .mat-mdc-header-row,
+.fieldwire-projects-table .mat-mdc-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.15fr) minmax(150px, 0.55fr) minmax(320px, 2fr) minmax(190px, 0.6fr);
+    width: 100%;
+}
+
+.fieldwire-projects-table th,
+.fieldwire-projects-table td {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fieldwire-projects-table .mat-mdc-header-cell {
+    background:
+        linear-gradient(180deg, rgba(12, 22, 34, 0.99), rgba(10, 18, 29, 0.99)),
+        var(--fw-bg-1) !important;
+}
+
+.fieldwire-projects-table .mat-column-name {
+    min-width: 210px;
+}
+
+.fieldwire-projects-table .mat-column-projectNbr {
+    min-width: 150px;
+}
+
+.fieldwire-projects-table .mat-column-address {
+    min-width: 280px;
+}
+
+.fieldwire-projects-table .mat-column-actions {
+    min-width: 190px;
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.fieldwire-projects-table .mat-column-actions button {
+    min-width: max-content;
+    white-space: nowrap;
+}
+
+.fieldwire-projects-table .mat-mdc-no-data-row {
+    display: block;
+    width: 100%;
+}
+
+.fieldwire-projects-table .mat-mdc-no-data-row .mat-cell {
+    display: block;
+    width: 100%;
 }
 
 .project-address-cell {

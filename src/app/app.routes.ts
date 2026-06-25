@@ -28,7 +28,7 @@ export const routes: Routes = [
     {path: 'design/train-ai', redirectTo: '/design/floorplan-designer', pathMatch: 'full'},
     {path: 'design/:projectId', loadComponent: () => import('./pages/design/design-project.page').then(m => m.DesignProjectPage)},
     {path: 'install', loadComponent: () => import('./pages/install/install.page').then(m => m.InstallPage)},
-    {path: 'materials', loadComponent: () => import('./pages/materials/materials.page').then(m => m.MaterialsPage)},
+    {path: 'materials', redirectTo: 'parts', pathMatch: 'full'},
     {path: 'vendors', loadComponent: () => import('./pages/vendors/vendors.page').then(m => m.VendorsPage)},
     {path: 'parts', loadComponent: () => import('./pages/parts/parts.page').then(m => m.PartsPage)},
     {path: 'parts/:vendorKey', loadComponent: () => import('./pages/parts/parts.page').then(m => m.PartsPage)},

@@ -25,14 +25,26 @@ import { MatMenuModule } from '@angular/material/menu'
         }
 
         .button-bar button {
+            flex: 0 0 auto;
             margin-right: 0 !important;
             border-radius: var(--fw-control-radius) !important;
             min-height: 38px;
-            min-width: 0;
-            padding-inline: 12px;
+            min-width: max-content;
+            width: auto;
+            padding-inline: 14px;
             letter-spacing: 0.12em;
             font-size: 0.72rem;
+            line-height: 1;
             text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        :host ::ng-deep .button-bar button .mdc-button__label {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            overflow: visible;
+            white-space: nowrap;
         }
 
         .button-bar button.active {

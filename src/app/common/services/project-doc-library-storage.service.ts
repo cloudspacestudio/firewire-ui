@@ -33,6 +33,7 @@ export interface ProjectDocLibraryFileRecord {
     folderId: string
     documentKind?: ProjectDocLibraryDocumentKind
     storageKey?: string
+    sourceFileName?: string
     name: string
     extension: string
     createdAt: string
@@ -54,6 +55,7 @@ export interface ProjectFloorplanDesignAnnotation {
     kind: 'symbol' | 'note' | 'sticky'
     xRatio: number
     yRatio: number
+    bomRowId?: string
     symbolId?: string
     categoryKey?: string
     categoryName?: string
@@ -257,13 +259,47 @@ export class ProjectDocLibraryStorageService {
         return this.identifyDocumentKind(file) === 'drawing'
     }
 
+    getDisplayNameFromSourceFileName(fileName: string): string {
+        const normalized = String(fileName || '').trim()
+        if (!normalized) {
+            return 'Floorplan'
+        }
+        const slashIndex = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'))
+        const leafName = slashIndex >= 0 ? normalized.slice(slashIndex + 1) : normalized
+        const dotIndex = leafName.lastIndexOf('.')
+        return (dotIndex > 0 ? leafName.slice(0, dotIndex) : leafName).trim() || 'Floorplan'
+    }
+
+    getSourceFileName(file: ProjectDocLibraryFileRecord): string {
+        return String(file.sourceFileName || file.versions?.[0]?.sourceFileName || file.versions?.[file.versions.length - 1]?.sourceFileName || file.name || '').trim()
+    }
+
+    hasSourceFileName(file: ProjectDocLibraryFileRecord, fileName: string): boolean {
+        return this.normalizeFileName(this.getSourceFileName(file)) === this.normalizeFileName(fileName)
+    }
+
     private normalizeWorkspace(input: any, projectKey: string): ProjectDocLibraryWorkspaceState {
         return {
-            files: Array.isArray(input?.files) ? input.files.map((file: ProjectDocLibraryFileRecord) => ({
-                ...file,
-                storageKey: file.storageKey || projectKey,
-                versions: (file.versions || []).map((version) => this.withContentUrl(projectKey, file.id, version))
-            })) : [],
+            files: Array.isArray(input?.files) ? input.files.map((file: ProjectDocLibraryFileRecord) => {
+                const storageKey = String(file.storageKey || projectKey || '').trim()
+                const versions = (file.versions || []).map((version) => this.withContentUrl(storageKey || projectKey, file.id, version))
+                const sourceFileName = String(file.sourceFileName || versions[0]?.sourceFileName || versions[versions.length - 1]?.sourceFileName || '').trim()
+                const rawName = String(file.name || '').trim()
+                const shouldPromoteFloorplanDisplayName = file.folderId === 'floorplans'
+                    && sourceFileName
+                    && this.normalizeFileName(rawName) === this.normalizeFileName(sourceFileName)
+                const name = shouldPromoteFloorplanDisplayName
+                    ? this.getDisplayNameFromSourceFileName(sourceFileName)
+                    : rawName || this.getDisplayNameFromSourceFileName(sourceFileName)
+                return {
+                    ...file,
+                    sourceFileName: sourceFileName || undefined,
+                    name,
+                    extension: String(file.extension || this.getFileExtension(sourceFileName || rawName)).toLowerCase(),
+                    storageKey: storageKey || projectKey,
+                    versions
+                }
+            }) : [],
             directories: Array.isArray(input?.directories) ? input.directories.map((directory: ProjectDocLibraryDirectoryRecord) => ({
                 id: String(directory?.id || '').trim(),
                 name: String(directory?.name || 'New Folder').trim() || 'New Folder',
@@ -291,7 +327,7 @@ export class ProjectDocLibraryStorageService {
     private stripPhysicalContent(files: ProjectDocLibraryFileRecord[]): ProjectDocLibraryFileRecord[] {
         return files.map((file) => ({
             ...file,
-            storageKey: undefined,
+            storageKey: String(file.storageKey || '').trim() || undefined,
             versions: (file.versions || []).map((version) => {
                 const { dataUrl, contentUrl, ...metadata } = version
                 return version.blobName ? metadata : { ...metadata, dataUrl }
@@ -321,5 +357,18 @@ export class ProjectDocLibraryStorageService {
         }
 
         return error instanceof Error ? error.message : fallback
+    }
+
+    private getFileExtension(fileName: string): string {
+        const normalized = String(fileName || '').trim()
+        const dotIndex = normalized.lastIndexOf('.')
+        if (dotIndex <= 0 || dotIndex === normalized.length - 1) {
+            return ''
+        }
+        return normalized.slice(dotIndex + 1)
+    }
+
+    private normalizeFileName(fileName: string): string {
+        return String(fileName || '').trim().toLowerCase()
     }
 }

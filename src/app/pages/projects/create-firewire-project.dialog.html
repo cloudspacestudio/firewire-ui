@@ -8,13 +8,13 @@
     </button>
 </div>
 
-<mat-dialog-content>
-    <div class="project-create-grid">
-        <mat-form-field>
+<mat-dialog-content class="create-firewire-project-dialog">
+    <div class="create-firewire-project-dialog__grid">
+        <mat-form-field class="create-firewire-project-dialog__span-2">
             <mat-label>Name</mat-label>
             <input matInput [(ngModel)]="model.name" />
         </mat-form-field>
-        <mat-form-field *ngIf="shouldShowProjectNbrInput()">
+        <mat-form-field>
             <mat-label>Project Number</mat-label>
             <input matInput [(ngModel)]="model.projectNbr" />
         </mat-form-field>
@@ -63,11 +63,11 @@
                 <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
             </mat-select>
         </mat-form-field>
-        <mat-form-field class="project-address-field">
+        <mat-form-field class="create-firewire-project-dialog__span-3">
             <mat-label>Address</mat-label>
             <input matInput [(ngModel)]="model.address" />
         </mat-form-field>
-        <mat-form-field class="project-scope-field">
+        <mat-form-field class="create-firewire-project-dialog__span-2">
             <mat-label>Project Scope</mat-label>
             <mat-select [(ngModel)]="model.projectScope">
                 <mat-option [value]="''">None</mat-option>

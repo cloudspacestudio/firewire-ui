@@ -18,8 +18,15 @@ export interface FloorplanDesignerSaveEvent {
     design: ProjectFloorplanDesignState
 }
 
+export interface FloorplanDesignerVersionRequest {
+    file: File
+    versionName: string
+    versionNotes: string
+}
+
 export interface FloorplanDesignerSymbolOption {
     id: string
+    bomRowId?: string
     code: string
     label: string
     color: string
@@ -56,6 +63,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     @Output() saveDesign = new EventEmitter<FloorplanDesignerSaveEvent>()
     @Output() closeDesigner = new EventEmitter<void>()
+    @Output() versionRequested = new EventEmitter<FloorplanDesignerVersionRequest>()
 
     @ViewChild('stage')
     stage?: ElementRef<HTMLElement>
@@ -69,6 +77,13 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     selectedAnnotation?: ProjectFloorplanDesignAnnotation
     zoomLevel = 1
     statusText = 'Choose a tool, then click the floorplan.'
+    showLayerMenu = false
+    showSymbolLayer = true
+    showNoteLayer = true
+    versionDialogOpen = false
+    versionName = ''
+    versionNotes = ''
+    versionFile?: File
     isPanning = false
     imageNaturalWidth = 0
     imageNaturalHeight = 0
@@ -77,6 +92,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     pdfRenderWorking = false
     renderError = ''
     imageDisplayUrl = ''
+    baseLayerReady = false
     private panStartX = 0
     private panStartY = 0
     private panStartScrollLeft = 0
@@ -84,6 +100,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     private pdfWorkerConfigured = false
     private pdfRenderToken = 0
     private imageObjectUrl = ''
+    private versionSourceObjectUrl = ''
     private initialSymbolCounts = new Map<string, number>()
     private initialDesignSignature = ''
 
@@ -99,6 +116,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         }
         if (changes['sourceUrl'] || changes['mimeType']) {
             this.renderError = ''
+            this.baseLayerReady = false
             this.imageNaturalWidth = 0
             this.imageNaturalHeight = 0
             this.pdfCssWidth = 0
@@ -120,6 +138,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     ngOnDestroy(): void {
         this.revokeImageObjectUrl()
+        this.revokeVersionSourceObjectUrl()
     }
 
     isPdfSource(): boolean {
@@ -145,13 +164,43 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return this.pdfCssHeight > 0 ? `${Math.round(this.pdfCssHeight * this.zoomLevel)}px` : 'auto'
     }
 
+    get annotationSurfaceReady(): boolean {
+        if (!this.sourceUrl || this.renderError) {
+            return false
+        }
+        if (this.isPdfSource()) {
+            return this.baseLayerReady && this.pdfCssWidth > 0 && this.pdfCssHeight > 0
+        }
+        return this.baseLayerReady && this.imageNaturalWidth > 0 && this.imageNaturalHeight > 0
+    }
+
+    get visibleAnnotations(): ProjectFloorplanDesignAnnotation[] {
+        if (!this.annotationSurfaceReady) {
+            return []
+        }
+        return this.annotations.filter((annotation) => this.isAnnotationLayerVisible(annotation))
+    }
+
     onImageLoad(event: Event): void {
         const image = event.target as HTMLImageElement
         this.imageNaturalWidth = image.naturalWidth || image.clientWidth || 1
         this.imageNaturalHeight = image.naturalHeight || image.clientHeight || 1
+        this.baseLayerReady = true
     }
 
     setTool(tool: FloorplanDesignerTool): void {
+        if (tool === 'symbol' && !this.showSymbolLayer) {
+            this.tool = 'select'
+            this.selectedAnnotation = undefined
+            this.statusText = 'Symbol layer is hidden. Show the Symbols layer before placing or editing symbols.'
+            return
+        }
+        if ((tool === 'note' || tool === 'sticky') && !this.showNoteLayer) {
+            this.tool = 'select'
+            this.selectedAnnotation = undefined
+            this.statusText = 'Notes layer is hidden. Show the Notes layer before placing or editing notes.'
+            return
+        }
         this.tool = tool
         if (tool === 'symbol' && !this.selectedSymbol && this.symbols.length > 0) {
             this.selectedSymbol = this.symbols[0]
@@ -160,6 +209,10 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     }
 
     selectSymbol(symbol: FloorplanDesignerSymbolOption): void {
+        if (!this.showSymbolLayer) {
+            this.statusText = 'Symbol layer is hidden. Show the Symbols layer before placing symbols.'
+            return
+        }
         this.selectedSymbol = symbol
         this.statusText = `${this.getSymbolPrimaryText(symbol)}: ${this.getSymbolDescriptionText(symbol)}. Click the floorplan to place another symbol.`
     }
@@ -226,6 +279,74 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         }
     }
 
+    toggleLayerMenu(): void {
+        this.showLayerMenu = !this.showLayerMenu
+    }
+
+    setLayerVisibility(layer: 'symbols' | 'notes', visible: boolean): void {
+        if (layer === 'symbols') {
+            this.showSymbolLayer = visible
+            if (!visible) {
+                if (this.tool === 'symbol') {
+                    this.tool = 'select'
+                }
+                if (this.selectedAnnotation?.kind === 'symbol') {
+                    this.selectedAnnotation = undefined
+                }
+                this.statusText = 'Symbol layer hidden. Symbol placement and symbol selection are disabled.'
+            }
+        }
+        if (layer === 'notes') {
+            this.showNoteLayer = visible
+            if (!visible) {
+                if (this.tool === 'note' || this.tool === 'sticky') {
+                    this.tool = 'select'
+                }
+                if (this.selectedAnnotation && this.selectedAnnotation.kind !== 'symbol') {
+                    this.selectedAnnotation = undefined
+                }
+                this.statusText = 'Notes layer hidden. Note placement and note selection are disabled.'
+            }
+        }
+    }
+
+    openVersionDialog(): void {
+        this.showLayerMenu = false
+        this.versionDialogOpen = true
+        this.versionFile = undefined
+        this.versionName = this.getDefaultVersionName()
+        this.versionNotes = ''
+    }
+
+    closeVersionDialog(): void {
+        this.versionDialogOpen = false
+        this.versionFile = undefined
+        this.versionNotes = ''
+    }
+
+    onVersionFileSelected(event: Event): void {
+        const input = event.target as HTMLInputElement
+        this.versionFile = input.files?.[0]
+        if (this.versionFile && (!this.versionName || this.versionName === this.getDefaultVersionName())) {
+            this.versionName = this.getDefaultVersionName()
+        }
+    }
+
+    submitVersionRequest(): void {
+        if (!this.versionFile) {
+            this.statusText = 'Choose a replacement base layer file before creating a version.'
+            return
+        }
+        this.versionRequested.emit({
+            file: this.versionFile,
+            versionName: String(this.versionName || '').trim() || this.getDefaultVersionName(),
+            versionNotes: String(this.versionNotes || '').trim()
+        })
+        this.previewVersionBaseLayer(this.versionFile)
+        this.statusText = `Base layer preview swapped to ${this.versionFile.name}. Save the design after confirming the new version.`
+        this.closeVersionDialog()
+    }
+
     beginPan(event: MouseEvent): void {
         if (this.tool !== 'pan' || event.button !== 0 || !this.stage?.nativeElement) {
             return
@@ -254,6 +375,18 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         if (this.tool === 'select' || this.tool === 'pan' || this.isPanning) {
             return
         }
+        if (!this.annotationSurfaceReady) {
+            this.statusText = 'Floorplan is still loading. Symbols and notes will be available when the base layer is ready.'
+            return
+        }
+        if (this.tool === 'symbol' && !this.showSymbolLayer) {
+            this.statusText = 'Symbol layer is hidden. Open Layers and show Symbols before placing symbols.'
+            return
+        }
+        if ((this.tool === 'note' || this.tool === 'sticky') && !this.showNoteLayer) {
+            this.statusText = 'Notes layer is hidden. Open Layers and show Notes before placing notes.'
+            return
+        }
         if (this.tool === 'symbol' && !this.selectedSymbol) {
             this.statusText = 'No BOM symbols are available to place.'
             return
@@ -279,6 +412,12 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     selectAnnotation(annotation: ProjectFloorplanDesignAnnotation, event: MouseEvent): void {
         event.stopPropagation()
+        if (!this.isAnnotationLayerVisible(annotation)) {
+            this.statusText = annotation.kind === 'symbol'
+                ? 'Symbol layer is hidden. Show the Symbols layer before selecting symbols.'
+                : 'Notes layer is hidden. Show the Notes layer before selecting notes.'
+            return
+        }
         this.selectedAnnotation = annotation
         this.tool = 'select'
     }
@@ -347,8 +486,14 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
                 canvasContext: context,
                 viewport
             }).promise
+            if (token === this.pdfRenderToken) {
+                this.baseLayerReady = true
+            }
         } catch (err: any) {
             this.renderError = err?.message || 'Unable to render the PDF floorplan.'
+            if (token === this.pdfRenderToken) {
+                this.baseLayerReady = false
+            }
         } finally {
             if (token === this.pdfRenderToken) {
                 this.pdfRenderWorking = false
@@ -402,7 +547,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         this.revokeImageObjectUrl()
         this.imageDisplayUrl = url
         if (url.startsWith('blob:')) {
-            this.imageObjectUrl = url
+            this.imageObjectUrl = url === this.versionSourceObjectUrl ? '' : url
         }
     }
 
@@ -410,6 +555,32 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         if (this.imageObjectUrl) {
             URL.revokeObjectURL(this.imageObjectUrl)
             this.imageObjectUrl = ''
+        }
+    }
+
+    private revokeVersionSourceObjectUrl(): void {
+        if (this.versionSourceObjectUrl) {
+            URL.revokeObjectURL(this.versionSourceObjectUrl)
+            this.versionSourceObjectUrl = ''
+        }
+    }
+
+    private previewVersionBaseLayer(file: File): void {
+        this.revokeVersionSourceObjectUrl()
+        this.renderError = ''
+        this.baseLayerReady = false
+        this.imageNaturalWidth = 0
+        this.imageNaturalHeight = 0
+        this.pdfCssWidth = 0
+        this.pdfCssHeight = 0
+        this.mimeType = file.type || this.mimeType
+        this.sourceUrl = URL.createObjectURL(file)
+        this.versionSourceObjectUrl = this.sourceUrl
+        if (this.isPdfSource()) {
+            this.setImageDisplayUrl('')
+            queueMicrotask(() => void this.renderPdf())
+        } else {
+            this.setImageDisplayUrl(this.sourceUrl)
         }
     }
 
@@ -421,6 +592,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
                 kind: 'symbol',
                 xRatio,
                 yRatio,
+                bomRowId: symbol?.bomRowId,
                 symbolId: symbol?.id,
                 categoryKey: symbol?.categoryKey,
                 categoryName: symbol?.categoryName,
@@ -479,12 +651,24 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return counts
     }
 
+    private isAnnotationLayerVisible(annotation: ProjectFloorplanDesignAnnotation): boolean {
+        if (annotation.kind === 'symbol') {
+            return this.showSymbolLayer
+        }
+        return this.showNoteLayer
+    }
+
+    private getDefaultVersionName(): string {
+        return `Version ${new Date().toLocaleString()}`
+    }
+
     private serializeDesign(design: ProjectFloorplanDesignState): string {
         const annotations = (design.annotations || []).map((annotation) => ({
             id: annotation.id,
             kind: annotation.kind,
             xRatio: annotation.xRatio,
             yRatio: annotation.yRatio,
+            bomRowId: annotation.bomRowId || '',
             symbolId: annotation.symbolId || '',
             categoryKey: annotation.categoryKey || '',
             categoryName: annotation.categoryName || '',

@@ -29,10 +29,15 @@
                 <div *ngIf="showRecentProjects && recentProjects.length" class="home-hero__recent">
                     <div class="home-hero__recent-label">Recent Project Detail Views</div>
                     <div class="home-hero__recent-links">
-                        <a *ngFor="let project of recentProjects" [routerLink]="project.route" class="home-hero__recent-link">
-                            <span class="home-hero__recent-number">{{project.projectNbr || 'No Project #'}}</span>
-                            <span class="home-hero__recent-name">{{project.name}}</span>
-                        </a>
+                        <div *ngFor="let project of recentProjects" class="home-hero__recent-tile">
+                            <a [routerLink]="project.route" class="home-hero__recent-link">
+                                <span class="home-hero__recent-number">{{project.projectNbr || 'No Project #'}}</span>
+                                <span class="home-hero__recent-name">{{project.name}}</span>
+                            </a>
+                            <button mat-icon-button type="button" class="home-hero__recent-remove" (click)="removeRecentProject(project, $event)" [attr.aria-label]="'Remove ' + project.name + ' from recent projects'">
+                                <mat-icon fontIcon="close"></mat-icon>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

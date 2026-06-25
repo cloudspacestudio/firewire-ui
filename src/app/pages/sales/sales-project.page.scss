@@ -13,6 +13,45 @@
     color: var(--fw-accent-2);
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    max-width: min(42vw, 620px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sales-project-status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 4px 10px;
+    border: 1px solid rgba(72, 221, 255, 0.25);
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    color: var(--fw-accent-2);
+    background: rgba(72, 221, 255, 0.08);
+}
+
+.sales-project-status-chip[data-status="Proposal"] {
+    border-color: rgba(255, 209, 102, 0.3);
+    color: #ffe8a8;
+    background: rgba(255, 209, 102, 0.1);
+}
+
+.sales-project-status-chip[data-status="Booking"],
+.sales-project-status-chip[data-status="Design"],
+.sales-project-status-chip[data-status="Install"] {
+    border-color: rgba(121, 255, 176, 0.3);
+    color: #caffdf;
+    background: rgba(121, 255, 176, 0.08);
+}
+
+.sales-project-status-chip[data-status="Closed"] {
+    border-color: rgba(185, 197, 211, 0.24);
+    color: rgba(230, 240, 250, 0.78);
+    background: rgba(185, 197, 211, 0.08);
 }
 
 .tabstrip-spacer {
@@ -384,17 +423,101 @@
     font: inherit;
 }
 
-.firewire-bom-grand-total {
-    padding: 10px 14px;
+.firewire-bom-total-strip {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(126px, auto);
+    align-items: stretch;
+    gap: 1px;
+    overflow: hidden;
     border: 1px solid rgba(72, 221, 255, 0.22);
-    border-radius: 10px;
+    border-radius: 8px;
+    background: rgba(72, 221, 255, 0.12);
+}
+
+.firewire-bom-total-metric {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 12px;
     background:
-        linear-gradient(135deg, rgba(72, 221, 255, 0.12), rgba(72, 221, 255, 0.03)),
-        rgba(8, 14, 25, 0.72);
-    color: var(--fw-accent-2);
-    font-size: 1rem;
+        linear-gradient(135deg, rgba(72, 221, 255, 0.1), rgba(72, 221, 255, 0.025)),
+        rgba(8, 14, 25, 0.76);
+    color: rgba(204, 224, 236, 0.76);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.firewire-bom-total-metric span {
+    color: rgba(161, 183, 199, 0.72);
+    font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.08em;
+    line-height: 1.15;
+    text-transform: uppercase;
+}
+
+.firewire-bom-total-metric strong {
+    color: rgba(210, 232, 242, 0.88);
+    font-size: 0.95rem;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+}
+
+.firewire-bom-total-metric--primary {
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.18), rgba(72, 221, 255, 0.045)),
+        rgba(8, 14, 25, 0.9);
+}
+
+.firewire-bom-total-metric--primary span {
+    color: rgba(134, 225, 255, 0.82);
+}
+
+.firewire-bom-total-metric--primary strong {
+    color: var(--fw-accent-2);
+    font-size: 1.12rem;
+    font-weight: 800;
+}
+
+.firewire-bom-total-strip--grand {
+    box-shadow: 0 0 18px rgba(72, 221, 255, 0.06);
+}
+
+.firewire-bom-total-strip--section {
+    border-color: rgba(148, 163, 184, 0.16);
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric {
+    padding: 5px 9px;
+    background: rgba(8, 14, 25, 0.42);
+    color: rgba(180, 196, 210, 0.56);
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric span {
+    color: rgba(149, 164, 178, 0.54);
+    font-size: 0.56rem;
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric strong {
+    color: rgba(207, 226, 237, 0.66);
+    font-size: 0.82rem;
+    font-weight: 650;
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric--primary {
+    background: rgba(12, 25, 38, 0.58);
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric--primary span {
+    color: rgba(134, 225, 255, 0.58);
+}
+
+.firewire-bom-total-strip--section .firewire-bom-total-metric--primary strong {
+    color: rgba(134, 225, 255, 0.82);
+    font-size: 0.92rem;
+    font-weight: 760;
 }
 
 .firewire-bom-grid {
@@ -710,6 +833,37 @@
 
 .sales-bom-part-lookup {
     position: relative;
+}
+
+.bom-source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--fw-accent-2);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.bom-source-link mat-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+}
+
+.bom-source-link:hover,
+.bom-source-link:focus-visible {
+    color: #f4fbff;
 }
 
 .sales-bom-part-lookup__menu {
@@ -1036,6 +1190,10 @@
     font: inherit;
 }
 
+.sales-project-quick-estimate {
+    min-width: 0;
+}
+
 @media (max-width: 1100px) {
     .tabstrip {
         flex-wrap: wrap;
@@ -1064,6 +1222,22 @@
 
     .firewire-bom-toolbar__actions {
         justify-content: flex-start;
+    }
+
+    .firewire-bom-section__header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .firewire-bom-section__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .firewire-bom-total-strip {
+        grid-auto-flow: row;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
     }
 
     .firewire-bom-filter {

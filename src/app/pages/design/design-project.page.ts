@@ -505,7 +505,6 @@ export class DesignProjectPage implements OnInit {
 
     async renameFloorplanFile(file: ProjectDocLibraryFileRecord): Promise<void> {
         file.name = String(file.name || '').trim() || 'Floorplan'
-        file.extension = this.getExtension(file.name) || file.extension
         file.updatedAt = new Date().toISOString()
         await this.persistDocLibraryWorkspace()
         this.floorplanStatusMessage = `Renamed ${file.name}.`
@@ -574,6 +573,8 @@ export class DesignProjectPage implements OnInit {
         const workspace = await this.projectDocLibraryStorage.deleteFile(this.project.uuid, fileId)
         this.docLibraryFiles = [...(workspace.files || [])]
         this.docLibraryDirectories = [...(workspace.directories || [])]
+        this.syncFloorplanQuantitiesToBom()
+        await this.persistBomAfterFloorplanSync()
         this.floorplanStatusMessage = `Deleted ${file.name}.`
     }
 
@@ -635,7 +636,8 @@ export class DesignProjectPage implements OnInit {
             folderId: this.floorplansFolderId,
             documentKind: 'drawing',
             storageKey: this.project.uuid,
-            name: file.name,
+            sourceFileName: file.name,
+            name: this.projectDocLibraryStorage.getDisplayNameFromSourceFileName(file.name),
             extension: this.getExtension(file.name),
             createdAt: now,
             updatedAt: now,

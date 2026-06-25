@@ -6,6 +6,7 @@ export type FirewireTakeoffValue = number | null
 export interface FirewireTakeoffMatrix {
     title: string
     rows: string[]
+    rowLabels?: Record<string, string>
     values: Record<string, Record<string, FirewireTakeoffValue>>
 }
 
@@ -42,6 +43,10 @@ export class FirewireTakeoffMatrixComponent {
 
     getRowTotal(rowKey: string): number {
         return this.columns.reduce((sum, column) => sum + this.getNumericCellValue(rowKey, column.key), 0)
+    }
+
+    getRowLabel(rowKey: string): string {
+        return this.matrix?.rowLabels?.[rowKey] || rowKey
     }
 
     getColumnTotal(columnKey: string): number {

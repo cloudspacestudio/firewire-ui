@@ -34,7 +34,20 @@
                     ADD TO BOM
                 </button>
             </ng-container>
-            <div class="firewire-bom-grand-total">{{host.getBomGrandTotal() | currency:'USD':'symbol':'1.0-0'}}</div>
+            <div class="firewire-bom-total-strip firewire-bom-total-strip--grand" aria-label="BOM totals">
+                <div class="firewire-bom-total-metric">
+                    <span>TOTAL MATERIAL COST</span>
+                    <strong>{{getBomMaterialTotal() | currency:'USD':'symbol':'1.0-0'}}</strong>
+                </div>
+                <div class="firewire-bom-total-metric">
+                    <span>TOTAL LABOR COST</span>
+                    <strong>{{getBomLaborTotal() | currency:'USD':'symbol':'1.0-0'}}</strong>
+                </div>
+                <div class="firewire-bom-total-metric firewire-bom-total-metric--primary">
+                    <span>TOTAL COST</span>
+                    <strong>{{getBomTotal() | currency:'USD':'symbol':'1.0-0'}}</strong>
+                </div>
+            </div>
             <button *ngIf="canAddSection" mat-stroked-button type="button" (click)="host.addBomSection()" [disabled]="locked || saveWorking">ADD NEW SECTION</button>
             <button *ngIf="canExportCsv" mat-stroked-button type="button" (click)="host.exportBomCsv()" [disabled]="saveWorking">EXPORT CSV</button>
         </div>
@@ -50,7 +63,20 @@
         <div class="firewire-bom-section__header">
             <input class="firewire-bom-section__title-input" [(ngModel)]="section.title" [readonly]="locked" aria-label="BOM section title" />
             <div class="firewire-bom-section__actions">
-                <span>{{host.getBomSectionGrandTotal(section) | currency:'USD':'symbol':'1.0-0'}}</span>
+                <div class="firewire-bom-total-strip firewire-bom-total-strip--section" aria-label="BOM section totals">
+                    <div class="firewire-bom-total-metric">
+                        <span>TOTAL MATERIAL COST</span>
+                        <strong>{{getBomSectionMaterialTotal(section) | currency:'USD':'symbol':'1.0-0'}}</strong>
+                    </div>
+                    <div class="firewire-bom-total-metric">
+                        <span>TOTAL LABOR COST</span>
+                        <strong>{{getBomSectionLaborTotal(section) | currency:'USD':'symbol':'1.0-0'}}</strong>
+                    </div>
+                    <div class="firewire-bom-total-metric firewire-bom-total-metric--primary">
+                        <span>TOTAL COST</span>
+                        <strong>{{getBomSectionTotal(section) | currency:'USD':'symbol':'1.0-0'}}</strong>
+                    </div>
+                </div>
                 <button mat-stroked-button type="button" (click)="host.addBomRow(section)" [disabled]="locked">ADD ROW</button>
                 <button *ngIf="canRemoveSection" mat-stroked-button type="button" color="warn" (click)="host.removeBomSection(sectionIndex)" [disabled]="locked || saveWorking">REMOVE SECTION</button>
             </div>
@@ -92,6 +118,15 @@
                                     (input)="host.positionBomPartLookup($event)"
                                     (ngModelChange)="host.onBomPartLookupChanged(section, row, $event)"
                                     [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                <button
+                                    *ngIf="getBomRowSource(row)"
+                                    type="button"
+                                    class="bom-source-link"
+                                    (mousedown)="$event.preventDefault()"
+                                    (click)="openBomRowSource(row)">
+                                    <mat-icon fontIcon="open_in_new"></mat-icon>
+                                    {{getBomRowSourceLabel(row)}}
+                                </button>
                                 <div *ngIf="host.isBomLookupActive(section, row) && host.hasBomLookupResults(section, row)" class="sales-bom-part-lookup__menu" [ngStyle]="host.bomLookupMenuStyle">
                                     <div *ngIf="host.getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
                                     <button *ngFor="let option of host.getBomDeviceLookupResults(section, row)" type="button" class="sales-bom-part-lookup__option" (mousedown)="host.selectBomDevice(section, row, option)">
@@ -116,7 +151,7 @@
                         <td class="right-align">
                             <span *ngIf="row.includeOnFloorplan; else editableBomQty" class="bom-readonly-qty">{{row.qty || 0}}</span>
                             <ng-template #editableBomQty>
-                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomQuantityChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
                             </ng-template>
                         </td>
                         <td class="right-align">
@@ -129,7 +164,7 @@
                         <td class="right-align">
                             <div class="bom-currency-input">
                                 <span>$</span>
-                                <input type="number" min="0" step="1" [(ngModel)]="row.labor" (blur)="host.normalizeBomMoneyField?.(row, 'labor')" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
+                                <input type="number" min="0" step="1" [(ngModel)]="row.labor" (ngModelChange)="onBomLaborChanged()" (blur)="onBomLaborBlur(row)" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
                             </div>
                         </td>
                         <td class="right-align bom-total-cell">{{host.getBomRowExtLabor(row) | currency:'USD':'symbol':'1.0-0'}}</td>

@@ -8,6 +8,7 @@ import { Router, RouterLink } from "@angular/router"
 
 import { MatCardModule } from "@angular/material/card"
 import { MatButtonModule } from "@angular/material/button"
+import { MatIconModule } from "@angular/material/icon"
 
 import { PageToolbar } from '../../common/components/page-toolbar';
 import { UserPreferencesService } from "../../common/services/user-preferences.service";
@@ -24,7 +25,7 @@ interface RecentProjectLink {
 @Component({
     standalone: true,
     selector: 'home-page',
-    imports: [CommonModule, NgStyle, MatButtonModule, MatCardModule, PageToolbar, RouterLink],
+    imports: [CommonModule, NgStyle, MatButtonModule, MatCardModule, MatIconModule, PageToolbar, RouterLink],
     providers: [HttpClient],
     templateUrl: './home.page.html',
     styleUrls: ['./home.page.scss']
@@ -98,6 +99,26 @@ export class HomePage implements OnInit, AfterViewInit {
             this.recentProjects = Array.isArray(parsed) ? parsed.slice(0, this.recentProjectsLimit) : []
         } catch {
             this.recentProjects = []
+        }
+    }
+
+    removeRecentProject(project: RecentProjectLink, event: Event): void {
+        event.preventDefault()
+        event.stopPropagation()
+        const projectId = String(project?.id || '').trim()
+        if (!projectId) {
+            return
+        }
+
+        this.recentProjects = this.recentProjects.filter((entry) => entry.id !== projectId)
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+
+        try {
+            localStorage.setItem(this.recentProjectsStorageKey, JSON.stringify(this.recentProjects))
+        } catch (err) {
+            console.error('Failed to remove recent project.', err)
         }
     }
 

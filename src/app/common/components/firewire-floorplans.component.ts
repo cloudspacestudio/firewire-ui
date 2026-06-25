@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms'
 
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'
 
 import {
     ProjectDocLibraryFileRecord,
@@ -13,7 +14,7 @@ import {
 @Component({
     standalone: true,
     selector: 'firewire-floorplans',
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
     templateUrl: './firewire-floorplans.component.html',
     styleUrls: ['./firewire-floorplans.component.scss']
 })
@@ -21,12 +22,15 @@ export class FirewireFloorplansComponent {
     @Input() projectKey = 'UNASSIGNED'
     @Input() files: ProjectDocLibraryFileRecord[] = []
     @Input() statusMessage = ''
+    @Input() savingFileIds: string[] = []
     @Input() getPreviewContent: (file: ProjectDocLibraryFileRecord) => string = () => ''
 
     @Output() renameFile = new EventEmitter<ProjectDocLibraryFileRecord>()
     @Output() designFile = new EventEmitter<ProjectDocLibraryFileRecord>()
     @Output() downloadFile = new EventEmitter<string>()
     @Output() deleteFile = new EventEmitter<string>()
+
+    private readonly draftNames = new Map<string, string>()
 
     get totalBytes(): number {
         return this.files.reduce((sum, file) => sum + Number(this.latestVersion(file)?.sizeBytes || 0), 0)
@@ -58,5 +62,31 @@ export class FirewireFloorplansComponent {
 
     annotationCount(file: ProjectDocLibraryFileRecord): number {
         return file.floorplanDesign?.annotations?.length || 0
+    }
+
+    formatMarkCount(count: number): string {
+        return Math.max(0, Math.trunc(Number(count) || 0)).toLocaleString()
+    }
+
+    getDraftName(file: ProjectDocLibraryFileRecord): string {
+        return this.draftNames.get(file.id) ?? file.name
+    }
+
+    setDraftName(file: ProjectDocLibraryFileRecord, value: string): void {
+        this.draftNames.set(file.id, value)
+    }
+
+    commitFloorplanName(file: ProjectDocLibraryFileRecord): void {
+        const draftName = String(this.getDraftName(file) || '').trim() || 'Floorplan'
+        this.draftNames.delete(file.id)
+        if (draftName === file.name) {
+            return
+        }
+        file.name = draftName
+        this.renameFile.emit(file)
+    }
+
+    isSaving(file: ProjectDocLibraryFileRecord): boolean {
+        return this.savingFileIds.includes(file.id)
     }
 }

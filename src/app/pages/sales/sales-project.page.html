@@ -9,7 +9,10 @@
 <div class="page-root">
     <div class="page-content">
         <div class="tabstrip">
-            <h3 class="project-tabstrip-title">SALES PROJECT</h3>
+            <h3 class="project-tabstrip-title">{{getSalesProjectTitle()}}</h3>
+            <span *ngIf="project" class="sales-project-status-chip" [attr.data-status]="getSalesProjectStatus()">
+                {{getSalesProjectStatus() || 'Status Pending'}}
+            </span>
             <span class="tabstrip-spacer"></span>
             <div *ngIf="project" class="sales-project-toolbar-actions">
                 <button
@@ -201,6 +204,7 @@
                                     [projectKey]="project.uuid"
                                     [files]="getFloorplanFiles()"
                                     [statusMessage]="floorplanStatusMessage"
+                                    [savingFileIds]="floorplanSavingFileIds"
                                     [getPreviewContent]="getFloorplanPreview"
                                     (renameFile)="renameFloorplanFile($event)"
                                     (designFile)="openFloorplanDesigner($event)"
@@ -232,6 +236,14 @@
                                     (renameDirectory)="renameDocLibraryDirectory($event)"
                                     (deleteDirectory)="deleteDocLibraryDirectory($event)">
                                 </firewire-doc-library-explorer>
+                            </div>
+
+                            <div *ngIf="activeTab === 'QUICK ESTIMATE'" class="sales-project-quick-estimate">
+                                <firewire-estimate-summary
+                                    eyebrow="Quick Estimate"
+                                    title="Estimate Summary"
+                                    [summary]="getQuickEstimateSummary()">
+                                </firewire-estimate-summary>
                             </div>
                         </div>
                     </div>

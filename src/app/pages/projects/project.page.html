@@ -55,7 +55,26 @@
 
 <div *ngIf="!pageWorking" class="page-root">
     <div class="page-content">
-        <div class="tabstrip">
+        <section *ngIf="projectRecordMissing" class="project-not-found-panel" role="status" aria-live="polite">
+            <div class="project-not-found-panel__icon">
+                <mat-icon fontIcon="search_off"></mat-icon>
+            </div>
+            <div>
+                <div class="project-not-found-panel__kicker">Project Link Expired</div>
+                <h2>No Record Found</h2>
+                <p>
+                    This project no longer exists or is no longer available. It may have been deleted after this quick link was created.
+                </p>
+                <div class="project-not-found-panel__actions">
+                    <button mat-flat-button type="button" [routerLink]="getBackRoute()">
+                        <mat-icon fontIcon="arrow_back"></mat-icon>
+                        Back To Projects
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div *ngIf="!projectRecordMissing" class="tabstrip">
             <h3 class="project-tabstrip-title">{{getPageTitle()}}</h3>
             <span
                 *ngIf="firewireProject"
@@ -136,7 +155,7 @@
             </div>
         </div>
 
-        <div class="content-root with-tabstrip">
+        <div *ngIf="!projectRecordMissing" class="content-root with-tabstrip">
             <div *ngIf="firewireProject" class="firewire-project-shell">
                 <mat-card class="firewire-workspace-card">
                     <mat-card-content>
@@ -1489,6 +1508,7 @@
                                             [projectKey]="getDocLibraryProjectKey()"
                                             [files]="getFloorplanFiles()"
                                             [statusMessage]="floorplanStatusMessage"
+                                            [savingFileIds]="floorplanSavingFileIds"
                                             [getPreviewContent]="getFloorplanPreview"
                                             (renameFile)="renameFloorplanFile($event)"
                                             (designFile)="openFloorplanDesigner($event)"

@@ -88,6 +88,7 @@
 }
 
 .fw-floorplans__tile {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -96,6 +97,53 @@
     border: 1px solid rgba(84, 201, 255, 0.18);
     border-radius: 8px;
     background: rgba(6, 20, 34, 0.78);
+}
+
+.fw-floorplans__tile.is-saving {
+    border-color: rgba(72, 216, 255, 0.42);
+}
+
+.fw-floorplans__saving {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 10, 18, 0.46);
+    pointer-events: none;
+}
+
+.fw-floorplans__saving mat-progress-spinner {
+    filter: drop-shadow(0 0 12px rgba(72, 216, 255, 0.42));
+}
+
+:host ::ng-deep .fw-floorplans__saving circle {
+    stroke: #54c9ff;
+}
+
+.fw-floorplans__mark-badge {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid rgba(135, 255, 188, 0.78);
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.55), transparent 24px),
+        linear-gradient(135deg, #86ffba, #48d8ff);
+    box-shadow: 0 0 18px rgba(72, 216, 255, 0.28), 0 0 14px rgba(134, 255, 186, 0.24);
+    color: #03111b;
+    font-size: 0.74rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .fw-floorplans__preview {

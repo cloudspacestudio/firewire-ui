@@ -22,27 +22,36 @@
         <div *ngIf="files.length <= 0" class="fw-floorplans__empty">No floorplans have been uploaded yet.</div>
 
         <div *ngIf="files.length > 0" class="fw-floorplans__grid">
-            <article *ngFor="let file of sortedFiles" class="fw-floorplans__tile">
+            <article *ngFor="let file of sortedFiles" class="fw-floorplans__tile" [class.is-saving]="isSaving(file)">
+                <div *ngIf="isSaving(file)" class="fw-floorplans__saving" aria-label="Saving floorplan">
+                    <mat-progress-spinner mode="indeterminate" diameter="34"></mat-progress-spinner>
+                </div>
+                <div class="fw-floorplans__mark-badge" [attr.aria-label]="formatMarkCount(annotationCount(file)) + ' floorplan marks'">
+                    {{formatMarkCount(annotationCount(file))}}
+                </div>
                 <div class="fw-floorplans__preview">
                     <img [src]="getPreviewContent(file)" [alt]="file.name" loading="lazy" />
                 </div>
                 <input
                     class="fw-floorplans__name"
-                    [(ngModel)]="file.name"
-                    (change)="renameFile.emit(file)"
+                    [ngModel]="getDraftName(file)"
+                    (ngModelChange)="setDraftName(file, $event)"
+                    (blur)="commitFloorplanName(file)"
+                    (keydown.enter)="commitFloorplanName(file); $any($event.target).blur()"
+                    [disabled]="isSaving(file)"
                     aria-label="Floorplan name" />
                 <div class="fw-floorplans__meta">
                     {{formatBytes(latestVersion(file)?.sizeBytes || 0)}} / {{annotationCount(file)}} mark{{annotationCount(file) === 1 ? '' : 's'}}
                 </div>
                 <div class="fw-floorplans__actions">
-                    <button mat-stroked-button type="button" (click)="designFile.emit(file)">
+                    <button mat-stroked-button type="button" (click)="designFile.emit(file)" [disabled]="isSaving(file)">
                         <mat-icon fontIcon="architecture"></mat-icon>
                         Design
                     </button>
-                    <button mat-icon-button type="button" [attr.aria-label]="'Download ' + file.name" (click)="downloadFile.emit(file.id)">
+                    <button mat-icon-button type="button" [disabled]="isSaving(file)" [attr.aria-label]="'Download ' + file.name" (click)="downloadFile.emit(file.id)">
                         <mat-icon fontIcon="download"></mat-icon>
                     </button>
-                    <button mat-icon-button type="button" class="fw-floorplans__danger" [attr.aria-label]="'Delete ' + file.name" (click)="deleteFile.emit(file.id)">
+                    <button mat-icon-button type="button" class="fw-floorplans__danger" [disabled]="isSaving(file)" [attr.aria-label]="'Delete ' + file.name" (click)="deleteFile.emit(file.id)">
                         <mat-icon fontIcon="delete"></mat-icon>
                     </button>
                 </div>

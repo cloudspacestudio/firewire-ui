@@ -29,6 +29,69 @@ interface CreateFirewireProjectDialogData {
 @Component({
     standalone: true,
     templateUrl: './create-firewire-project.dialog.html',
+    styles: [`
+        :host {
+            display: block;
+            width: min(980px, calc(100vw - 48px));
+        }
+
+        .create-firewire-project-dialog {
+            width: min(980px, calc(100vw - 48px));
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .create-firewire-project-dialog__grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px 16px;
+            align-items: start;
+        }
+
+        .create-firewire-project-dialog__span-2 {
+            grid-column: span 2;
+        }
+
+        .create-firewire-project-dialog__span-3 {
+            grid-column: 1 / -1;
+        }
+
+        .create-firewire-project-dialog mat-form-field {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .project-create-status {
+            margin-top: 12px;
+            color: rgba(255, 184, 184, 0.96);
+        }
+
+        @media (max-width: 860px) {
+            :host,
+            .create-firewire-project-dialog {
+                width: min(680px, calc(100vw - 32px));
+            }
+
+            .create-firewire-project-dialog__grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .create-firewire-project-dialog__span-3 {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .create-firewire-project-dialog__grid {
+                grid-template-columns: 1fr;
+            }
+
+            .create-firewire-project-dialog__span-2,
+            .create-firewire-project-dialog__span-3 {
+                grid-column: 1 / -1;
+            }
+        }
+    `],
     imports: [
         NgIf,
         NgFor,

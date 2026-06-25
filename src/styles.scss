@@ -652,6 +652,22 @@ button.success {
     max-width: 100% !important;
 }
 
+:root .cdk-overlay-pane.fw-create-firewire-project-dialog-pane {
+    --mdc-dialog-container-min-width: 0px;
+    --mdc-dialog-container-max-width: min(980px, calc(100vw - 48px));
+    width: min(980px, calc(100vw - 48px)) !important;
+    max-width: min(980px, calc(100vw - 48px)) !important;
+    min-width: 0 !important;
+}
+
+:root .cdk-overlay-pane.fw-create-firewire-project-dialog-pane .mdc-dialog__container,
+:root .cdk-overlay-pane.fw-create-firewire-project-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-create-firewire-project-dialog-pane .mat-mdc-dialog-surface {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 :root .cdk-overlay-pane.fw-fullscreen-dialog-pane {
     --mdc-dialog-container-min-width: 0px;
     --mdc-dialog-container-max-width: calc(100vw - 24px);
