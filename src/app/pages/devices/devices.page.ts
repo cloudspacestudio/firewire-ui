@@ -51,7 +51,7 @@ interface DeviceSetMembershipSummary {
     styleUrls: ['./devices.page.scss']
 })
 export class DevicesPage implements OnInit, AfterViewInit  {
-    readonly baseDisplayedColumns: string[] = ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions'];
+    readonly baseDisplayedColumns: string[] = ['icon', 'name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions'];
 
     @ViewChild(MatPaginator) paginator?: MatPaginator;
     @ViewChild(MatSort) sort?: MatSort;
@@ -140,7 +140,19 @@ export class DevicesPage implements OnInit, AfterViewInit  {
             return [...this.baseDisplayedColumns]
         }
 
-        return ['name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'vendorLinkStatus', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions']
+        return ['icon', 'name', 'partNumber', 'shortName', 'vendorName', 'deviceSetCount', 'vendorLinkStatus', 'cost', 'defaultLabor', 'attributeCount', 'subTaskCount', 'categoryName', 'actions']
+    }
+
+    getDeviceIconStyle(row: VwDevice): Record<string, string> {
+        const dataUrl = String(row?.iconDataUrl || '').trim()
+        const color = String(row?.iconForegroundColor || '#210507').trim() || '#210507'
+        return dataUrl
+            ? {
+                'background-color': color,
+                'mask-image': `url("${dataUrl}")`,
+                '-webkit-mask-image': `url("${dataUrl}")`,
+            }
+            : {}
     }
 
     getNoDataRowText(filterValue: string) {

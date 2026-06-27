@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Fire Suppression Video Camera</title>
+  <desc id="desc">A video camera style fire suppression symbol with crossed frame and side lens.</desc>
+  <path fill="currentColor" fill-rule="evenodd" d="M12 13h31c2.76 0 5 2.24 5 5v5.1l9.43-6.88A3.5 3.5 0 0 1 63 19.04v25.92a3.5 3.5 0 0 1-5.57 2.82L48 40.9V46c0 2.76-2.24 5-5 5H12c-2.76 0-5-2.24-5-5V18c0-2.76 2.24-5 5-5Zm1 7.24V43.8l11.78-11.78L13 20.24ZM17.24 19l11.8 11.8L40.83 19H17.24Zm16.04 13.02L45 43.74V20.3L33.28 32.02ZM17.21 45h23.62L29.04 33.23 17.21 45ZM51 30.52v2.96l6 4.38V26.14l-6 4.38Z"/>
+</svg>

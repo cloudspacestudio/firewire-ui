@@ -55,6 +55,10 @@
     border-bottom: 1px solid rgba(84, 201, 255, 0.16);
 }
 
+.fw-floorplans__create-folder {
+    flex: 0 0 auto;
+}
+
 .fw-floorplans__header h4 {
     margin: 4px 0 0;
     overflow: hidden;
@@ -78,6 +82,78 @@
 
 .fw-floorplans__empty {
     padding: 22px;
+}
+
+.fw-floorplans__folders {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+}
+
+.fw-floorplans__folder {
+    border: 1px solid rgba(84, 201, 255, 0.18);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(4, 15, 27, 0.72);
+}
+
+.fw-floorplans__folder-header {
+    display: grid;
+    grid-template-columns: 36px 24px minmax(160px, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(84, 201, 255, 0.14);
+    background: linear-gradient(90deg, rgba(12, 52, 72, 0.72), rgba(5, 18, 31, 0.88));
+}
+
+.fw-floorplans__folder-header.is-collapsed {
+    border-bottom-color: transparent;
+}
+
+.fw-floorplans__folder-toggle {
+    width: 32px;
+    height: 32px;
+}
+
+.fw-floorplans__folder-icon {
+    color: #70d9ff;
+}
+
+.fw-floorplans__folder-name {
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 7px 8px;
+    background: rgba(2, 10, 18, 0.38);
+    color: #eef7ff;
+    font: inherit;
+    font-weight: 800;
+}
+
+.fw-floorplans__folder-name:focus {
+    border-color: rgba(112, 217, 255, 0.68);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(112, 217, 255, 0.14);
+}
+
+.fw-floorplans__folder-count {
+    color: #8faabd;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.fw-floorplans__folder-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.fw-floorplans__folder-body {
+    min-height: 92px;
 }
 
 .fw-floorplans__grid {
@@ -178,6 +254,29 @@
     white-space: nowrap;
 }
 
+.fw-floorplans__move {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    color: #8faabd;
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.fw-floorplans__move select {
+    min-width: 0;
+    border: 1px solid rgba(168, 199, 217, 0.28);
+    border-radius: 5px;
+    padding: 7px 28px 7px 9px;
+    background: rgba(3, 12, 21, 0.92);
+    color: #dce8f4;
+    font: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
 .fw-floorplans__actions {
     display: flex;
     align-items: center;
@@ -196,5 +295,18 @@
     .fw-floorplans__summary {
         grid-template-columns: 1fr;
         max-width: none;
+    }
+
+    .fw-floorplans__folder-header {
+        grid-template-columns: 32px 22px minmax(0, 1fr);
+    }
+
+    .fw-floorplans__folder-count,
+    .fw-floorplans__folder-actions {
+        grid-column: 3;
+    }
+
+    .fw-floorplans__folder-actions {
+        justify-content: flex-start;
     }
 }

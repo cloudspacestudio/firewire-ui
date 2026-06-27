@@ -164,8 +164,16 @@ export interface QuoteSheetData {
                                 <td><input class="quote-sheet__paper-input" [(ngModel)]="row.id" [name]="'quote-id-' + index" /></td>
                                 <td><input class="quote-sheet__paper-input" [(ngModel)]="row.description" [name]="'quote-description-' + index" /></td>
                                 <td><input class="quote-sheet__paper-input is-right" type="number" min="0" [(ngModel)]="row.qty" [name]="'quote-qty-' + index" /></td>
-                                <td><input class="quote-sheet__paper-input is-right" type="number" min="0" step="0.01" [(ngModel)]="row.amount" [name]="'quote-amount-' + index" /></td>
-                                <td class="is-right">{{getLineItemTotal(row) | currency}}</td>
+                                <td>
+                                    <input
+                                        class="quote-sheet__paper-input quote-sheet__money-input is-right"
+                                        type="text"
+                                        inputmode="decimal"
+                                        [ngModel]="formatUsd(row.amount)"
+                                        (ngModelChange)="row.amount = parseCurrencyInput($event)"
+                                        [name]="'quote-amount-' + index" />
+                                </td>
+                                <td class="quote-sheet__money-value quote-sheet__money-value--total is-right">{{formatUsd(getLineItemTotal(row))}}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -187,11 +195,11 @@ export interface QuoteSheetData {
                             </label>
                         </div>
                         <div class="quote-sheet__totals-panel">
-                            <div class="quote-sheet__total-row"><span>Subtotal</span><strong>{{getSubtotal() | currency}}</strong></div>
+                            <div class="quote-sheet__total-row"><span>Subtotal</span><strong>{{formatUsd(getSubtotal())}}</strong></div>
                             <div class="quote-sheet__total-row"><span>Tax Rate</span><strong>{{editable.taxRatePercent.toFixed(2)}}%</strong></div>
-                            <div class="quote-sheet__total-row"><span>Sales Tax if applicable</span><strong>{{getSalesTaxAmount() | currency}}</strong></div>
-                            <div class="quote-sheet__total-row"><span>Shipping and Handling</span><strong>{{editable.shippingHandling | currency}}</strong></div>
-                            <div class="quote-sheet__total-row quote-sheet__total-row--grand"><span>Total</span><strong>{{getGrandTotal() | currency}}</strong></div>
+                            <div class="quote-sheet__total-row"><span>Sales Tax if applicable</span><strong>{{formatUsd(getSalesTaxAmount())}}</strong></div>
+                            <div class="quote-sheet__total-row"><span>Shipping and Handling</span><strong>{{formatUsd(getRoundedShippingHandling())}}</strong></div>
+                            <div class="quote-sheet__total-row quote-sheet__total-row--grand"><span>Total</span><strong>{{formatUsd(getGrandTotal())}}</strong></div>
                         </div>
                     </div>
 
@@ -241,6 +249,9 @@ export interface QuoteSheetData {
         .quote-sheet__section-title--accent{color:#d21919}
         .quote-sheet__paper-input{width:100%;border:0;outline:0;padding:0;margin:0;background:transparent;color:#101820;font:inherit;box-sizing:border-box}
         .quote-sheet__paper-input.is-right{text-align:right}
+        .quote-sheet__money-input{background:#fff;padding:2px 6px;border:1px solid rgba(122,139,158,.45)}
+        .quote-sheet__money-value{display:block;min-height:22px;background:#fff;color:#101820;font-weight:700}
+        .quote-sheet__money-value--total{padding:2px 6px}
         .quote-sheet__paper-input--multiline{min-height:96px;overflow:hidden;resize:none;border:1px solid #aab7c6;background:#fff;padding:10px 12px;line-height:1.38}
         .quote-sheet__paper-input--small{min-height:72px}
         .quote-sheet__paper-input--terms{min-height:300px;overflow:visible;border:0;background:transparent;padding:0;font-size:.92rem;line-height:1.45}
@@ -263,6 +274,7 @@ export interface QuoteSheetData {
         .quote-sheet__signature-label input{border-bottom:1px solid #101820;padding:3px 0}
         .quote-sheet__totals-panel{display:grid;gap:8px}
         .quote-sheet__total-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid #d7dbe0;font-weight:700}
+        .quote-sheet__total-row strong{min-width:120px;padding:2px 6px;background:#fff;color:#101820;text-align:right}
         .quote-sheet__total-row--grand{font-size:1.08rem;border-top:2px solid #101820;border-bottom:2px solid #101820;padding:8px 0}
         .quote-sheet__section--terms{margin-top:18px;border-top:2px solid #324fbf;padding-top:12px}
         .quote-sheet__terms-title{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:2rem;font-weight:700;text-transform:uppercase;margin-bottom:10px}
@@ -350,19 +362,41 @@ export class QuoteSheetDialog implements AfterViewInit {
     }
 
     getLineItemTotal(row: QuoteSheetLineItem): number {
-        return Number(row.qty || 0) * Number(row.amount || 0)
+        return this.roundUpCurrencyAmount(Number(row.qty || 0) * Number(row.amount || 0))
     }
 
     getSubtotal(): number {
-        return this.editable.lineItems.reduce((sum, row) => sum + this.getLineItemTotal(row), 0)
+        return this.roundUpCurrencyAmount(this.editable.lineItems.reduce((sum, row) => sum + this.getLineItemTotal(row), 0))
     }
 
     getSalesTaxAmount(): number {
-        return this.getSubtotal() * (Number(this.editable.taxRatePercent || 0) / 100)
+        return this.roundUpCurrencyAmount(this.getSubtotal() * (Number(this.editable.taxRatePercent || 0) / 100))
+    }
+
+    getRoundedShippingHandling(): number {
+        return this.roundUpCurrencyAmount(Number(this.editable.shippingHandling || 0))
     }
 
     getGrandTotal(): number {
-        return this.getSubtotal() + this.getSalesTaxAmount() + Number(this.editable.shippingHandling || 0)
+        return this.roundUpCurrencyAmount(this.getSubtotal() + this.getSalesTaxAmount() + this.getRoundedShippingHandling())
+    }
+
+    formatUsd(value: number): string {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0
+        }).format(this.roundUpCurrencyAmount(value))
+    }
+
+    parseCurrencyInput(value: unknown): number {
+        const parsed = Number(String(value ?? '').replace(/[^0-9.-]/g, ''))
+        return Number.isFinite(parsed) ? parsed : 0
+    }
+
+    private roundUpCurrencyAmount(value: number): number {
+        const amount = Number(value || 0)
+        return Number.isFinite(amount) ? Math.ceil(amount) : 0
     }
 
     async createSheet() {
@@ -437,6 +471,9 @@ export class QuoteSheetDialog implements AfterViewInit {
         .quote-sheet__section-title--alert,.quote-sheet__section-title--accent,.quote-sheet__meta-title{color:#d21919}
         .quote-sheet__paper-input{width:100%;border:0;outline:0;padding:0;margin:0;background:transparent;color:#101820;font:inherit;box-sizing:border-box}
         .quote-sheet__paper-input.is-right{text-align:right}
+        .quote-sheet__money-input{background:#fff;padding:2px 6px;border:1px solid rgba(122,139,158,.45)}
+        .quote-sheet__money-value{display:block;min-height:22px;background:#fff;color:#101820;font-weight:700}
+        .quote-sheet__money-value--total{padding:2px 6px}
         .quote-sheet__paper-input--multiline{min-height:96px;overflow:hidden;resize:none;border:1px solid #aab7c6;background:#fff;padding:10px 12px;line-height:1.38}
         .quote-sheet__paper-input--small{min-height:72px}
         .quote-sheet__paper-input--terms{min-height:300px;overflow:visible;border:0;background:transparent;padding:0;font-size:.92rem;line-height:1.45}
@@ -455,6 +492,7 @@ export class QuoteSheetDialog implements AfterViewInit {
         .quote-sheet__signature-label input{border-bottom:1px solid #101820;padding:3px 0}
         .quote-sheet__totals-panel{display:grid;gap:8px}
         .quote-sheet__total-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid #d7dbe0;font-weight:700}
+        .quote-sheet__total-row strong{min-width:120px;padding:2px 6px;background:#fff;color:#101820;text-align:right}
         .quote-sheet__total-row--grand{font-size:1.08rem;border-top:2px solid #101820;border-bottom:2px solid #101820;padding:8px 0}
         .quote-sheet__section--terms{margin-top:18px;border-top:2px solid #324fbf;padding-top:12px}
         .quote-sheet__terms-title{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:2rem;font-weight:700;text-transform:uppercase;margin-bottom:10px}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Compact Workstation</title>
+  <desc id="desc">A compact workstation icon with a monitor, small desktop computer, keyboard, and status indicator.</desc>
+  <path fill="currentColor" d="M11 9h31c3.31 0 6 2.69 6 6v20c0 3.31-2.69 6-6 6H30v5h6a2.5 2.5 0 0 1 0 5H17a2.5 2.5 0 0 1 0-5h8v-5H11c-3.31 0-6-2.69-6-6V15c0-3.31 2.69-6 6-6Zm0 5c-.55 0-1 .45-1 1v20c0 .55.45 1 1 1h31c.55 0 1-.45 1-1V15c0-.55-.45-1-1-1H11Zm5 5h21a2 2 0 0 1 0 4H16a2 2 0 0 1 0-4Zm0 8h12a2 2 0 0 1 0 4H16a2 2 0 0 1 0-4Zm36-6h3c2.21 0 4 1.79 4 4v25c0 2.21-1.79 4-4 4h-9c-2.21 0-4-1.79-4-4v-5a2.5 2.5 0 0 1 5 0v4h7V26h-2a2.5 2.5 0 0 1 0-5Zm-1.5 19a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-35 14h22a2.5 2.5 0 0 1 0 5h-22a2.5 2.5 0 0 1 0-5Z"/>
+</svg>

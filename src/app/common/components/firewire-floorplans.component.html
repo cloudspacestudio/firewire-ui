@@ -14,15 +14,60 @@
         <header class="fw-floorplans__header">
             <div>
                 <div class="fw-floorplans__eyebrow">Floorplans</div>
-                <h4>/Projects/{{projectKey}}/Floorplans</h4>
+                <h4>Project floorplan library</h4>
             </div>
             <div *ngIf="statusMessage" class="fw-floorplans__status">{{statusMessage}}</div>
+            <button *ngIf="hasFolders" mat-stroked-button type="button" class="fw-floorplans__create-folder" (click)="createFolder.emit()">
+                <mat-icon fontIcon="create_new_folder"></mat-icon>
+                New Folder
+            </button>
         </header>
 
+        <div *ngIf="hasFolders; else ungroupedFloorplans" class="fw-floorplans__folders">
+            <article *ngFor="let folder of sortedFolders" class="fw-floorplans__folder">
+                <header class="fw-floorplans__folder-header" [class.is-collapsed]="!folder.expanded">
+                    <button mat-icon-button type="button" class="fw-floorplans__folder-toggle" [attr.aria-label]="(folder.expanded ? 'Collapse ' : 'Expand ') + folder.name" (click)="toggleFolder.emit(folder.id)">
+                        <mat-icon [fontIcon]="folder.expanded ? 'expand_more' : 'chevron_right'"></mat-icon>
+                    </button>
+                    <mat-icon class="fw-floorplans__folder-icon" fontIcon="folder"></mat-icon>
+                    <input
+                        class="fw-floorplans__folder-name"
+                        [ngModel]="getDraftFolderName(folder)"
+                        (ngModelChange)="setDraftFolderName(folder, $event)"
+                        (blur)="commitFolderName(folder)"
+                        (keydown.enter)="commitFolderName(folder); $any($event.target).blur()"
+                        aria-label="Folder name" />
+                    <span class="fw-floorplans__folder-count">{{filesForFolder(folder).length}} floorplan{{filesForFolder(folder).length === 1 ? '' : 's'}}</span>
+                    <div class="fw-floorplans__folder-actions">
+                        <button mat-stroked-button type="button" (click)="uploadFiles.emit(folder.id)" [disabled]="uploadBusy || uploadDisabled">
+                            <mat-icon fontIcon="add_photo_alternate"></mat-icon>
+                            {{uploadBusy ? 'Uploading...' : 'Upload'}}
+                        </button>
+                        <button mat-icon-button type="button" class="fw-floorplans__danger" [disabled]="sortedFolders.length <= 1 || uploadBusy" [attr.aria-label]="'Delete folder ' + folder.name" (click)="deleteFolder.emit(folder.id)">
+                            <mat-icon fontIcon="delete"></mat-icon>
+                        </button>
+                    </div>
+                </header>
+
+                <div *ngIf="folder.expanded" class="fw-floorplans__folder-body">
+                    <div *ngIf="filesForFolder(folder).length <= 0" class="fw-floorplans__empty">No floorplans in this folder yet.</div>
+                    <div *ngIf="filesForFolder(folder).length > 0" class="fw-floorplans__grid">
+                        <ng-container *ngTemplateOutlet="floorplanTileList; context: {$implicit: filesForFolder(folder)}"></ng-container>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <ng-template #ungroupedFloorplans>
         <div *ngIf="files.length <= 0" class="fw-floorplans__empty">No floorplans have been uploaded yet.</div>
 
         <div *ngIf="files.length > 0" class="fw-floorplans__grid">
-            <article *ngFor="let file of sortedFiles" class="fw-floorplans__tile" [class.is-saving]="isSaving(file)">
+            <ng-container *ngTemplateOutlet="floorplanTileList; context: {$implicit: sortedFiles}"></ng-container>
+        </div>
+        </ng-template>
+
+        <ng-template #floorplanTileList let-tileFiles>
+            <article *ngFor="let file of tileFiles" class="fw-floorplans__tile" [class.is-saving]="isSaving(file)">
                 <div *ngIf="isSaving(file)" class="fw-floorplans__saving" aria-label="Saving floorplan">
                     <mat-progress-spinner mode="indeterminate" diameter="34"></mat-progress-spinner>
                 </div>
@@ -43,6 +88,12 @@
                 <div class="fw-floorplans__meta">
                     {{formatBytes(latestVersion(file)?.sizeBytes || 0)}} / {{annotationCount(file)}} mark{{annotationCount(file) === 1 ? '' : 's'}}
                 </div>
+                <label *ngIf="hasFolders" class="fw-floorplans__move">
+                    <span>Folder</span>
+                    <select [ngModel]="getFileFolderId(file)" (ngModelChange)="moveToFolder(file, $event)" [disabled]="isSaving(file)">
+                        <option *ngFor="let folder of sortedFolders" [value]="folder.id">{{folder.name}}</option>
+                    </select>
+                </label>
                 <div class="fw-floorplans__actions">
                     <button mat-stroked-button type="button" (click)="designFile.emit(file)" [disabled]="isSaving(file)">
                         <mat-icon fontIcon="architecture"></mat-icon>
@@ -56,6 +107,6 @@
                     </button>
                 </div>
             </article>
-        </div>
+        </ng-template>
     </div>
 </section>

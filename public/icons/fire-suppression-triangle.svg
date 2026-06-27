@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Fire Suppression Triangle</title>
+  <desc id="desc">A fire suppression symbol shown as a filled triangle marker.</desc>
+  <path fill="currentColor" d="M29.39 9.51c1.14-1.99 4.08-1.99 5.22 0l24.98 43.52C60.74 55.04 59.28 58 56.98 58H7.02c-2.3 0-3.76-2.96-2.61-4.97L29.39 9.51Z"/>
+</svg>

@@ -6,6 +6,10 @@ export interface VwDevice {
     createby: string
     defaultLabor: number
     laborRate?: number
+    iconId?: string | null
+    iconLabel?: string | null
+    iconDataUrl?: string | null
+    iconForegroundColor?: string | null
     deviceId: string
     name: string
     partNumber: string

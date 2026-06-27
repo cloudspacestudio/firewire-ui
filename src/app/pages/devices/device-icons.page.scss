@@ -1,0 +1,175 @@
+.device-icons-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.device-icons-new-group {
+    width: min(340px, 100%);
+}
+
+.device-icons-toolbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.device-icons-toolbar mat-icon,
+.device-icons-tile__actions mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+.device-icons-status,
+.device-icons-empty {
+    color: var(--fw-muted);
+}
+
+.device-icons-explorer {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    min-height: calc(100vh - 190px);
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    background: rgba(7, 12, 22, 0.72);
+}
+
+.device-icons-groups {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    padding: 10px;
+    border-right: 1px solid rgba(72, 221, 255, 0.14);
+    background: rgba(4, 10, 18, 0.38);
+}
+
+.device-icons-group {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--fw-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.device-icons-group span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.device-icons-group small {
+    color: var(--fw-muted);
+}
+
+.device-icons-group.is-active {
+    border-color: rgba(72, 221, 255, 0.32);
+    background: rgba(72, 221, 255, 0.09);
+    color: var(--fw-accent-2);
+}
+
+.device-icons-content {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    min-width: 0;
+    padding: 14px;
+}
+
+.device-icons-content__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.device-icons-content__header mat-form-field {
+    width: min(420px, 100%);
+}
+
+.device-icons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
+    gap: 14px;
+}
+
+.device-icons-tile {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    max-width: 260px;
+    padding: 12px;
+    border: 1px solid rgba(72, 221, 255, 0.13);
+    background: rgba(9, 16, 28, 0.66);
+    box-sizing: border-box;
+}
+
+.device-icons-preview {
+    display: grid;
+    place-items: center;
+    width: 168px;
+    height: 168px;
+    justify-self: center;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    background: #fff;
+    box-shadow: inset 0 0 0 1px rgba(7, 16, 24, 0.04);
+}
+
+.device-icons-preview__symbol {
+    display: inline-block;
+    max-width: 72px;
+    max-height: 72px;
+    width: 72px;
+    height: 72px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+}
+
+.device-icons-tile mat-form-field {
+    width: 100%;
+    min-width: 0;
+}
+
+.device-icons-tile__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.device-icons-tile__actions button[mat-stroked-button] {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline: 10px;
+}
+
+.device-icons-tile__actions button[mat-icon-button] {
+    flex: 0 0 38px;
+}
+
+@media (max-width: 900px) {
+    .device-icons-explorer {
+        grid-template-columns: 1fr;
+    }
+
+    .device-icons-groups {
+        border-right: 0;
+        border-bottom: 1px solid rgba(72, 221, 255, 0.14);
+    }
+}

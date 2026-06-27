@@ -16,6 +16,7 @@ export const routes: Routes = [
     {path: 'projects/fieldwire-list', loadComponent: () => import('./pages/projects/fieldwire-projects.page').then(m => m.FieldwireProjectsPage)},
     {path: 'admin', redirectTo: 'settings/project-admin', pathMatch: 'full'},
     {path: 'devices', loadComponent: () => import('./pages/devices/devices.page').then(m => m.DevicesPage)},
+    {path: 'devices/icons', loadComponent: () => import('./pages/devices/device-icons.page').then(m => m.DeviceIconsPage)},
     {path: 'devices/:deviceId', canDeactivate: [canDeactivateProjectPage], loadComponent: () => import('./pages/devices/device.page').then(m => m.DevicePage)},
     {path: 'device-sets', loadComponent: () => import('./pages/device-sets/device-sets.page').then(m => m.DeviceSetsPage)},
     {path: 'device-sets/:deviceSetId/parts', loadComponent: () => import('./pages/device-sets/device-set-parts.page').then(m => m.DeviceSetPartsPage)},

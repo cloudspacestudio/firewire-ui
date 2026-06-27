@@ -1,0 +1,94 @@
+<page-toolbar>
+    <div class="button-bar">
+        <button mat-fab class="back" [routerLink]="'/devices'">
+            <mat-icon fontIcon="chevron_left"></mat-icon>
+        </button>
+    </div>
+    <nav-toolbar [navItems]="navItems" [selectedItem]="'device-icons'"></nav-toolbar>
+</page-toolbar>
+
+<div class="page-root">
+    <div class="page-content">
+        <div class="device-icons-toolbar">
+            <mat-form-field class="device-icons-new-group">
+                <mat-label>New Icon Group</mat-label>
+                <input matInput [(ngModel)]="newGroupName" (keydown.enter)="createGroup()" />
+            </mat-form-field>
+            <button mat-flat-button type="button" [disabled]="actionWorking || !newGroupName.trim()" (click)="createGroup()">
+                <mat-icon>create_new_folder</mat-icon>
+                Create Group
+            </button>
+            <button mat-stroked-button type="button" [disabled]="actionWorking || !selectedGroup" (click)="openUpload()">
+                <mat-icon>upload_file</mat-icon>
+                Upload Icons
+            </button>
+            <span *ngIf="statusText" class="device-icons-status">{{statusText}}</span>
+        </div>
+
+        <input #uploadInput type="file" hidden multiple accept="image/*,.svg" (change)="onUploadSelected($event)" />
+        <input #replaceInput type="file" hidden accept="image/*,.svg" (change)="onReplaceSelected($event)" />
+
+        <div class="device-icons-explorer" *ngIf="!pageWorking; else loadingIcons">
+            <aside class="device-icons-groups" aria-label="Icon groups">
+                <button
+                    *ngFor="let group of groups"
+                    type="button"
+                    class="device-icons-group"
+                    [class.is-active]="selectedGroup?.iconGroupId === group.iconGroupId"
+                    (click)="selectGroup(group)">
+                    <mat-icon>folder</mat-icon>
+                    <span>{{group.name}}</span>
+                    <small>{{group.icons.length}}</small>
+                </button>
+                <div *ngIf="groups.length <= 0" class="device-icons-empty">No icon groups yet.</div>
+            </aside>
+
+            <section class="device-icons-content" *ngIf="selectedGroup as group; else noGroupSelected">
+                <div class="device-icons-content__header">
+                    <mat-form-field>
+                        <mat-label>Group Name</mat-label>
+                        <input matInput [(ngModel)]="group.name" (blur)="renameGroup(group)" />
+                    </mat-form-field>
+                    <button mat-icon-button type="button" aria-label="Delete icon group" [disabled]="actionWorking" (click)="deleteGroup(group)">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+
+                <div class="device-icons-grid" *ngIf="group.icons.length > 0; else emptyGroup">
+                    <article *ngFor="let icon of group.icons" class="device-icons-tile">
+                        <div class="device-icons-preview" [attr.title]="icon.label">
+                            <span class="device-icons-preview__symbol" [ngStyle]="getIconPreviewStyle(icon)" [attr.aria-label]="icon.label"></span>
+                        </div>
+                        <mat-form-field>
+                            <mat-label>Label</mat-label>
+                            <input matInput [(ngModel)]="icon.label" (blur)="saveIconLabel(icon)" />
+                        </mat-form-field>
+                        <div class="device-icons-tile__actions">
+                            <button mat-stroked-button type="button" [disabled]="actionWorking" (click)="openReplace(icon)">
+                                <mat-icon>image</mat-icon>
+                                Replace
+                            </button>
+                            <button mat-icon-button type="button" aria-label="Delete icon" [disabled]="actionWorking" (click)="deleteIcon(icon)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<ng-template #loadingIcons>
+    <div class="device-icons-empty">Loading icon groups...</div>
+</ng-template>
+
+<ng-template #emptyGroup>
+    <div class="device-icons-empty">Upload icons to this group.</div>
+</ng-template>
+
+<ng-template #noGroupSelected>
+    <section class="device-icons-content">
+        <div class="device-icons-empty">Create an icon group to begin.</div>
+    </section>
+</ng-template>

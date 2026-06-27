@@ -66,6 +66,10 @@ interface SalesBomRow {
     labor: number
     includeOnFloorplan: boolean
     type: string
+    iconId?: string | null
+    iconLabel?: string | null
+    iconDataUrl?: string | null
+    iconForegroundColor?: string | null
     lookupQuery?: string
     bomRowParts?: SalesBomRowPart[]
 }
@@ -285,6 +289,7 @@ export class SalesProjectPage {
             return
         }
         this.syncFloorplanQuantitiesToBom()
+        this.removeFloorplanSymbolsMissingFromBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
@@ -329,6 +334,7 @@ export class SalesProjectPage {
             return
         }
         this.syncFloorplanQuantitiesToBom()
+        this.removeFloorplanSymbolsMissingFromBom()
         const symbolBalanceErrors = this.getFloorplanSymbolBalanceErrors()
         if (symbolBalanceErrors.length > 0) {
             this.showFloorplanSymbolBalanceErrors(symbolBalanceErrors)
@@ -471,10 +477,13 @@ export class SalesProjectPage {
                 const categoryKey = `category-${this.normalizeFloorplanSymbolKey(categoryName)}`
                 const partNumber = String(row.partNbr || '').trim()
                 const deviceName = String(row.description || row.partNbr || categoryName).trim()
+                const partDescription = this.getBomRowPartDescription(row)
                 const id = this.getFloorplanSymbolIdForBomRow(row)
                 const existing = bySymbol.get(id)
                 if (existing) {
                     existing.totalQty += qty
+                    existing.partDescription = existing.partDescription || partDescription
+                    existing.iconDataUrl = existing.iconDataUrl || row.iconDataUrl || null
                     continue
                 }
 
@@ -491,6 +500,11 @@ export class SalesProjectPage {
                     categoryName,
                     partNumber,
                     deviceName,
+                    partDescription,
+                    iconId: row.iconId || null,
+                    iconLabel: row.iconLabel || null,
+                    iconDataUrl: row.iconDataUrl || null,
+                    iconForegroundColor: row.iconForegroundColor || null,
                     materialCost: Number(row.cost || 0),
                     laborHours: Number(row.labor || 0),
                     customAttributes: []
@@ -545,6 +559,114 @@ export class SalesProjectPage {
         this.bomSections = [...this.bomSections]
     }
 
+    private removeFloorplanSymbolsForBomRows(rows: SalesBomRow[]): number {
+        const rowIds = new Set<string>()
+        const symbolIds = new Set<string>()
+        for (const row of rows || []) {
+            const rowId = String(row?.id || '').trim()
+            if (rowId) {
+                rowIds.add(rowId)
+            }
+            if (row) {
+                symbolIds.add(this.getFloorplanSymbolIdForBomRow(row))
+            }
+        }
+
+        if (rowIds.size <= 0 && symbolIds.size <= 0) {
+            return 0
+        }
+
+        let removedCount = 0
+        let changedFiles = false
+        for (const file of this.getFloorplanFiles()) {
+            const design = file.floorplanDesign
+            const annotations = design?.annotations || []
+            if (annotations.length <= 0) {
+                continue
+            }
+
+            const nextAnnotations = annotations.filter((annotation) => {
+                if (annotation.kind !== 'symbol') {
+                    return true
+                }
+                const matchesDeletedRow =
+                    (annotation.symbolId && symbolIds.has(annotation.symbolId))
+                    || (annotation.bomRowId && rowIds.has(annotation.bomRowId))
+                if (matchesDeletedRow) {
+                    removedCount += 1
+                    return false
+                }
+                return true
+            })
+
+            if (nextAnnotations.length !== annotations.length && design) {
+                file.floorplanDesign = {
+                    ...design,
+                    annotations: nextAnnotations
+                }
+                file.updatedAt = new Date().toISOString()
+                changedFiles = true
+            }
+        }
+
+        this.afterFloorplanSymbolCleanup(changedFiles)
+
+        return removedCount
+    }
+
+    private removeFloorplanSymbolsMissingFromBom(): number {
+        const symbols = this.getFloorplanSymbolInventory()
+        const validSymbolIds = new Set(symbols.map((symbol) => symbol.id))
+        const validBomRowIds = new Set(symbols.map((symbol) => String(symbol.bomRowId || '').trim()).filter(Boolean))
+        let removedCount = 0
+        let changedFiles = false
+
+        for (const file of this.getFloorplanFiles()) {
+            const design = file.floorplanDesign
+            const annotations = design?.annotations || []
+            if (annotations.length <= 0) {
+                continue
+            }
+
+            const nextAnnotations = annotations.filter((annotation) => {
+                if (annotation.kind !== 'symbol') {
+                    return true
+                }
+                const symbolId = String(annotation.symbolId || '').trim()
+                const bomRowId = String(annotation.bomRowId || '').trim()
+                const hasBomMatch = !!bomRowId && validBomRowIds.has(bomRowId)
+                const hasSymbolMatch = !!symbolId && validSymbolIds.has(symbolId)
+                if (!hasBomMatch && !hasSymbolMatch) {
+                    removedCount += 1
+                    return false
+                }
+                return true
+            })
+
+            if (nextAnnotations.length !== annotations.length && design) {
+                file.floorplanDesign = {
+                    ...design,
+                    annotations: nextAnnotations
+                }
+                file.updatedAt = new Date().toISOString()
+                changedFiles = true
+            }
+        }
+
+        this.afterFloorplanSymbolCleanup(changedFiles)
+        return removedCount
+    }
+
+    private afterFloorplanSymbolCleanup(changedFiles: boolean): void {
+        if (!changedFiles) {
+            return
+        }
+        this.docLibraryFiles = [...this.docLibraryFiles]
+        void this.persistDocLibraryWorkspace().catch((err) => {
+            this.saveMessage = err?.message || 'Unable to persist floorplan symbol cleanup.'
+        })
+    }
+
     private getFloorplanSymbolIdForBomRow(row: SalesBomRow): string {
         if (!String(row.id || '').trim()) {
             row.id = this.createClientId()
@@ -586,6 +708,11 @@ export class SalesProjectPage {
                     categoryName: symbol.categoryName,
                     partNumber: symbol.partNumber,
                     deviceName: symbol.deviceName,
+                    partDescription: symbol.partDescription,
+                    iconId: symbol.iconId,
+                    iconLabel: symbol.iconLabel,
+                    iconDataUrl: symbol.iconDataUrl,
+                    iconForegroundColor: symbol.iconForegroundColor,
                     materialCost: symbol.materialCost,
                     laborHours: symbol.laborHours,
                     customAttributes: symbol.customAttributes ? [...symbol.customAttributes] : undefined,
@@ -926,8 +1053,10 @@ export class SalesProjectPage {
     }
 
     removeBomRow(section: SalesBomSection, row: SalesBomRow): void {
+        this.removeFloorplanSymbolsForBomRows([row])
         section.rows = (section.rows || []).filter((item) => item !== row)
         this.bomSections = [...this.bomSections]
+        this.removeFloorplanSymbolsMissingFromBom()
         this.closeBomPartLookup()
     }
 
@@ -1067,18 +1196,20 @@ export class SalesProjectPage {
         const partNumber = String(device.partNumber || '').trim()
         let materials: VwDeviceMaterial[] = []
         try {
-            materials = await firstValueFrom(this.http.get<VwDeviceMaterial[]>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+            const response = await firstValueFrom(this.http.get<VwDeviceMaterial[] | { rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+            materials = Array.isArray(response) ? response : (Array.isArray(response?.rows) ? response.rows : [])
         } catch {
             materials = []
         }
         row.partNbr = partNumber
         row.lookupQuery = partNumber
-        row.description = String(device.name || device.shortName || '').trim()
         row.cost = this.roundBomMoney(device.cost || 0)
         row.type = String(device.categoryName || '').trim()
         row.includeOnFloorplan = !!device.includeOnFloorplan
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
         row.bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
+        row.description = this.getBomDeviceDescription(device, row.bomRowParts)
+        this.applyDeviceIconSnapshot(row, device)
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
     }
@@ -1126,7 +1257,10 @@ export class SalesProjectPage {
     }
 
     removeBomSection(sectionIndex: number): void {
+        const section = this.bomSections[sectionIndex]
+        this.removeFloorplanSymbolsForBomRows(section?.rows || [])
         this.bomSections = this.bomSections.filter((_, idx) => idx !== sectionIndex)
+        this.removeFloorplanSymbolsMissingFromBom()
     }
 
     addBomSection(): void {
@@ -1570,14 +1704,25 @@ export class SalesProjectPage {
             id: this.createClientId(),
             partNbr: partNumber,
             lookupQuery: partNumber,
-            description: String(device.name || '').trim(),
+            description: this.getBomDeviceDescription(device, bomRowParts),
             qty: 0,
             cost: this.roundBomMoney(this.getCurrentVendorPrice(partNumber, vendorPartMap, snapshotCost)),
             labor: this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor)),
             includeOnFloorplan,
             type: typeValue,
+            iconId: device.iconId || null,
+            iconLabel: device.iconLabel || null,
+            iconDataUrl: device.iconDataUrl || null,
+            iconForegroundColor: device.iconForegroundColor || null,
             bomRowParts
         }]
+    }
+
+    private applyDeviceIconSnapshot(row: SalesBomRow, device: VwDevice): void {
+        row.iconId = device.iconId || null
+        row.iconLabel = device.iconLabel || null
+        row.iconDataUrl = device.iconDataUrl || null
+        row.iconForegroundColor = device.iconForegroundColor || null
     }
 
     private createBomRowPartsFromVendorPart(part: VwPart): SalesBomRowPart[] {
@@ -1628,6 +1773,44 @@ export class SalesProjectPage {
                 quantityPerDevice: Math.max(1, Math.floor(Number(row.quantityPerDevice || 1)))
             }
         }).filter((part) => !!part.partNumber)
+    }
+
+    private getBomDeviceDescription(device: any, parts: SalesBomRowPart[]): string {
+        const deviceName = String(device?.name || device?.shortName || '').replace(/\s+/g, ' ').trim()
+        const partDescription = this.getBomPartsDescription(parts)
+        return [deviceName, partDescription]
+            .filter(Boolean)
+            .filter((value, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === value.toLowerCase()) === index)
+            .join(' - ')
+    }
+
+    private getBomRowPartDescription(row: SalesBomRow): string {
+        return this.getBomPartsDescription(row.bomRowParts || [])
+    }
+
+    private getBomPartsDescription(parts: SalesBomRowPart[]): string {
+        const seen = new Set<string>()
+        return (parts || [])
+            .map((part) => String(part.description || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .filter((description) => {
+                const key = description.toLowerCase()
+                if (seen.has(key)) {
+                    return false
+                }
+                seen.add(key)
+                return true
+            })
+            .join('; ')
+    }
+
+    private getBomDescriptionWithParts(description: string, parts: SalesBomRowPart[]): string {
+        const normalizedDescription = String(description || '').replace(/\s+/g, ' ').trim()
+        const partDescription = this.getBomPartsDescription(parts)
+        if (!partDescription || normalizedDescription.toLowerCase().includes(partDescription.toLowerCase())) {
+            return normalizedDescription
+        }
+        return [normalizedDescription, partDescription].filter(Boolean).join(' - ')
     }
 
     private getDefaultLaborCost(value: unknown): number {
@@ -1872,18 +2055,25 @@ export class SalesProjectPage {
             vendorIds: Array.isArray(section?.vendorIds) ? section.vendorIds.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
             vendorNames: Array.isArray(section?.vendorNames) ? section.vendorNames.map((value: any) => String(value || '').trim()).filter(Boolean) : [],
             rows: Array.isArray(section?.rows) && section.rows.length > 0
-                ? section.rows.map((row: any) => ({
-                    id: String(row?.id || this.createClientId()),
-                    partNbr: String(row?.partNbr || '').trim(),
-                    lookupQuery: String(row?.partNbr || '').trim(),
-                    description: String(row?.description || '').trim(),
-                    qty: Number(row?.qty || 0),
-                    cost: this.roundBomMoney(row?.cost),
-                    labor: this.roundBomMoney(row?.labor),
-                    includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
-                    type: String(row?.type || '').trim(),
-                    bomRowParts: this.cloneBomRowParts(row?.bomRowParts)
-                }))
+                ? section.rows.map((row: any) => {
+                    const bomRowParts = this.cloneBomRowParts(row?.bomRowParts)
+                    return {
+                        id: String(row?.id || this.createClientId()),
+                        partNbr: String(row?.partNbr || '').trim(),
+                        lookupQuery: String(row?.partNbr || '').trim(),
+                        description: this.getBomDescriptionWithParts(String(row?.description || '').trim(), bomRowParts),
+                        qty: Number(row?.qty || 0),
+                        cost: this.roundBomMoney(row?.cost),
+                        labor: this.roundBomMoney(row?.labor),
+                        includeOnFloorplan: this.normalizeBomRowFloorplanFlag(row),
+                        type: String(row?.type || '').trim(),
+                        iconId: String(row?.iconId || '').trim() || null,
+                        iconLabel: String(row?.iconLabel || '').trim() || null,
+                        iconDataUrl: String(row?.iconDataUrl || '').trim() || null,
+                        iconForegroundColor: String(row?.iconForegroundColor || '').trim() || null,
+                        bomRowParts
+                    }
+                })
                 : [this.createEmptyBomRow()]
         }))
     }
@@ -1899,6 +2089,10 @@ export class SalesProjectPage {
             labor: 0,
             includeOnFloorplan: false,
             type: '',
+            iconId: null,
+            iconLabel: null,
+            iconDataUrl: null,
+            iconForegroundColor: null,
             bomRowParts: []
         }
     }
@@ -1913,12 +2107,16 @@ export class SalesProjectPage {
             rows: (section.rows || []).map((row) => ({
                 id: String(row.id || this.createClientId()),
                 partNbr: String(row.partNbr || '').trim(),
-                description: String(row.description || '').trim(),
+                description: this.getBomDescriptionWithParts(String(row.description || '').trim(), row.bomRowParts || []),
                 qty: Number(row.qty || 0),
                 cost: this.roundBomMoney(row.cost),
                 labor: this.roundBomMoney(row.labor),
                 includeOnFloorplan: !!row.includeOnFloorplan,
                 type: String(row.type || '').trim(),
+                iconId: row.iconId || null,
+                iconLabel: row.iconLabel || null,
+                iconDataUrl: row.iconDataUrl || null,
+                iconForegroundColor: row.iconForegroundColor || null,
                 bomRowParts: this.cloneBomRowParts(row.bomRowParts)
             }))
         }))

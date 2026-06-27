@@ -103,6 +103,18 @@ export class FirewireBomWorksheetComponent {
         this.onBomLaborChanged()
     }
 
+    getBomRowIconStyle(row: any): Record<string, string> {
+        const dataUrl = String(row?.iconDataUrl || '').trim()
+        const color = String(row?.iconForegroundColor || '#210507').trim() || '#210507'
+        return dataUrl
+            ? {
+                'background-color': color,
+                'mask-image': `url("${dataUrl}")`,
+                '-webkit-mask-image': `url("${dataUrl}")`,
+            }
+            : {}
+    }
+
     getBomSectionMaterialTotal(section: any): number {
         return this.getSectionRows(section).reduce((sum, row) => sum + this.getRowMaterialTotal(row), 0)
     }
@@ -236,9 +248,14 @@ export class FirewireBomWorksheetComponent {
         <mat-dialog-content>
             <section class="bom-source-dialog">
                 <div class="bom-source-dialog__banner" [class.bom-source-dialog__banner--part]="data.kind === 'part'">
-                    <div class="bom-source-dialog__eyebrow">{{data.kind === 'device' ? 'Displaying Device' : 'Displaying Vendor Part'}}</div>
-                    <div class="bom-source-dialog__title">{{getTitle()}}</div>
-                    <div class="bom-source-dialog__subtitle">{{getSubtitle()}}</div>
+                    <div class="bom-source-dialog__banner-copy">
+                        <div class="bom-source-dialog__eyebrow">{{data.kind === 'device' ? 'Displaying Device' : 'Displaying Vendor Part'}}</div>
+                        <div class="bom-source-dialog__title">{{getTitle()}}</div>
+                        <div class="bom-source-dialog__subtitle">{{getSubtitle()}}</div>
+                    </div>
+                    <span *ngIf="getIconDataUrl()" class="bom-source-dialog__icon-canvas">
+                        <span class="bom-source-dialog__icon" [ngStyle]="getSourceIconStyle()" [attr.aria-label]="getIconLabel()"></span>
+                    </span>
                 </div>
 
                 <div class="bom-source-dialog__details">
@@ -297,8 +314,11 @@ export class FirewireBomWorksheetComponent {
     styles: [`
         .bom-source-dialog{display:grid;gap:14px;width:min(940px,calc(100vw - 96px));color:var(--fw-text)}
         .bom-source-dialog__titlebar{border-bottom:1px solid rgba(72,221,255,.14)}
-        .bom-source-dialog__banner{display:grid;gap:4px;padding:12px 14px;border:1px solid rgba(72,221,255,.2);border-left:4px solid rgba(72,221,255,.78);border-radius:0;background:linear-gradient(90deg,rgba(72,221,255,.12),rgba(72,221,255,.02))}
+        .bom-source-dialog__banner{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 14px;border:1px solid rgba(72,221,255,.2);border-left:4px solid rgba(72,221,255,.78);border-radius:0;background:linear-gradient(90deg,rgba(72,221,255,.12),rgba(72,221,255,.02))}
+        .bom-source-dialog__banner-copy{display:grid;gap:4px;min-width:0}
         .bom-source-dialog__banner--part{border-left-color:rgba(255,164,61,.84);background:linear-gradient(90deg,rgba(255,164,61,.12),rgba(72,221,255,.02))}
+        .bom-source-dialog__icon-canvas{display:inline-grid;place-items:center;width:54px;height:54px;border:1px solid rgba(72,221,255,.46);background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 18px rgba(72,221,255,.18),inset 0 0 0 1px rgba(7,16,24,.06)}
+        .bom-source-dialog__icon{display:inline-block;width:34px;height:34px;mask-repeat:no-repeat;mask-position:center;mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;-webkit-mask-size:contain}
         .bom-source-dialog__eyebrow,.bom-source-dialog__section-title{color:var(--fw-accent-2);font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
         .bom-source-dialog__title{color:#f4fbff;font-size:1.12rem;font-weight:800}
         .bom-source-dialog__subtitle,.bom-source-dialog__description{color:rgba(214,238,255,.78);font-size:.86rem;line-height:1.45}
@@ -316,7 +336,7 @@ export class FirewireBomWorksheetComponent {
         .bom-source-dialog__parts th:nth-child(3),.bom-source-dialog__parts td:nth-child(3){width:180px}
         .bom-source-dialog__parts th:nth-child(4),.bom-source-dialog__parts td:nth-child(4){width:110px}
         .bom-source-dialog__parts th:nth-child(5),.bom-source-dialog__parts td:nth-child(5),.bom-source-dialog__parts th:nth-child(6),.bom-source-dialog__parts td:nth-child(6){width:110px}
-        @media (max-width:760px){.bom-source-dialog{width:calc(100vw - 64px)}.bom-source-dialog__details{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:760px){.bom-source-dialog{width:calc(100vw - 64px)}.bom-source-dialog__details{grid-template-columns:repeat(2,minmax(0,1fr))}.bom-source-dialog__banner{grid-template-columns:minmax(0,1fr)}.bom-source-dialog__icon-canvas{justify-self:start}}
     `]
 })
 export class BomRowSourceDialog {
@@ -348,5 +368,25 @@ export class BomRowSourceDialog {
             ? this.data.row?.description || this.data.device?.name || ''
             : this.data.part?.description || this.data.row?.description || ''
         ).trim() || 'No description captured.'
+    }
+
+    getIconDataUrl(): string {
+        return String(this.data.device?.iconDataUrl || this.data.row?.iconDataUrl || '').trim()
+    }
+
+    getIconLabel(): string {
+        return String(this.data.device?.iconLabel || this.data.row?.iconLabel || this.getTitle()).trim()
+    }
+
+    getSourceIconStyle(): Record<string, string> {
+        const dataUrl = this.getIconDataUrl()
+        const color = String(this.data.device?.iconForegroundColor || this.data.row?.iconForegroundColor || '#210507').trim() || '#210507'
+        return dataUrl
+            ? {
+                'background-color': color,
+                'mask-image': `url("${dataUrl}")`,
+                '-webkit-mask-image': `url("${dataUrl}")`,
+            }
+            : {}
     }
 }

@@ -702,6 +702,7 @@ export class DesignProjectPage implements OnInit {
                 const existing = bySymbol.get(id)
                 if (existing) {
                     existing.totalQty += qty
+                    existing.iconDataUrl = existing.iconDataUrl || row.iconDataUrl || null
                     continue
                 }
                 bySymbol.set(id, {
@@ -716,6 +717,10 @@ export class DesignProjectPage implements OnInit {
                     categoryName,
                     partNumber,
                     deviceName,
+                    iconId: row.iconId || null,
+                    iconLabel: row.iconLabel || null,
+                    iconDataUrl: row.iconDataUrl || null,
+                    iconForegroundColor: row.iconForegroundColor || null,
                     materialCost: Number(row.cost || 0),
                     laborHours: Number(row.labor || 0),
                     customAttributes: []

@@ -110,24 +110,32 @@
                 <tbody>
                     <tr *ngFor="let row of host.getFilteredBomRows(section); let idx = index">
                         <td>
-                            <div class="sales-bom-part-lookup">
-                                <input
-                                    [(ngModel)]="row.lookupQuery"
-                                    (focus)="host.onBomPartLookupFocus(section, row, $event)"
-                                    (blur)="host.onBomPartLookupBlur(section, row)"
-                                    (input)="host.positionBomPartLookup($event)"
-                                    (ngModelChange)="host.onBomPartLookupChanged(section, row, $event)"
-                                    [attr.aria-label]="'BOM part number ' + (idx + 1)" />
-                                <button
-                                    *ngIf="getBomRowSource(row)"
-                                    type="button"
-                                    class="bom-source-link"
-                                    (mousedown)="$event.preventDefault()"
-                                    (click)="openBomRowSource(row)">
-                                    <mat-icon fontIcon="open_in_new"></mat-icon>
-                                    {{getBomRowSourceLabel(row)}}
-                                </button>
-                                <div *ngIf="host.isBomLookupActive(section, row) && host.hasBomLookupResults(section, row)" class="sales-bom-part-lookup__menu" [ngStyle]="host.bomLookupMenuStyle">
+                            <div class="bom-part-number-cell">
+                                <span
+                                    class="bom-row-icon-slot"
+                                    [class.has-icon]="row.iconDataUrl"
+                                    [attr.title]="row.iconLabel || null"
+                                    [attr.aria-label]="row.iconLabel || 'No BOM row icon'">
+                                    <span *ngIf="row.iconDataUrl" class="bom-row-icon-symbol" [ngStyle]="getBomRowIconStyle(row)"></span>
+                                </span>
+                                <div class="sales-bom-part-lookup">
+                                    <input
+                                        [(ngModel)]="row.lookupQuery"
+                                        (focus)="host.onBomPartLookupFocus(section, row, $event)"
+                                        (blur)="host.onBomPartLookupBlur(section, row)"
+                                        (input)="host.positionBomPartLookup($event)"
+                                        (ngModelChange)="host.onBomPartLookupChanged(section, row, $event)"
+                                        [attr.aria-label]="'BOM part number ' + (idx + 1)" />
+                                    <button
+                                        *ngIf="getBomRowSource(row)"
+                                        type="button"
+                                        class="bom-source-link"
+                                        (mousedown)="$event.preventDefault()"
+                                        (click)="openBomRowSource(row)">
+                                        <mat-icon fontIcon="open_in_new"></mat-icon>
+                                        {{getBomRowSourceLabel(row)}}
+                                    </button>
+                                    <div *ngIf="host.isBomLookupActive(section, row) && host.hasBomLookupResults(section, row)" class="sales-bom-part-lookup__menu" [ngStyle]="host.bomLookupMenuStyle">
                                     <div *ngIf="host.getBomDeviceLookupResults(section, row).length > 0" class="sales-bom-part-lookup__section-label">Devices</div>
                                     <button *ngFor="let option of host.getBomDeviceLookupResults(section, row)" type="button" class="sales-bom-part-lookup__option" (mousedown)="host.selectBomDevice(section, row, option)">
                                         <span class="sales-bom-part-lookup__part">{{option.partNumber || option.shortName}}</span>
@@ -142,6 +150,7 @@
                                         <span class="sales-bom-part-lookup__cost">{{(option.SalesPrice || option.MSRPPrice || 0) | currency:'USD':'symbol':'1.0-0'}}</span>
                                         <span class="sales-bom-part-lookup__category">{{option.Category || option.ParentCategory}}</span>
                                     </button>
+                                    </div>
                                 </div>
                             </div>
                         </td>

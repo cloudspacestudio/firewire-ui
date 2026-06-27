@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Fire Suppression Crosshair</title>
+  <desc id="desc">A fire suppression symbol with a centered ring and diagonal crossing arms.</desc>
+  <path fill="currentColor" fill-rule="evenodd" d="M10.1 5.86a3 3 0 0 1 4.24 0L27.05 18.57a15.16 15.16 0 0 1 9.9 0L49.66 5.86a3 3 0 1 1 4.24 4.24L41.43 22.57a15.16 15.16 0 0 1 0 18.86L53.9 53.9a3 3 0 1 1-4.24 4.24L36.95 45.43a15.16 15.16 0 0 1-9.9 0L14.34 58.14A3 3 0 0 1 10.1 53.9l12.47-12.47a15.16 15.16 0 0 1 0-18.86L10.1 10.1a3 3 0 0 1 0-4.24ZM32 24a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z"/>
+</svg>

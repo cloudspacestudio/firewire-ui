@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, inject } from "@angular/core"
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
 import { FormsModule } from "@angular/forms"
 import { firstValueFrom, from, map, Observable, of, switchMap } from "rxjs"
@@ -21,6 +21,7 @@ import { MaterialAttribute } from "../../schemas/materialattribute.schema"
 import { MaterialSubTask } from "../../schemas/materialsubtask.schema"
 import { Vendor } from "../../schemas/vendor.schema"
 import { VwPart } from "../../schemas/vwpart.schema"
+import { DeviceIcon, DeviceIconGroup } from "../../schemas/device-icon.schema"
 import { ConfirmFirewireNavigationDialog } from "../../pages/projects/confirm-firewire-navigation.dialog"
 
 interface DeviceVendorLinkIssue {
@@ -128,6 +129,9 @@ export class DeviceDetailComponent implements OnChanges {
     vendorLinkIssues: DeviceVendorLinkIssue[] = []
     vendors: Vendor[] = []
     deviceMediaFiles: DeviceMediaFile[] = []
+    iconGroups: DeviceIconGroup[] = []
+    selectedIconGroupId = ''
+    iconPickerOpen = false
     partlist: VwPart[] = []
     vendorPartRows: VwPart[] = []
     vendorPartResults: VwPart[] = []
@@ -158,6 +162,11 @@ export class DeviceDetailComponent implements OnChanges {
         private dialog: MatDialog
     ) {}
 
+    @HostListener('document:click')
+    closeIconPickerFromDocument(): void {
+        this.iconPickerOpen = false
+    }
+
     ngOnChanges(): void {
         if (!this.deviceId) {
             return
@@ -181,14 +190,15 @@ export class DeviceDetailComponent implements OnChanges {
         this.selectedVendorPartCategories = []
 
         try {
-            const [device, materials, attributes, subTasks, issuesResponse, vendorsResponse, mediaResponse] = await Promise.all([
+            const [device, materials, attributes, subTasks, issuesResponse, vendorsResponse, mediaResponse, iconsResponse] = await Promise.all([
                 firstValueFrom(this.http.get<VwDevice>(`/api/firewire/devices/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialAttribute[] }>(`/api/firewire/devices/${this.deviceId}/attributes`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialSubTask[] }>(`/api/firewire/devices/${this.deviceId}/subtasks`)),
                 firstValueFrom(this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', { params: { state: 'all' } })),
                 firstValueFrom(this.http.get<{ rows?: Vendor[] }>('/api/firewire/vendors')),
-                firstValueFrom(this.http.get<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media`))
+                firstValueFrom(this.http.get<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media`)),
+                firstValueFrom(this.http.get<{ rows?: DeviceIconGroup[] }>('/api/firewire/device-icons'))
             ])
 
             this.device = device
@@ -199,6 +209,8 @@ export class DeviceDetailComponent implements OnChanges {
             this.vendors = (Array.isArray(vendorsResponse?.rows) ? vendorsResponse.rows : [])
                 .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
             this.deviceMediaFiles = Array.isArray(mediaResponse?.data?.files) ? mediaResponse.data.files : []
+            this.iconGroups = Array.isArray(iconsResponse?.rows) ? iconsResponse.rows : []
+            this.syncSelectedIconGroup(device.iconId || null)
             this.selectedVendorPartVendorId = this.resolveDefaultVendorPartVendorId(device)
             const allIssues = Array.isArray(issuesResponse?.rows) ? issuesResponse.rows : []
             this.vendorLinkIssues = allIssues.filter((issue) => issue.deviceId === this.deviceId)
@@ -231,8 +243,12 @@ export class DeviceDetailComponent implements OnChanges {
                 slcAddress: this.readSlcMode(this.device.slcAddress),
                 speakerAddress: this.readBooleanMode(this.device.speakerAddress),
                 strobeAddress: this.readBooleanMode(this.device.strobeAddress),
-                laborRate: this.getDeviceLaborRate()
+                laborRate: this.getDeviceLaborRate(),
+                iconId: this.device.iconId || null,
+                iconForegroundColor: this.device.iconForegroundColor || '#210507'
             }
+            this.iconPickerOpen = false
+            this.syncSelectedIconGroup(this.editDevice.iconId || null)
             this.editDeviceParts = this.deviceMaterials
                 .map((row) => this.createEditableDevicePartFromMaterial(row))
                 .filter((row) => !!row.partNumber && !!row.vendorId)
@@ -850,6 +866,73 @@ export class DeviceDetailComponent implements OnChanges {
         return value
     }
 
+    getAllIcons(): DeviceIcon[] {
+        return this.iconGroups.flatMap((group) => group.icons || [])
+    }
+
+    getSelectedIconGroupIcons(): DeviceIcon[] {
+        return this.getSelectedIconGroup()?.icons || []
+    }
+
+    getSelectedIconGroup(): DeviceIconGroup | undefined {
+        return this.iconGroups.find((group) => group.iconGroupId === this.selectedIconGroupId) || this.iconGroups[0]
+    }
+
+    getSelectedIcon(iconId: string | null | undefined = this.editDevice.iconId || this.device?.iconId): DeviceIcon | undefined {
+        const normalizedIconId = String(iconId || '').trim().toLowerCase()
+        return normalizedIconId
+            ? this.getAllIcons().find((icon) => String(icon.iconId || '').trim().toLowerCase() === normalizedIconId)
+            : undefined
+    }
+
+    getDeviceIconPreviewStyle(icon?: DeviceIcon): Record<string, string> {
+        const dataUrl = String(icon?.dataUrl || this.device?.iconDataUrl || '').trim()
+        const color = String(this.editDevice.iconForegroundColor || this.device?.iconForegroundColor || '#210507').trim() || '#210507'
+        return dataUrl
+            ? {
+                'background-color': color,
+                'mask-image': `url("${dataUrl}")`,
+                '-webkit-mask-image': `url("${dataUrl}")`,
+            }
+            : {}
+    }
+
+    getSelectedIconLabel(): string {
+        return this.getSelectedIcon(this.device?.iconId)?.label || this.device?.iconLabel || 'Not set'
+    }
+
+    getEditSelectedIconLabel(): string {
+        return this.getSelectedIcon(this.editDevice.iconId || null)?.label || 'Not set'
+    }
+
+    toggleIconPicker(event: MouseEvent): void {
+        event.stopPropagation()
+        this.syncSelectedIconGroup(this.editDevice.iconId || null)
+        this.iconPickerOpen = !this.iconPickerOpen
+    }
+
+    selectDeviceIcon(icon: DeviceIcon): void {
+        this.editDevice.iconId = icon.iconId
+        this.selectedIconGroupId = icon.iconGroupId
+        this.iconPickerOpen = false
+    }
+
+    clearDeviceIcon(): void {
+        this.editDevice.iconId = null
+        this.iconPickerOpen = false
+    }
+
+    private syncSelectedIconGroup(iconId: string | null | undefined): void {
+        const selectedIcon = this.getSelectedIcon(iconId)
+        if (selectedIcon?.iconGroupId) {
+            this.selectedIconGroupId = selectedIcon.iconGroupId
+            return
+        }
+        if (!this.selectedIconGroupId || !this.iconGroups.some((group) => group.iconGroupId === this.selectedIconGroupId)) {
+            this.selectedIconGroupId = this.iconGroups[0]?.iconGroupId || ''
+        }
+    }
+
     getShowDefaultLabor(): boolean {
         return this.getSubTaskLaborTotal(this.editMode ? this.editSubTasks : this.deviceSubTasks) <= 0
     }
@@ -1017,6 +1100,8 @@ export class DeviceDetailComponent implements OnChanges {
                 cost: Number(this.editDevice.cost || 0),
                 defaultLabor: Number(this.editDevice.defaultLabor || 0),
                 laborRate: this.getDeviceLaborRate(),
+                iconId: String(this.editDevice.iconId || '').trim(),
+                iconForegroundColor: String(this.editDevice.iconForegroundColor || '').trim(),
                 serialNumber: String(this.editDevice.serialNumber || '').trim(),
                 slcAddress: String(this.editDevice.slcAddress || '').trim(),
                 speakerAddress: String(this.editDevice.speakerAddress || '').trim(),

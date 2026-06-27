@@ -14,6 +14,8 @@ import { MatMenuModule } from '@angular/material/menu'
         :host {
             display: flex;
             align-items: center;
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .button-bar {
@@ -22,6 +24,7 @@ import { MatMenuModule } from '@angular/material/menu'
             margin: 0 0 0 6px;
             align-items: center;
             flex-wrap: wrap;
+            width: 100%;
         }
 
         .button-bar button {
@@ -63,12 +66,16 @@ import { MatMenuModule } from '@angular/material/menu'
                 rgba(10, 18, 32, 0.94) !important;
             color: var(--fw-text) !important;
         }
+
+        .button-bar button.nav-toolbar__button--right {
+            margin-left: auto !important;
+        }
     `],
     template: `
     <div class="button-bar">
         @for (item of navItems; track item) {
-        <button *ngIf="isActiveItem(item)" mat-flat-button class="active" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
-        <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
+        <button *ngIf="isActiveItem(item)" mat-flat-button class="active" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
+        <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
         }
     </div>
 
@@ -114,26 +121,27 @@ export class NavToolbar {
         return matches.sort((left, right) => right.route.length - left.route.length)[0]
     }
 
-    static DeviceNavItems = [
+    static DeviceNavItems: NavItem[] = [
         {id: 'devices', caption: 'DEVICES', route: `/devices`},
         //{id: 'materials', caption: 'MATERIALS', route: `/materials`},
         {id: 'parts', caption: 'PARTS', route: `/parts`},
         {id: 'device-sets', caption: 'DEVICE SETS', route: `/device-sets`},
-        {id: 'vendors', caption: 'VENDORS', route: `/vendors`}
+        {id: 'vendors', caption: 'VENDORS', route: `/vendors`},
+        {id: 'device-icons', caption: 'ICONS', route: `/devices/icons`, rightAligned: true}
     ]
 
-    static ProjectNavItems = [
+    static ProjectNavItems: NavItem[] = [
         {id: 'projects', caption: 'PROJECTS', route: `/projects`},
         {id: 'awaiting-project-nbr', caption: 'AWAITING PROJECT NBR', route: `/projects/awaiting-project-nbr`},
         {id: 'fieldwire-projects', caption: 'FIELDWIRE ONLY', route: `/projects/fieldwire-list`}
     ]
 
-    static DesignNavItems = [
+    static DesignNavItems: NavItem[] = [
         {id: 'design-projects', caption: 'PROJECTS', route: `/design`},
         {id: 'design-floorplan-designer', caption: 'FLOORPLAN DESIGNER', route: `/design/floorplan-designer`}
     ]
 
-    static SettingsNavItems = [
+    static SettingsNavItems: NavItem[] = [
         {id: 'settings', caption: 'SETTINGS', route: `/settings`},
         {id: 'tenant', caption: 'TENANT', route: `/settings`},
         {id: 'users', caption: 'USERS', route: `/settings`},
@@ -146,4 +154,5 @@ export interface NavItem {
     caption: string
     route: string | any[]
     queryParams?: Record<string, string> | null
+    rightAligned?: boolean
 }

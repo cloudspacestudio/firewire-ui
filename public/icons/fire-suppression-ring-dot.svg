@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Fire Suppression Ring Dot</title>
+  <desc id="desc">A fire suppression symbol with a circular ring and centered filled point.</desc>
+  <path fill="currentColor" fill-rule="evenodd" d="M32 6c14.36 0 26 11.64 26 26S46.36 58 32 58 6 46.36 6 32 17.64 6 32 6Zm0 6c-11.05 0-20 8.95-20 20s8.95 20 20 20 20-8.95 20-20-8.95-20-20-20Zm0 10a10 10 0 1 1 0 20 10 10 0 0 1 0-20Z"/>
+</svg>

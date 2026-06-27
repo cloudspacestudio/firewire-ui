@@ -8,6 +8,10 @@ import { MatIconModule } from '@angular/material/icon'
 export interface JobCostSheetData {
     defaultFileName?: string
     createSheet?: (fileName: string, html: string) => Promise<void> | void
+    billingCustomer?: string
+    billingAddress?: string
+    billingPhone?: string
+    contractPoNumber?: string
     firetrolJobNumber: string
     projectName: string
     projectAddress: string
@@ -277,6 +281,14 @@ export class JobCostSheetDialog implements AfterViewInit {
 
     constructor() {
         const parsedAddress = this.parseUsAddress(this.data.projectAddress)
+        const parsedBillingAddress = this.parseUsAddress(this.data.billingAddress)
+        this.editable.customer = this.data.billingCustomer || ''
+        this.editable.billingAddress1 = parsedBillingAddress.street
+        this.editable.billingCity = parsedBillingAddress.city
+        this.editable.billingState = parsedBillingAddress.state
+        this.editable.billingZip = parsedBillingAddress.zip
+        this.editable.phone = this.data.billingPhone || ''
+        this.editable.contractPoNumber = this.data.contractPoNumber || ''
         this.editable.firetrolJobNumber = this.data.firetrolJobNumber || ''
         this.editable.projectName = this.data.projectName || ''
         this.editable.projectAddress = parsedAddress.street

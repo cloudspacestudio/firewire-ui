@@ -11,6 +11,22 @@ import {
     ProjectDocLibraryFileVersionRecord
 } from '../services/project-doc-library-storage.service'
 
+export interface FirewireFloorplanFolder {
+    id: string
+    name: string
+    expanded?: boolean
+}
+
+export interface FirewireFloorplanFolderRenameEvent {
+    folderId: string
+    name: string
+}
+
+export interface FirewireFloorplanMoveEvent {
+    fileId: string
+    folderId: string
+}
+
 @Component({
     standalone: true,
     selector: 'firewire-floorplans',
@@ -23,14 +39,24 @@ export class FirewireFloorplansComponent {
     @Input() files: ProjectDocLibraryFileRecord[] = []
     @Input() statusMessage = ''
     @Input() savingFileIds: string[] = []
+    @Input() folders: FirewireFloorplanFolder[] = []
+    @Input() uploadBusy = false
+    @Input() uploadDisabled = false
     @Input() getPreviewContent: (file: ProjectDocLibraryFileRecord) => string = () => ''
 
+    @Output() createFolder = new EventEmitter<void>()
+    @Output() renameFolder = new EventEmitter<FirewireFloorplanFolderRenameEvent>()
+    @Output() deleteFolder = new EventEmitter<string>()
+    @Output() toggleFolder = new EventEmitter<string>()
+    @Output() uploadFiles = new EventEmitter<string>()
+    @Output() moveFile = new EventEmitter<FirewireFloorplanMoveEvent>()
     @Output() renameFile = new EventEmitter<ProjectDocLibraryFileRecord>()
     @Output() designFile = new EventEmitter<ProjectDocLibraryFileRecord>()
     @Output() downloadFile = new EventEmitter<string>()
     @Output() deleteFile = new EventEmitter<string>()
 
     private readonly draftNames = new Map<string, string>()
+    private readonly draftFolderNames = new Map<string, string>()
 
     get totalBytes(): number {
         return this.files.reduce((sum, file) => sum + Number(this.latestVersion(file)?.sizeBytes || 0), 0)
@@ -44,6 +70,26 @@ export class FirewireFloorplansComponent {
             }
             return String(left.id || '').localeCompare(String(right.id || ''))
         })
+    }
+
+    get hasFolders(): boolean {
+        return this.folders.length > 0
+    }
+
+    get sortedFolders(): FirewireFloorplanFolder[] {
+        return [...this.folders]
+    }
+
+    get unassignedFolderId(): string {
+        return this.folders[0]?.id || 'general'
+    }
+
+    filesForFolder(folder: FirewireFloorplanFolder): ProjectDocLibraryFileRecord[] {
+        return this.sortedFiles.filter((file) => this.getFileFolderId(file) === folder.id)
+    }
+
+    getFileFolderId(file: ProjectDocLibraryFileRecord): string {
+        return String(file.floorplanFolderId || this.unassignedFolderId)
     }
 
     latestVersion(file: ProjectDocLibraryFileRecord): ProjectDocLibraryFileVersionRecord | undefined {
@@ -84,6 +130,30 @@ export class FirewireFloorplansComponent {
         }
         file.name = draftName
         this.renameFile.emit(file)
+    }
+
+    getDraftFolderName(folder: FirewireFloorplanFolder): string {
+        return this.draftFolderNames.get(folder.id) ?? folder.name
+    }
+
+    setDraftFolderName(folder: FirewireFloorplanFolder, value: string): void {
+        this.draftFolderNames.set(folder.id, value)
+    }
+
+    commitFolderName(folder: FirewireFloorplanFolder): void {
+        const draftName = String(this.getDraftFolderName(folder) || '').trim() || 'Folder'
+        this.draftFolderNames.delete(folder.id)
+        if (draftName === folder.name) {
+            return
+        }
+        this.renameFolder.emit({ folderId: folder.id, name: draftName })
+    }
+
+    moveToFolder(file: ProjectDocLibraryFileRecord, folderId: string): void {
+        if (!folderId || folderId === this.getFileFolderId(file)) {
+            return
+        }
+        this.moveFile.emit({ fileId: file.id, folderId })
     }
 
     isSaving(file: ProjectDocLibraryFileRecord): boolean {

@@ -5,6 +5,7 @@ export interface FirewireProjectSchema {
     uuid: string
     fieldwireId: string | null
     worksheetData?: any | null
+    activityLog?: FirewireProjectActivity[]
     isManualLocked: boolean
     manualLockedAt: string | null
     manualLockedBy: string | null
@@ -29,6 +30,14 @@ export interface FirewireProjectSchema {
     createdBy: string
     updatedAt: string
     updatedBy: string
+}
+
+export interface FirewireProjectActivity {
+    activityId: string
+    projectId: string
+    summary: string
+    createdAt: string
+    createdBy: string
 }
 
 export interface FirewireProjectUpsert {

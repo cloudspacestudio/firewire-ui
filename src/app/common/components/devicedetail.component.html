@@ -96,6 +96,18 @@
                         </td>
                         <td>{{device.includeOnFloorplan ? 'Yes' : 'No'}}</td>
                     </tr>
+                    <tr class="device-detail-floorplan-row device-detail-floorplan-row--end">
+                        <td>Floorplan Icon</td>
+                        <td>
+                            <span class="device-detail-icon-read">
+                                <span *ngIf="device.iconDataUrl; else noDeviceIcon" class="device-detail-icon-canvas">
+                                    <span class="device-detail-icon-preview" [ngStyle]="getDeviceIconPreviewStyle()" [attr.aria-label]="getSelectedIconLabel()"></span>
+                                </span>
+                                <ng-template #noDeviceIcon><span class="device-detail-icon-canvas device-detail-icon-placeholder"></span></ng-template>
+                                {{getSelectedIconLabel()}}
+                            </span>
+                        </td>
+                    </tr>
                     <tr><td>Vendor</td><td>{{device.vendorName}}</td></tr>
                     <tr>
                         <td>
@@ -224,6 +236,71 @@
                         <div class="device-detail-form-toggle-block">
                             <mat-slide-toggle class="device-detail-form-toggle" [(ngModel)]="editDevice.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
                             <div class="device-detail-field-hint">Allows floorplan placement.</div>
+                        </div>
+                        <div class="device-detail-icon-picker">
+                            <span class="device-detail-icon-picker__label">Floorplan Icon</span>
+                            <button
+                                type="button"
+                                class="device-detail-icon-picker__trigger"
+                                [class.is-open]="iconPickerOpen"
+                                aria-haspopup="dialog"
+                                [attr.aria-expanded]="iconPickerOpen"
+                                (click)="toggleIconPicker($event)">
+                                <span *ngIf="getSelectedIcon() as triggerIcon; else noTriggerIcon" class="device-detail-icon-picker__trigger-canvas">
+                                    <span class="device-detail-icon-picker__trigger-symbol" [ngStyle]="getDeviceIconPreviewStyle(triggerIcon)"></span>
+                                </span>
+                                <ng-template #noTriggerIcon>
+                                    <span class="device-detail-icon-picker__trigger-canvas device-detail-icon-placeholder"></span>
+                                </ng-template>
+                                <span>{{getEditSelectedIconLabel()}}</span>
+                                <mat-icon fontIcon="expand_more"></mat-icon>
+                            </button>
+                            <div *ngIf="iconPickerOpen" class="device-detail-icon-picker__popup" role="dialog" aria-label="Choose floorplan icon" (click)="$event.stopPropagation()">
+                                <label class="device-detail-icon-picker__group">
+                                    <span>Icon Group</span>
+                                    <select [(ngModel)]="selectedIconGroupId">
+                                        <option *ngFor="let group of iconGroups" [value]="group.iconGroupId">{{group.name}}</option>
+                                    </select>
+                                </label>
+                                <div class="device-detail-icon-picker__palette" role="listbox" aria-label="Floorplan icons">
+                                    <button
+                                        type="button"
+                                        class="device-detail-icon-picker__tool"
+                                        [class.is-selected]="!editDevice.iconId"
+                                        matTooltip="Not set"
+                                        matTooltipPosition="above"
+                                        matTooltipClass="fw-control-help-tooltip"
+                                        (click)="clearDeviceIcon()">
+                                        <span class="device-detail-icon-picker__empty">None</span>
+                                    </button>
+                                    <button
+                                        *ngFor="let icon of getSelectedIconGroupIcons()"
+                                        type="button"
+                                        class="device-detail-icon-picker__tool"
+                                        [class.is-selected]="editDevice.iconId === icon.iconId"
+                                        [attr.aria-label]="icon.label"
+                                        [matTooltip]="icon.label"
+                                        matTooltipPosition="above"
+                                        matTooltipClass="fw-control-help-tooltip"
+                                        (click)="selectDeviceIcon(icon)">
+                                        <span class="device-detail-icon-picker__tool-canvas">
+                                            <span class="device-detail-icon-picker__tool-symbol" [ngStyle]="getDeviceIconPreviewStyle(icon)"></span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div *ngIf="getSelectedIconGroupIcons().length <= 0" class="device-detail-icon-picker__empty-message">No icons in this group.</div>
+                            </div>
+                            <span class="device-detail-field-hint">Unset uses the default floorplan bubble.</span>
+                        </div>
+                        <div class="device-detail-icon-editor">
+                            <span *ngIf="getSelectedIcon() as selectedIcon; else noEditIcon" class="device-detail-icon-canvas">
+                                <span class="device-detail-icon-preview" [ngStyle]="getDeviceIconPreviewStyle(selectedIcon)" [attr.aria-label]="selectedIcon.label"></span>
+                            </span>
+                            <ng-template #noEditIcon><span class="device-detail-icon-canvas device-detail-icon-placeholder"></span></ng-template>
+                            <label>
+                                <span>Foreground Color</span>
+                                <input type="color" [(ngModel)]="editDevice.iconForegroundColor" />
+                            </label>
                         </div>
                     </div>
                     <mat-form-field>

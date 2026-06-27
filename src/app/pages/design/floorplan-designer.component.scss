@@ -18,6 +18,12 @@
     color: #eaf6ff;
 }
 
+.floorplan-designer-root.is-circuit-mode {
+    background:
+        radial-gradient(circle at 54px 54px, rgba(47, 155, 255, 0.13), transparent 120px),
+        #06101b;
+}
+
 .floorplan-designer__titlebar {
     display: flex;
     align-items: center;
@@ -39,6 +45,49 @@
     justify-content: flex-end;
     gap: 8px;
     min-width: 0;
+}
+
+.floorplan-designer__scale-badge {
+    display: grid;
+    gap: 2px;
+    min-width: 140px;
+    max-width: 210px;
+    padding: 7px 10px;
+    border: 1px solid rgba(141, 159, 174, 0.18);
+    border-radius: 6px;
+    background:
+        linear-gradient(135deg, rgba(166, 180, 194, 0.08), rgba(72, 221, 255, 0.02)),
+        rgba(7, 15, 26, 0.86);
+    color: rgba(226, 236, 243, 0.68);
+    text-align: left;
+    cursor: pointer;
+}
+
+.floorplan-designer__scale-badge span {
+    color: rgba(177, 213, 228, 0.7);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.floorplan-designer__scale-badge strong {
+    overflow: hidden;
+    color: rgba(226, 236, 243, 0.78);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.floorplan-designer__scale-badge.is-set {
+    border-color: rgba(121, 255, 176, 0.28);
+    background:
+        linear-gradient(135deg, rgba(121, 255, 176, 0.12), rgba(72, 221, 255, 0.03)),
+        rgba(7, 26, 19, 0.8);
+}
+
+.floorplan-designer__scale-badge.is-set strong {
+    color: #d8ffec;
 }
 
 .floorplan-designer__header-tools {
@@ -115,6 +164,82 @@
     min-width: 96px;
     justify-content: center;
     padding: 8px 12px;
+}
+
+.floorplan-designer__split-tool {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.floorplan-designer__header-tools .floorplan-designer__tool--split-main {
+    min-width: 94px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right-color: rgba(72, 221, 255, 0.08);
+}
+
+.floorplan-designer__header-tools .floorplan-designer__tool--split-toggle {
+    min-width: 36px;
+    width: 36px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 0;
+}
+
+.floorplan-designer__tool--split-toggle mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+.floorplan-designer__sticky-color-chip {
+    width: 12px;
+    height: 12px;
+    border: 1px solid rgba(5, 11, 19, 0.62);
+    box-shadow: 0 0 0 1px rgba(234, 246, 255, 0.42);
+}
+
+.floorplan-designer__sticky-color-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 38;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    min-width: 188px;
+    border: 1px solid rgba(72, 221, 255, 0.28);
+    padding: 8px;
+    background: rgba(4, 13, 23, 0.98);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42), 0 0 24px rgba(72, 221, 255, 0.12);
+}
+
+.floorplan-designer__sticky-color-menu button {
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    min-width: 0;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    padding: 6px 5px;
+    background: rgba(7, 15, 26, 0.86);
+    color: rgba(234, 246, 255, 0.86);
+    font: inherit;
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.floorplan-designer__sticky-color-menu button.is-active,
+.floorplan-designer__sticky-color-menu button:hover {
+    border-color: rgba(121, 255, 176, 0.56);
+    background: rgba(24, 68, 56, 0.42);
+}
+
+.floorplan-designer__sticky-color-menu span {
+    width: 26px;
+    height: 18px;
+    border: 1px solid rgba(5, 11, 19, 0.54);
+    box-shadow: 0 0 0 1px rgba(234, 246, 255, 0.32);
 }
 
 .floorplan-designer__reset-action {
@@ -214,7 +339,7 @@
 
 .floorplan-designer__symbol-option {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
     grid-template-areas:
         "icon label"
         "icon description"
@@ -227,15 +352,46 @@
     background: rgba(24, 68, 56, 0.42);
 }
 
-.floorplan-designer__symbol-option span {
+.floorplan-designer__symbol-option-bubble {
     grid-area: icon;
     display: inline-grid;
+    align-self: center;
+    justify-self: center;
     place-items: center;
     width: 28px;
     height: 28px;
     border-radius: 50%;
     color: #061018;
     font-weight: 800;
+}
+
+.floorplan-designer__symbol-option-canvas {
+    grid-area: icon;
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    justify-self: center;
+    width: 32px;
+    height: 32px;
+    box-sizing: border-box;
+    border: 1px solid rgba(72, 221, 255, 0.34);
+    background: #ffffff;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 10px rgba(72, 221, 255, 0.18),
+        inset 0 0 0 1px rgba(7, 16, 24, 0.07);
+}
+
+.floorplan-designer__symbol-option-icon {
+    display: inline-block;
+    width: 21px;
+    height: 21px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
 }
 
 .floorplan-designer__symbol-option strong,
@@ -277,6 +433,93 @@
     color: #ffdca3;
 }
 
+.floorplan-designer__circuit-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.floorplan-designer__circuit-actions button,
+.floorplan-designer__circuit-ribbon button {
+    min-height: 34px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 0;
+    padding: 0 12px;
+    background: rgba(8, 31, 48, 0.78);
+    color: #eaf6ff;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.floorplan-designer__circuit-actions button:hover,
+.floorplan-designer__circuit-ribbon button:hover {
+    border-color: rgba(121, 255, 176, 0.5);
+    background: rgba(24, 68, 56, 0.72);
+}
+
+.floorplan-designer__circuit-actions button:disabled {
+    border-color: rgba(141, 159, 174, 0.14);
+    background: rgba(7, 15, 26, 0.42);
+    color: rgba(226, 236, 243, 0.38);
+    cursor: not-allowed;
+}
+
+.floorplan-designer__circuit-list {
+    display: grid;
+    gap: 7px;
+}
+
+.floorplan-designer__circuit-list button {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr);
+    grid-template-areas:
+        "chip name"
+        "chip detail";
+    gap: 2px 9px;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 6px;
+    padding: 9px 10px;
+    background: rgba(7, 15, 26, 0.78);
+    color: #eaf6ff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.floorplan-designer__circuit-list button:hover,
+.floorplan-designer__circuit-list button.is-active {
+    border-color: rgba(121, 255, 176, 0.48);
+    background: rgba(24, 68, 56, 0.42);
+}
+
+.floorplan-designer__circuit-list span {
+    grid-area: chip;
+    align-self: center;
+    width: 10px;
+    height: 28px;
+    border-radius: 99px;
+    box-shadow: 0 0 12px currentColor;
+}
+
+.floorplan-designer__circuit-list strong,
+.floorplan-designer__circuit-list small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.floorplan-designer__circuit-list strong {
+    grid-area: name;
+}
+
+.floorplan-designer__circuit-list small {
+    grid-area: detail;
+    color: rgba(167, 228, 255, 0.72);
+}
+
 .floorplan-designer__selected-meta {
     display: grid;
     gap: 3px;
@@ -315,10 +558,193 @@
     cursor: crosshair;
 }
 
-.floorplan-designer__floating-zoom {
+.floorplan-designer-root.is-circuit-mode .floorplan-designer__stage {
+    background:
+        linear-gradient(135deg, rgba(47, 155, 255, 0.1), transparent 280px),
+        #03070c;
+    box-shadow: inset 0 0 0 2px rgba(47, 155, 255, 0.34);
+}
+
+.floorplan-designer__circuit-ribbon {
+    position: absolute;
+    top: 14px;
+    left: calc(var(--floorplan-sidebar-width) + 304px);
+    right: 16px;
+    z-index: 23;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    border: 1px solid rgba(47, 155, 255, 0.32);
+    border-left: 3px solid #2f9bff;
+    padding: 8px 10px;
+    background:
+        linear-gradient(135deg, rgba(13, 43, 61, 0.94), rgba(4, 13, 23, 0.94)),
+        #07101b;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38), 0 0 22px rgba(47, 155, 255, 0.14);
+    backdrop-filter: blur(8px);
+}
+
+.floorplan-designer__circuit-ribbon > div:first-child {
+    display: grid;
+    gap: 2px;
+    min-width: 180px;
+    margin-right: auto;
+}
+
+.floorplan-designer__circuit-ribbon span,
+.floorplan-designer__circuit-ribbon label {
+    color: rgba(167, 228, 255, 0.72);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.floorplan-designer__circuit-ribbon strong {
+    overflow: hidden;
+    color: #eaf6ff;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.floorplan-designer__circuit-ribbon label {
+    display: inline-grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    gap: 7px;
+}
+
+.floorplan-designer__circuit-ribbon input[type="color"] {
+    width: 34px;
+    height: 28px;
+    border: 1px solid rgba(72, 221, 255, 0.24);
+    padding: 2px;
+    background: rgba(5, 11, 19, 0.92);
+    cursor: pointer;
+}
+
+.floorplan-designer__circuit-ribbon input[type="text"] {
+    width: 170px;
+    height: 30px;
+    box-sizing: border-box;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 0;
+    padding: 0 9px;
+    background: rgba(5, 11, 19, 0.96);
+    color: #eaf6ff;
+    font: inherit;
+    font-weight: 700;
+}
+
+.floorplan-designer__circuit-ribbon input[type="text"]:focus {
+    border-color: rgba(121, 255, 176, 0.54);
+    outline: 0;
+    box-shadow: 0 0 0 1px rgba(121, 255, 176, 0.2);
+}
+
+.floorplan-designer__circuit-ribbon select {
+    min-width: 92px;
+    height: 30px;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 0;
+    padding: 0 8px;
+    background: rgba(5, 11, 19, 0.96);
+    color: #eaf6ff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.floorplan-designer__vertical-tools {
     position: absolute;
     top: 14px;
     left: calc(var(--floorplan-sidebar-width) + 14px);
+    z-index: 24;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    width: 38px;
+    margin: 0;
+    padding: 4px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 4px;
+    background: rgba(5, 13, 22, 0.9);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38), 0 0 18px rgba(72, 221, 255, 0.1);
+    backdrop-filter: blur(8px);
+}
+
+.floorplan-designer__vertical-tools button {
+    display: inline-grid;
+    place-items: center;
+    justify-self: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 3px;
+    padding: 0;
+    background: rgba(7, 15, 26, 0.92);
+    color: #eaf6ff;
+    cursor: pointer;
+}
+
+.floorplan-designer__vertical-tools button:hover,
+.floorplan-designer__vertical-tools button.is-active {
+    border-color: rgba(121, 255, 176, 0.58);
+    background: rgba(24, 68, 56, 0.78);
+    color: #d8ffec;
+}
+
+.floorplan-designer__vertical-tools mat-icon {
+    width: 19px;
+    height: 19px;
+    font-size: 19px;
+}
+
+.floorplan-designer__vertical-symbol-icon {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(6, 16, 24, 0.16);
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(234, 246, 255, 0.34);
+}
+
+.floorplan-designer__vertical-symbol-icon::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    background: var(--floorplan-vertical-symbol-color, #210507);
+    mask-image: var(--floorplan-vertical-symbol-icon);
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: var(--floorplan-vertical-symbol-icon);
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+}
+
+.floorplan-designer__vertical-symbol-bubble {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #77d7ff;
+    color: #061018;
+    font-size: 0.54rem;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+.floorplan-designer__floating-zoom {
+    position: absolute;
+    top: 14px;
+    left: calc(var(--floorplan-sidebar-width) + 72px);
     z-index: 12;
     display: inline-flex;
     align-items: center;
@@ -382,6 +808,100 @@
     transform-origin: top left;
 }
 
+.floorplan-designer__surface-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: top left;
+}
+
+.floorplan-designer__calibration-line {
+    position: absolute;
+    z-index: 18;
+    height: 0;
+    transform-origin: left center;
+    pointer-events: none;
+}
+
+.floorplan-designer__circuit-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.floorplan-designer__circuit-overlay line {
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    filter:
+        drop-shadow(0 0 1px rgba(255, 255, 255, 0.92))
+        drop-shadow(0 0 7px rgba(47, 155, 255, 0.58));
+    cursor: pointer;
+    pointer-events: stroke;
+}
+
+.floorplan-designer__circuit-overlay line:hover,
+.floorplan-designer__circuit-overlay line.is-selected {
+    filter:
+        drop-shadow(0 0 2px rgba(255, 255, 255, 1))
+        drop-shadow(0 0 12px rgba(121, 255, 176, 0.82));
+}
+
+.floorplan-designer__calibration-line span {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -2px;
+    height: 4px;
+    border-radius: 999px;
+    background: #ff3448;
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.92),
+        0 0 18px rgba(255, 52, 72, 0.72);
+}
+
+.floorplan-designer__calibration-line span::before,
+.floorplan-designer__calibration-line span::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    width: 3px;
+    height: 16px;
+    border-radius: 99px;
+    background: #ff3448;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+}
+
+.floorplan-designer__calibration-line span::before {
+    left: 0;
+}
+
+.floorplan-designer__calibration-line span::after {
+    right: 0;
+}
+
+.floorplan-designer__calibration-line.is-active span {
+    animation: floorplan-calibration-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes floorplan-calibration-pulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 2px rgba(255, 255, 255, 0.92),
+            0 0 16px rgba(255, 52, 72, 0.66);
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 3px rgba(255, 255, 255, 1),
+            0 0 28px rgba(255, 52, 72, 0.9);
+    }
+}
+
 .floorplan-designer__image,
 .floorplan-designer__pdf {
     display: block;
@@ -398,12 +918,22 @@
 
 .floorplan-designer__annotation {
     position: absolute;
+    z-index: 6;
     transform: translate(-50%, -50%);
     border: 0;
     background: transparent;
     color: #061018;
     cursor: pointer;
     padding: 0;
+}
+
+.floorplan-designer__annotation.is-dragging {
+    z-index: 12;
+    cursor: grabbing;
+}
+
+.floorplan-designer__annotation.is-symbol-pulse {
+    z-index: 9;
 }
 
 .floorplan-designer__modal-backdrop {
@@ -449,6 +979,34 @@
     margin: 0;
     color: rgba(234, 246, 255, 0.76);
     line-height: 1.45;
+}
+
+.floorplan-designer__calibration-dialog {
+    width: min(440px, 92vw);
+}
+
+.floorplan-designer__calibration-preview {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid rgba(141, 159, 174, 0.18);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(166, 180, 194, 0.08), rgba(72, 221, 255, 0.02)),
+        rgba(7, 15, 26, 0.86);
+}
+
+.floorplan-designer__calibration-preview span {
+    color: rgba(177, 213, 228, 0.72);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.floorplan-designer__calibration-preview strong {
+    color: #eaf6ff;
+    font-size: 1rem;
 }
 
 .floorplan-designer__file-pick {
@@ -502,60 +1060,366 @@
     height: 30px;
     border-radius: 50%;
     font-weight: 900;
+    font-size: 0.86rem;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.42);
 }
 
-.floorplan-designer__note-card {
-    display: grid;
-    gap: 3px;
-    min-width: 120px;
-    max-width: 180px;
-    padding: 8px;
-    border-radius: 6px;
-    background: #d7f0ff;
+.floorplan-designer__symbol--icon {
+    width: calc(8px * var(--floorplan-symbol-zoom, 1));
+    height: calc(8px * var(--floorplan-symbol-zoom, 1));
+    border-radius: 0;
+    box-shadow: none;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+}
+
+.floorplan-designer__joint {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 2px solid #2f9bff;
+    border-radius: 50%;
+    background: #ffffff;
     color: #07101b;
-    text-align: left;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+    font-size: 0.72rem;
+    font-weight: 900;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.92),
+        0 0 14px rgba(47, 155, 255, 0.78),
+        0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-.floorplan-designer__annotation--sticky .floorplan-designer__note-card {
-    background: #fff08a;
+.floorplan-designer__joint.is-active {
+    border-color: #79ffb0;
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.96),
+        0 0 22px rgba(121, 255, 176, 0.95),
+        0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-.floorplan-designer__note-card span {
-    font-size: 0.78rem;
+.floorplan-designer__joint-icon {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: calc(16px * var(--floorplan-symbol-zoom, 1));
+    height: calc(16px * var(--floorplan-symbol-zoom, 1));
+    border-radius: 50%;
+    background: #ff1f17;
+    box-shadow:
+        0 0 0 calc(1px * var(--floorplan-symbol-zoom, 1)) rgba(255, 255, 255, 0.92),
+        0 0 12px rgba(255, 31, 23, 0.82),
+        0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.floorplan-designer__joint-icon::before,
+.floorplan-designer__joint-icon::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    width: calc(28px * var(--floorplan-symbol-zoom, 1));
+    height: calc(4px * var(--floorplan-symbol-zoom, 1));
+    border-radius: 99px;
+    background: #ff1f17;
+    transform-origin: center;
+}
+
+.floorplan-designer__joint-icon::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.floorplan-designer__joint-icon::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.floorplan-designer__joint-icon.is-active {
+    box-shadow:
+        0 0 0 calc(2px * var(--floorplan-symbol-zoom, 1)) rgba(255, 255, 255, 0.96),
+        0 0 22px rgba(255, 31, 23, 0.96),
+        0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.floorplan-designer__annotation.is-symbol-pulse::before,
+.floorplan-designer__annotation.is-symbol-pulse::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    width: max(44px, calc(54px * var(--floorplan-symbol-zoom, 1)));
+    height: max(44px, calc(54px * var(--floorplan-symbol-zoom, 1)));
+    border-radius: 999px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.floorplan-designer__annotation.is-symbol-pulse::before {
+    border: max(3px, calc(3px * var(--floorplan-symbol-zoom, 1))) solid rgba(255, 207, 49, 0.98);
+    background: rgba(255, 207, 49, 0.14);
+    box-shadow:
+        0 0 0 max(2px, calc(2px * var(--floorplan-symbol-zoom, 1))) rgba(3, 7, 12, 0.92),
+        0 0 20px rgba(255, 207, 49, 0.86),
+        0 0 32px rgba(85, 216, 255, 0.72);
+    animation: floorplan-symbol-target-pulse 0.7s ease-out 3;
+}
+
+.floorplan-designer__annotation.is-symbol-pulse::after {
+    border: max(2px, calc(2px * var(--floorplan-symbol-zoom, 1))) dashed rgba(85, 216, 255, 0.98);
+    animation: floorplan-symbol-target-spin 1.4s linear 1.5;
+}
+
+.floorplan-designer__annotation.is-symbol-pulse .floorplan-designer__symbol {
+    filter:
+        drop-shadow(0 0 3px rgba(3, 7, 12, 0.98))
+        drop-shadow(0 0 12px rgba(255, 207, 49, 0.9))
+        drop-shadow(0 0 18px rgba(85, 216, 255, 0.85));
+    animation: floorplan-symbol-core-pop 0.7s ease-out 3;
+}
+
+@keyframes floorplan-symbol-target-pulse {
+    0% {
+        opacity: 0.2;
+        transform: translate(-50%, -50%) scale(0.38);
+    }
+
+    28% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    62% {
+        opacity: 0.94;
+        transform: translate(-50%, -50%) scale(0.92);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.46);
+    }
+}
+
+@keyframes floorplan-symbol-target-spin {
+    from {
+        opacity: 1;
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    }
+
+    to {
+        opacity: 0.55;
+        transform: translate(-50%, -50%) rotate(360deg) scale(1.1);
+    }
+}
+
+@keyframes floorplan-symbol-core-pop {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    35% {
+        transform: scale(1.85);
+    }
+
+    70% {
+        transform: scale(1.18);
+    }
+}
+
+.floorplan-designer__notebook-note {
+    position: relative;
+    display: grid;
+    width: 232px;
+    box-sizing: border-box;
+    border: 1px solid rgba(39, 85, 116, 0.36);
+    border-radius: 5px 8px 8px 5px;
+    overflow: visible;
+    background:
+        linear-gradient(90deg, rgba(241, 72, 86, 0.42) 31px, transparent 32px),
+        linear-gradient(180deg, #fbfdff 0, #fbfdff 100%);
+    color: #17202a;
+    box-shadow:
+        0 12px 24px rgba(0, 0, 0, 0.28),
+        0 0 0 1px rgba(72, 221, 255, 0.1);
+}
+
+.floorplan-designer__notebook-note::before {
+    content: "";
+    position: absolute;
+    left: 9px;
+    top: 10px;
+    bottom: 10px;
+    width: 8px;
+    border-radius: 99px;
+    background:
+        repeating-linear-gradient(
+            180deg,
+            rgba(15, 42, 66, 0.28) 0,
+            rgba(15, 42, 66, 0.28) 4px,
+            transparent 4px,
+            transparent 14px
+        );
+}
+
+.floorplan-designer__notebook-title,
+.floorplan-designer__notebook-body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    box-sizing: border-box;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #17202a;
+    font: inherit;
+}
+
+.floorplan-designer__notebook-title {
+    min-height: 34px;
+    padding: 8px 12px 6px 42px;
+    border-bottom: 1px solid rgba(94, 132, 158, 0.34);
+    border-radius: 5px 8px 0 0;
+    background: linear-gradient(180deg, rgba(221, 239, 255, 0.92), rgba(246, 251, 255, 0.78));
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.floorplan-designer__notebook-body {
+    min-height: 216px;
+    max-height: 540px;
+    padding: 5px 12px 10px 42px;
+    resize: none;
+    overflow: hidden;
+    line-height: 18px;
+    background:
+        repeating-linear-gradient(
+            180deg,
+            transparent 0,
+            transparent 17px,
+            rgba(93, 151, 204, 0.34) 17px,
+            rgba(93, 151, 204, 0.34) 18px
+        );
+    white-space: pre-wrap;
+}
+
+.floorplan-designer__notebook-body.has-overflow {
+    overflow-y: auto;
+}
+
+.floorplan-designer__notebook-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.floorplan-designer__notebook-body::-webkit-scrollbar-track {
+    background: rgba(215, 232, 244, 0.72);
+}
+
+.floorplan-designer__notebook-body::-webkit-scrollbar-thumb {
+    border-radius: 99px;
+    background: linear-gradient(180deg, rgba(72, 221, 255, 0.82), rgba(47, 118, 160, 0.78));
+    box-shadow: inset 0 0 0 1px rgba(12, 32, 48, 0.22);
+}
+
+.floorplan-designer__notebook-title::placeholder,
+.floorplan-designer__notebook-body::placeholder {
+    color: rgba(23, 32, 42, 0.46);
+}
+
+.floorplan-designer__notebook-note:focus-within {
+    box-shadow:
+        0 0 0 2px rgba(121, 255, 176, 0.82),
+        0 12px 24px rgba(0, 0, 0, 0.28),
+        0 0 0 1px rgba(72, 221, 255, 0.1);
 }
 
 .floorplan-designer__sticky-note {
-    display: grid;
-    place-items: center;
+    position: relative;
+    display: block;
     width: 132px;
     height: 112px;
     box-sizing: border-box;
     border: 0;
     border-radius: 2px;
-    padding: 14px;
-    resize: none;
-    overflow: hidden;
+    overflow: visible;
     background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 42%),
-        #fff08a;
+        var(--floorplan-sticky-color, #fff08a);
+    color: #17202a;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32), inset 0 -18px 22px rgba(174, 133, 0, 0.14);
+}
+
+.floorplan-designer__sticky-gripper,
+.floorplan-designer__note-gripper {
+    position: absolute;
+    left: -8px;
+    top: -8px;
+    z-index: 2;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(72, 221, 255, 0.38);
+    border-radius: 2px;
+    padding: 0;
+    background: rgba(5, 13, 22, 0.92);
+    color: #eaf6ff;
+    cursor: grab;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.34), 0 0 12px rgba(72, 221, 255, 0.2);
+}
+
+.floorplan-designer__sticky-gripper:hover,
+.floorplan-designer__note-gripper:hover {
+    border-color: rgba(121, 255, 176, 0.58);
+    color: #9cffc4;
+}
+
+.floorplan-designer__sticky-gripper mat-icon,
+.floorplan-designer__note-gripper mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+.floorplan-designer__sticky-text {
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 2px;
+    padding: 18px 14px 14px;
+    resize: none;
+    overflow: hidden;
+    background: transparent;
     color: #17202a;
     font: inherit;
     font-weight: 800;
     line-height: 1.12;
-    text-align: center;
+    text-align: left;
     text-wrap: balance;
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32), inset 0 -18px 22px rgba(174, 133, 0, 0.14);
     outline: 0;
 }
 
-.floorplan-designer__sticky-note::placeholder {
+.floorplan-designer__sticky-text::placeholder {
     color: rgba(23, 32, 42, 0.48);
 }
 
-.floorplan-designer__sticky-note:focus {
+.floorplan-designer__sticky-note:focus-within {
     box-shadow: 0 0 0 2px rgba(121, 255, 176, 0.82), 0 10px 22px rgba(0, 0, 0, 0.32), inset 0 -18px 22px rgba(174, 133, 0, 0.14);
+}
+
+.floorplan-designer__annotation.is-dragging .floorplan-designer__sticky-gripper,
+.floorplan-designer__annotation.is-dragging .floorplan-designer__note-gripper {
+    cursor: grabbing;
+}
+
+.floorplan-designer__annotation.is-symbol-pulse .floorplan-designer__sticky-note {
+    animation: floorplan-symbol-core-pop 0.7s ease-out 3;
 }
 
 .floorplan-designer__actions {
@@ -603,6 +1467,11 @@
 
     .floorplan-designer__header-tools .floorplan-designer__tool {
         min-width: 88px;
+    }
+
+    .floorplan-designer__scale-badge {
+        min-width: 118px;
+        max-width: 160px;
     }
 
     .floorplan-designer {

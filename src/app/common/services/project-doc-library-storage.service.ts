@@ -38,6 +38,7 @@ export interface ProjectDocLibraryFileRecord {
     extension: string
     createdAt: string
     updatedAt: string
+    floorplanFolderId?: string
     floorplanDesign?: ProjectFloorplanDesignState
     versions: ProjectDocLibraryFileVersionRecord[]
 }
@@ -52,7 +53,7 @@ export interface ProjectDocLibraryDirectoryRecord {
 
 export interface ProjectFloorplanDesignAnnotation {
     id: string
-    kind: 'symbol' | 'note' | 'sticky'
+    kind: 'symbol' | 'note' | 'sticky' | 'joint'
     xRatio: number
     yRatio: number
     bomRowId?: string
@@ -61,6 +62,11 @@ export interface ProjectFloorplanDesignAnnotation {
     categoryName?: string
     partNumber?: string
     deviceName?: string
+    partDescription?: string
+    iconId?: string | null
+    iconLabel?: string | null
+    iconDataUrl?: string | null
+    iconForegroundColor?: string | null
     materialCost?: number
     laborHours?: number
     customAttributes?: ProjectFloorplanSymbolAttribute[]
@@ -79,7 +85,44 @@ export interface ProjectFloorplanSymbolAttribute {
 
 export interface ProjectFloorplanDesignState {
     annotations: ProjectFloorplanDesignAnnotation[]
+    circuits?: ProjectFloorplanCircuit[]
+    calibration?: ProjectFloorplanCalibration
+    rotationDegrees?: number
+    symbolDisplayMode?: 'icon' | 'bubble'
     updatedAt?: string
+}
+
+export interface ProjectFloorplanCircuit {
+    id: string
+    name: string
+    color: string
+    lineStyle: 'solid' | 'dashed' | 'dotted'
+    lineWeight?: number
+    segments: ProjectFloorplanCircuitSegment[]
+    closed: boolean
+    layerId?: string
+    createdAt?: string
+    updatedAt?: string
+}
+
+export interface ProjectFloorplanCircuitSegment {
+    id: string
+    fromAnnotationId: string
+    toAnnotationId: string
+    color?: string
+    lineStyle?: 'solid' | 'dashed' | 'dotted'
+    lineWeight?: number
+}
+
+export interface ProjectFloorplanCalibration {
+    pixelLength: number
+    realWorldFeet: number
+    feetPerPixel: number
+    startXRatio: number
+    startYRatio: number
+    endXRatio: number
+    endYRatio: number
+    calibratedAt: string
 }
 
 export interface ProjectDocLibraryWorkspaceState {
