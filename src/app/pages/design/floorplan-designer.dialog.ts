@@ -14,6 +14,7 @@ import { FloorplanDesignerComponent, FloorplanDesignerSaveEvent, FloorplanDesign
 export interface FloorplanDesignerDialogData {
     file: ProjectDocLibraryFileRecord
     imageUrl: string
+    baselineDesign?: ProjectFloorplanDesignState
     symbols?: FloorplanDesignerSymbolOption[]
     validateDesign?: (design: ProjectFloorplanDesignState) => string[]
 }
@@ -37,6 +38,7 @@ export interface FloorplanSymbolBalanceDialogData {
             [sourceUrl]="data.imageUrl"
             [mimeType]="latestMimeType"
             [design]="data.file.floorplanDesign"
+            [baselineDesign]="data.baselineDesign"
             [symbols]="data.symbols || []"
             (closeDesigner)="close()"
             (saveDesign)="save($event)">
@@ -104,7 +106,10 @@ export class FloorplanDesignerDialog {
     }
 
     private saveDesign(design: ProjectFloorplanDesignState): void {
-        const errors = this.data.validateDesign?.(design) || []
+        const errors = [
+            ...this.getReadOnlyAttributeValidationErrors(design),
+            ...(this.data.validateDesign?.(design) || [])
+        ]
         if (errors.length > 0) {
             this.dialog.open(FloorplanSymbolBalanceDialog, {
                 width: '520px',
@@ -117,6 +122,23 @@ export class FloorplanDesignerDialog {
         this.dialogRef.close({
             design
         } as FloorplanDesignerDialogResult)
+    }
+
+    private getReadOnlyAttributeValidationErrors(design: ProjectFloorplanDesignState): string[] {
+        const errors: string[] = []
+        for (const annotation of design.annotations || []) {
+            if (annotation.kind !== 'symbol') {
+                continue
+            }
+            for (const attribute of annotation.customAttributes || []) {
+                if (attribute.isReadOnly && !String(attribute.value || '').trim()) {
+                    const symbolName = String(annotation.partNumber || annotation.deviceName || annotation.label || 'Symbol').trim()
+                    const attributeName = String(attribute.name || 'Attribute').trim()
+                    errors.push(`${symbolName} ${attributeName} is read-only and requires a value.`)
+                }
+            }
+        }
+        return errors
     }
 
     private async openDirtyGuard(): Promise<'stay' | 'save' | 'leave' | undefined> {

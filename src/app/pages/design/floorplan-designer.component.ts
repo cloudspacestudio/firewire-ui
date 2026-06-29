@@ -12,7 +12,9 @@ import {
     ProjectFloorplanCircuitSegment,
     ProjectFloorplanDesignAnnotation,
     ProjectFloorplanDesignState,
-    ProjectFloorplanSymbolAttribute
+    ProjectFloorplanSymbolAttribute,
+    ProjectFloorplanSymbolMediaFile,
+    ProjectFloorplanSymbolTag
 } from '../../common/services/project-doc-library-storage.service'
 
 export type FloorplanDesignerTool = 'select' | 'pan' | 'symbol' | 'note' | 'sticky' | 'calibrate' | 'joint' | 'circuit'
@@ -37,9 +39,12 @@ export interface FloorplanDesignerSymbolOption {
     placedQty: number
     remainingQty: number
     categoryKey: string
+    deviceId?: string
     categoryName: string
     partNumber: string
     deviceName: string
+    shortName?: string
+    floorplanLabelText?: string
     partDescription?: string
     iconId?: string | null
     iconLabel?: string | null
@@ -48,6 +53,8 @@ export interface FloorplanDesignerSymbolOption {
     materialCost?: number
     laborHours?: number
     customAttributes?: ProjectFloorplanSymbolAttribute[]
+    tags?: ProjectFloorplanSymbolTag[]
+    mediaFiles?: ProjectFloorplanSymbolMediaFile[]
 }
 
 @Component({
@@ -64,6 +71,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     @Input() sourceUrl = ''
     @Input() mimeType = ''
     @Input() design?: ProjectFloorplanDesignState
+    @Input() baselineDesign?: ProjectFloorplanDesignState
     @Input() symbols: FloorplanDesignerSymbolOption[] = []
     @Input() showHeader = true
     @Input() showActions = true
@@ -89,6 +97,8 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     selectedSymbol?: FloorplanDesignerSymbolOption
     annotations: ProjectFloorplanDesignAnnotation[] = []
     circuits: ProjectFloorplanCircuit[] = []
+    baselineAnnotations: ProjectFloorplanDesignAnnotation[] = []
+    baselineCircuits: ProjectFloorplanCircuit[] = []
     selectedAnnotation?: ProjectFloorplanDesignAnnotation
     selectedCircuitId = ''
     selectedCircuitSegmentId = ''
@@ -99,6 +109,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     showSymbolLayer = true
     showNoteLayer = true
     showCircuitLayer = true
+    showBaselineLayer = true
     symbolDisplayMode: 'icon' | 'bubble' = 'icon'
     rotationDegrees = 0
     isFullscreen = false
@@ -139,6 +150,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         { label: 'Violet', value: '#d9c2ff' }
     ]
     selectedStickyColor = this.stickyColors[0].value
+    selectedSymbolTagText = ''
     private panStartX = 0
     private panStartY = 0
     private panStartScrollLeft = 0
@@ -183,6 +195,18 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
             this.selectedAnnotation = undefined
             this.refreshInitialSymbolCounts()
             this.initialDesignSignature = this.serializeDesign(this.getCurrentDesignState())
+        }
+        if (changes['baselineDesign']) {
+            this.baselineAnnotations = [...(this.baselineDesign?.annotations || [])]
+            this.baselineCircuits = (this.baselineDesign?.circuits || []).map((circuit) => ({
+                ...circuit,
+                lineWeight: this.normalizeCircuitLineWeight(circuit.lineWeight),
+                segments: (circuit.segments || []).map((segment) => ({
+                    ...segment,
+                    lineWeight: segment.lineWeight ? this.normalizeCircuitLineWeight(segment.lineWeight) : undefined
+                }))
+            }))
+            this.showBaselineLayer = this.hasBaselineReference()
         }
         if (changes['symbols'] || changes['design']) {
             this.syncSelectedSymbol()
@@ -288,11 +312,29 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return this.annotations.filter((annotation) => this.isAnnotationLayerVisible(annotation))
     }
 
+    get visibleAreaOfInfluenceAnnotations(): ProjectFloorplanDesignAnnotation[] {
+        return this.visibleAnnotations.filter((annotation) => this.shouldRenderAreaOfInfluence(annotation))
+    }
+
     get visibleCircuits(): ProjectFloorplanCircuit[] {
         if (!this.annotationSurfaceReady || !this.showCircuitLayer) {
             return []
         }
         return this.circuits
+    }
+
+    get visibleBaselineAnnotations(): ProjectFloorplanDesignAnnotation[] {
+        if (!this.annotationSurfaceReady || !this.showBaselineLayer) {
+            return []
+        }
+        return this.baselineAnnotations.filter((annotation) => this.isAnnotationLayerVisible(annotation))
+    }
+
+    get visibleBaselineCircuits(): ProjectFloorplanCircuit[] {
+        if (!this.annotationSurfaceReady || !this.showBaselineLayer || !this.showCircuitLayer) {
+            return []
+        }
+        return this.baselineCircuits
     }
 
     get selectedCircuit(): ProjectFloorplanCircuit | undefined {
@@ -335,6 +377,19 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         ].join('\n')
     }
 
+    getScaleBadgeTitle(): string {
+        const action = this.isCalibrationModeActive()
+            ? 'Calibration mode is active. Drag across a known scale length.'
+            : 'Click to calibrate the floorplan scale.'
+        return this.calibration
+            ? `${this.getCalibrationDetail()}\n${action}`
+            : action
+    }
+
+    isCalibrationModeActive(): boolean {
+        return this.tool === 'calibrate' || this.isCalibrating || !!this.calibrationDraft || this.calibrationDialogOpen
+    }
+
     getCalibrationDraftLineStyle(): Record<string, string> {
         const draft = this.calibrationDraft
         if (!draft) {
@@ -370,6 +425,20 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         }
     }
 
+    getBaselineCircuitSegmentLine(circuit: ProjectFloorplanCircuit, segment: ProjectFloorplanCircuitSegment): { x1: number; y1: number; x2: number; y2: number } | null {
+        const from = this.getBaselineAnnotationById(segment.fromAnnotationId)
+        const to = this.getBaselineAnnotationById(segment.toAnnotationId)
+        if (!from || !to) {
+            return null
+        }
+        return {
+            x1: from.xRatio * 100,
+            y1: from.yRatio * 100,
+            x2: to.xRatio * 100,
+            y2: to.yRatio * 100
+        }
+    }
+
     getCircuitSegmentColor(circuit: ProjectFloorplanCircuit, segment: ProjectFloorplanCircuitSegment): string {
         return segment.color || circuit.color || '#ff3448'
     }
@@ -382,6 +451,10 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return this.selectedCircuitSegmentId === segment.id
             ? this.getCircuitSegmentWeight(circuit, segment) * 1.35
             : this.getCircuitSegmentWeight(circuit, segment)
+    }
+
+    getBaselineCircuitSegmentStrokeWidth(circuit: ProjectFloorplanCircuit, segment: ProjectFloorplanCircuitSegment): number {
+        return this.getCircuitSegmentWeight(circuit, segment)
     }
 
     getCircuitStrokeDashArray(circuit: ProjectFloorplanCircuit, segment?: ProjectFloorplanCircuitSegment): string | null {
@@ -434,6 +507,23 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         )
     }
 
+    hasBaselineReference(): boolean {
+        return this.baselineAnnotations.length > 0 || this.baselineCircuits.length > 0
+    }
+
+    toggleBaselineLayer(): void {
+        this.showBaselineLayer = !this.showBaselineLayer
+        this.showLayerMenu = false
+    }
+
+    getBaselineLabel(annotation: ProjectFloorplanDesignAnnotation): string {
+        return String(annotation.label || annotation.shortName || annotation.deviceName || annotation.partNumber || annotation.symbol || 'Original').trim()
+    }
+
+    getBaselineNoteBodyHeight(annotation: ProjectFloorplanDesignAnnotation): number {
+        return Math.min(this.getNoteBodyHeight(annotation.text), 12 * 18)
+    }
+
     onImageLoad(event: Event): void {
         const image = event.target as HTMLImageElement
         this.imageNaturalWidth = image.naturalWidth || image.clientWidth || 1
@@ -442,6 +532,9 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     }
 
     setTool(tool: FloorplanDesignerTool): void {
+        if (tool !== 'calibrate' && (this.tool === 'calibrate' || this.isCalibrating) && !this.calibrationDialogOpen) {
+            this.cancelCalibrationMode(false)
+        }
         if (tool === 'symbol' && !this.showSymbolLayer) {
             this.tool = 'select'
             this.selectedAnnotation = undefined
@@ -484,6 +577,12 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         }
     }
 
+    startCalibrationMode(): void {
+        this.setTool('calibrate')
+        this.showLayerMenu = false
+        this.showStickyColorMenu = false
+    }
+
     selectSymbol(symbol: FloorplanDesignerSymbolOption): void {
         if (!this.showSymbolLayer) {
             this.statusText = 'Symbol layer is hidden. Show the Symbols layer before placing symbols.'
@@ -516,6 +615,140 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     getSymbolPartDescriptionText(symbol: FloorplanDesignerSymbolOption): string {
         return String(symbol.partDescription || '').replace(/\s+/g, ' ').trim()
+    }
+
+    getSymbolTooltipText(symbol: FloorplanDesignerSymbolOption): string {
+        return String(symbol.shortName || symbol.deviceName || symbol.label || '').replace(/\s+/g, ' ').trim()
+    }
+
+    getAnnotationTooltipText(annotation: ProjectFloorplanDesignAnnotation): string | null {
+        if (annotation.kind !== 'symbol') {
+            return annotation.kind === 'joint' ? 'Joint' : null
+        }
+        return String(annotation.shortName || annotation.deviceName || annotation.label || '').replace(/\s+/g, ' ').trim() || null
+    }
+
+    getSelectedSymbolAttributes(): ProjectFloorplanSymbolAttribute[] {
+        return this.selectedAnnotation?.kind === 'symbol' && Array.isArray(this.selectedAnnotation.customAttributes)
+            ? this.selectedAnnotation.customAttributes
+            : []
+    }
+
+    getSelectedAreaOfInfluenceFeet(): number | null {
+        return this.getAreaOfInfluenceFeet(this.selectedAnnotation)
+    }
+
+    selectedSymbolHasAreaOfInfluence(): boolean {
+        return this.getSelectedAreaOfInfluenceFeet() !== null
+    }
+
+    getSelectedAreaOfInfluenceSummary(): string {
+        const radiusFeet = this.getSelectedAreaOfInfluenceFeet()
+        if (radiusFeet === null) {
+            return 'No Area of Influence radius is configured for this device.'
+        }
+        if (!this.calibration) {
+            return `${radiusFeet.toFixed(2)} ft radius. Set floorplan scale calibration to render it.`
+        }
+        return `${radiusFeet.toFixed(2)} ft radius using current floorplan scale.`
+    }
+
+    toggleSelectedAreaOfInfluence(event: Event): void {
+        const input = event.target as HTMLInputElement
+        if (!this.selectedAnnotation || this.selectedAnnotation.kind !== 'symbol') {
+            return
+        }
+        if (input.checked && !this.calibration) {
+            input.checked = false
+            this.selectedAnnotation.showAreaOfInfluence = false
+            this.statusText = 'Set floorplan scale calibration before showing Area of Influence.'
+            return
+        }
+        if (input.checked && this.getAreaOfInfluenceFeet(this.selectedAnnotation) === null) {
+            input.checked = false
+            this.selectedAnnotation.showAreaOfInfluence = false
+            this.statusText = 'This device does not have a numeric Area of Influence radius.'
+            return
+        }
+        this.selectedAnnotation.showAreaOfInfluence = input.checked
+        this.statusText = input.checked
+            ? 'Area of Influence shown. Save the design to persist this display setting.'
+            : 'Area of Influence hidden. Save the design to persist this display setting.'
+    }
+
+    isSymbolAttributeReadOnly(attribute: ProjectFloorplanSymbolAttribute): boolean {
+        return !!attribute?.isReadOnly
+    }
+
+    isSymbolAttributeMissingRequiredValue(attribute: ProjectFloorplanSymbolAttribute): boolean {
+        return this.isSymbolAttributeReadOnly(attribute) && !String(attribute?.value || '').trim()
+    }
+
+    shouldRenderAreaOfInfluence(annotation: ProjectFloorplanDesignAnnotation): boolean {
+        return annotation.kind === 'symbol'
+            && !!annotation.showAreaOfInfluence
+            && !!this.calibration
+            && this.getAreaOfInfluenceFeet(annotation) !== null
+    }
+
+    getAreaOfInfluenceStyle(annotation: ProjectFloorplanDesignAnnotation): Record<string, string> {
+        const radiusFeet = this.getAreaOfInfluenceFeet(annotation)
+        const feetPerPixel = Number(this.calibration?.feetPerPixel || 0)
+        if (radiusFeet === null || !Number.isFinite(feetPerPixel) || feetPerPixel <= 0) {
+            return { width: '0px', height: '0px' }
+        }
+        const radiusPx = Math.max(1, radiusFeet / feetPerPixel * this.zoomLevel)
+        return {
+            width: `${Math.round(radiusPx * 2)}px`,
+            height: `${Math.round(radiusPx * 2)}px`
+        }
+    }
+
+    getSelectedSymbolTags(): ProjectFloorplanSymbolTag[] {
+        return this.selectedAnnotation?.kind === 'symbol' && Array.isArray(this.selectedAnnotation.tags)
+            ? this.selectedAnnotation.tags
+            : []
+    }
+
+    getSelectedSymbolMediaFiles(): ProjectFloorplanSymbolMediaFile[] {
+        return this.selectedAnnotation?.kind === 'symbol' && Array.isArray(this.selectedAnnotation.mediaFiles)
+            ? this.selectedAnnotation.mediaFiles
+            : []
+    }
+
+    addSelectedSymbolTag(): void {
+        if (!this.selectedAnnotation || this.selectedAnnotation.kind !== 'symbol') {
+            return
+        }
+        const label = String(this.selectedSymbolTagText || '').replace(/\s+/g, ' ').trim()
+        if (!label) {
+            return
+        }
+        const existing = Array.isArray(this.selectedAnnotation.tags) ? this.selectedAnnotation.tags : []
+        const seen = new Set(existing.map((tag) => String(tag.label || '').trim().toLowerCase()).filter(Boolean))
+        if (!seen.has(label.toLowerCase())) {
+            this.selectedAnnotation.tags = [
+                ...existing,
+                { id: this.createClientId(), label }
+            ]
+        }
+        this.selectedSymbolTagText = ''
+    }
+
+    removeSelectedSymbolTag(index: number): void {
+        if (!this.selectedAnnotation || this.selectedAnnotation.kind !== 'symbol') {
+            return
+        }
+        this.selectedAnnotation.tags = this.getSelectedSymbolTags().filter((_, rowIndex) => rowIndex !== index)
+    }
+
+    getAnnotationMediaDownloadUrl(file: ProjectFloorplanSymbolMediaFile): string {
+        const deviceId = String(this.selectedAnnotation?.deviceId || '').trim()
+        const fileId = String(file?.id || '').trim()
+        if (!deviceId || !fileId) {
+            return ''
+        }
+        return `/api/firewire/devices/${encodeURIComponent(deviceId)}/media/${encodeURIComponent(fileId)}/content?disposition=attachment`
     }
 
     getAnnotationIconStyle(annotation: ProjectFloorplanDesignAnnotation): Record<string, string> {
@@ -565,6 +798,17 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
 
     shouldRenderAnnotationBubble(annotation: ProjectFloorplanDesignAnnotation): boolean {
         return annotation.kind === 'symbol' && (this.symbolDisplayMode === 'bubble' || !annotation.iconDataUrl)
+    }
+
+    private getAreaOfInfluenceFeet(annotation: ProjectFloorplanDesignAnnotation | undefined): number | null {
+        if (!annotation || annotation.kind !== 'symbol' || !Array.isArray(annotation.customAttributes)) {
+            return null
+        }
+        const attribute = annotation.customAttributes.find((item) =>
+            String(item?.name || '').trim().toLowerCase() === 'area of influence'
+        )
+        const value = Number(String(attribute?.value || attribute?.defaultValue || '').trim())
+        return Number.isFinite(value) && value > 0 ? value : null
     }
 
     getSymbolToolTitle(): string {
@@ -1110,7 +1354,22 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         this.calibrationDialogOpen = false
         this.calibrationKnownFeet = null
         this.calibrationDraft = undefined
+        this.isCalibrating = false
+        this.removeCalibrationListeners()
+        this.tool = 'select'
         this.statusText = 'Calibration cancelled.'
+    }
+
+    cancelCalibrationMode(updateStatus = true): void {
+        this.isCalibrating = false
+        this.calibrationDialogOpen = false
+        this.calibrationKnownFeet = null
+        this.calibrationDraft = undefined
+        this.removeCalibrationListeners()
+        this.tool = 'select'
+        if (updateStatus) {
+            this.statusText = 'Calibration cancelled.'
+        }
     }
 
     confirmCalibration(): void {
@@ -1258,6 +1517,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
             return
         }
         this.selectedAnnotation = annotation
+        this.selectedSymbolTagText = ''
         this.selectedCircuitSegmentId = ''
         this.tool = 'select'
         this.statusText = 'Item placed.'
@@ -1300,6 +1560,11 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     }
 
     save(): void {
+        const missingReadOnlyAttributes = this.getMissingReadOnlySymbolAttributes()
+        if (missingReadOnlyAttributes.length > 0) {
+            this.statusText = `Save blocked. ${missingReadOnlyAttributes[0]} is read-only and requires a value.`
+            return
+        }
         this.saveDesign.emit({ design: this.getCurrentDesignState() })
     }
 
@@ -1467,9 +1732,12 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
                 bomRowId: symbol?.bomRowId,
                 symbolId: symbol?.id,
                 categoryKey: symbol?.categoryKey,
+                deviceId: symbol?.deviceId,
                 categoryName: symbol?.categoryName,
                 partNumber: symbol?.partNumber,
                 deviceName: symbol?.deviceName,
+                shortName: symbol?.shortName,
+                floorplanLabelText: symbol?.floorplanLabelText,
                 partDescription: symbol?.partDescription,
                 iconId: symbol?.iconId,
                 iconLabel: symbol?.iconLabel,
@@ -1477,8 +1745,10 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
                 iconForegroundColor: symbol?.iconForegroundColor,
                 materialCost: symbol?.materialCost,
                 laborHours: symbol?.laborHours,
-                customAttributes: symbol?.customAttributes ? [...symbol.customAttributes] : undefined,
-                symbol: symbol?.code || '?',
+                customAttributes: this.cloneSymbolAttributesForAnnotation(symbol?.customAttributes),
+                tags: symbol?.tags ? symbol.tags.map((tag) => ({ ...tag })) : undefined,
+                mediaFiles: symbol?.mediaFiles ? symbol.mediaFiles.map((file) => ({ ...file })) : undefined,
+                symbol: symbol?.floorplanLabelText || symbol?.code || '?',
                 label: symbol?.label || 'Symbol',
                 color: symbol?.color || '#77d7ff'
             }
@@ -1658,6 +1928,10 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return this.annotations.find((annotation) => annotation.id === annotationId)
     }
 
+    private getBaselineAnnotationById(annotationId: string): ProjectFloorplanDesignAnnotation | undefined {
+        return this.baselineAnnotations.find((annotation) => annotation.id === annotationId)
+    }
+
     private getCircuitFirstNodeId(circuit: ProjectFloorplanCircuit): string {
         return circuit.segments[0]?.fromAnnotationId || this.circuitActiveNodeId || ''
     }
@@ -1696,6 +1970,38 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return `Version ${new Date().toLocaleString()}`
     }
 
+    private cloneSymbolAttributesForAnnotation(input?: ProjectFloorplanSymbolAttribute[]): ProjectFloorplanSymbolAttribute[] | undefined {
+        if (!Array.isArray(input) || input.length <= 0) {
+            return undefined
+        }
+        return input.map((attribute) => {
+            const value = String(attribute.value ?? '').trim()
+            const defaultValue = String(attribute.defaultValue || '').trim()
+            return {
+                ...attribute,
+                value: attribute.isReadOnly && !value ? defaultValue : value,
+                defaultValue
+            }
+        })
+    }
+
+    private getMissingReadOnlySymbolAttributes(): string[] {
+        const missing: string[] = []
+        for (const annotation of this.annotations || []) {
+            if (annotation.kind !== 'symbol') {
+                continue
+            }
+            for (const attribute of annotation.customAttributes || []) {
+                if (this.isSymbolAttributeMissingRequiredValue(attribute)) {
+                    const symbolName = String(annotation.partNumber || annotation.deviceName || annotation.label || 'Symbol').trim()
+                    const attributeName = String(attribute.name || 'Attribute').trim()
+                    missing.push(`${symbolName} ${attributeName}`)
+                }
+            }
+        }
+        return missing
+    }
+
     private serializeDesign(design: ProjectFloorplanDesignState): string {
         const annotations = (design.annotations || []).map((annotation) => ({
             id: annotation.id,
@@ -1709,6 +2015,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
             partNumber: annotation.partNumber || '',
             deviceName: annotation.deviceName || '',
             customAttributes: annotation.customAttributes || [],
+            showAreaOfInfluence: !!annotation.showAreaOfInfluence,
             symbol: annotation.symbol || '',
             label: annotation.label || '',
             text: annotation.text || '',

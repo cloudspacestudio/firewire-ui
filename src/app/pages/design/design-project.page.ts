@@ -11,7 +11,16 @@ import { MatIconModule } from "@angular/material/icon"
 import { PageToolbar } from "../../common/components/page-toolbar"
 import { FirewireFloorplansComponent } from "../../common/components/firewire-floorplans.component"
 import { FirewireTakeoffColumnDefinition, FirewireTakeoffMatrix, FirewireTakeoffMatrixComponent } from "../../common/components/firewire-takeoff-matrix.component"
-import { ProjectDocLibraryFileRecord, ProjectDocLibraryFileVersionRecord, ProjectDocLibraryStorageService, ProjectDocLibraryWorkspaceState, ProjectFloorplanDesignState } from "../../common/services/project-doc-library-storage.service"
+import {
+    ProjectDocLibraryFileRecord,
+    ProjectDocLibraryFileVersionRecord,
+    ProjectDocLibraryStorageService,
+    ProjectDocLibraryWorkspaceState,
+    ProjectFloorplanDesignState,
+    ProjectFloorplanSymbolAttribute,
+    ProjectFloorplanSymbolMediaFile,
+    ProjectFloorplanSymbolTag
+} from "../../common/services/project-doc-library-storage.service"
 import { FirewireProjectSchema } from "../../schemas/firewire-project.schema"
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from "./floorplan-designer.dialog"
 import { FloorplanDesignerSymbolOption } from "./floorplan-designer.component"
@@ -703,11 +712,17 @@ export class DesignProjectPage implements OnInit {
                 if (existing) {
                     existing.totalQty += qty
                     existing.iconDataUrl = existing.iconDataUrl || row.iconDataUrl || null
+                    existing.customAttributes = existing.customAttributes?.length ? existing.customAttributes : this.cloneFloorplanSymbolAttributes(row.customAttributes)
+                    existing.tags = existing.tags?.length ? existing.tags : this.cloneFloorplanSymbolTags(row.tags)
+                    existing.mediaFiles = existing.mediaFiles?.length ? existing.mediaFiles : this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                     continue
                 }
                 bySymbol.set(id, {
                     id,
+                    bomRowId: String(row.id || '').trim() || undefined,
+                    deviceId: String(row.deviceId || '').trim() || undefined,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
+                    floorplanLabelText: this.getBomRowFloorplanLabelText(row, categoryName, deviceName),
                     label: deviceName,
                     color: this.getFloorplanSymbolColor(categoryKey),
                     totalQty: qty,
@@ -717,17 +732,70 @@ export class DesignProjectPage implements OnInit {
                     categoryName,
                     partNumber,
                     deviceName,
+                    shortName: String(row.shortName || '').trim(),
                     iconId: row.iconId || null,
                     iconLabel: row.iconLabel || null,
                     iconDataUrl: row.iconDataUrl || null,
                     iconForegroundColor: row.iconForegroundColor || null,
                     materialCost: Number(row.cost || 0),
                     laborHours: Number(row.labor || 0),
-                    customAttributes: []
+                    customAttributes: this.cloneFloorplanSymbolAttributes(row.customAttributes),
+                    tags: this.cloneFloorplanSymbolTags(row.tags),
+                    mediaFiles: this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                 })
             }
         }
         return [...bySymbol.values()]
+    }
+
+    private cloneFloorplanSymbolAttributes(input: unknown): ProjectFloorplanSymbolAttribute[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((attribute: any) => ({
+            name: String(attribute?.name || '').trim(),
+            value: String(attribute?.value ?? attribute?.defaultValue ?? '').trim(),
+            defaultValue: String(attribute?.defaultValue || '').trim(),
+            valueType: String(attribute?.valueType || 'text').trim() || 'text',
+            isReadOnly: !!attribute?.isReadOnly
+        })).filter((attribute) => !!attribute.name)
+    }
+
+    private cloneFloorplanSymbolTags(input: unknown): ProjectFloorplanSymbolTag[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        const seen = new Set<string>()
+        const tags: ProjectFloorplanSymbolTag[] = []
+        for (const raw of input) {
+            const label = String((raw as any)?.label ?? raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 80)
+            if (!label) {
+                continue
+            }
+            const key = label.toLowerCase()
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            tags.push({
+                id: String((raw as any)?.id || '').trim() || `tag-${Math.random().toString(36).slice(2, 10)}`,
+                label
+            })
+        }
+        return tags
+    }
+
+    private cloneFloorplanSymbolMediaFiles(input: unknown): ProjectFloorplanSymbolMediaFile[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((file: any) => ({
+            id: String(file?.id || '').trim(),
+            fileName: String(file?.fileName || file?.name || '').trim(),
+            mimeType: String(file?.mimeType || '').trim() || undefined,
+            sizeBytes: typeof file?.sizeBytes === 'undefined' || file?.sizeBytes === null ? undefined : Number(file.sizeBytes),
+            uploadedAt: String(file?.uploadedAt || '').trim() || undefined
+        })).filter((file) => !!file.id && !!file.fileName)
     }
 
     private getFloorplanSymbolPlacementCounts(overrideFileId?: string, overrideDesign?: ProjectFloorplanDesignState): Map<string, number> {
@@ -839,6 +907,11 @@ export class DesignProjectPage implements OnInit {
         const words = source.split(/[^a-z0-9]+/i).filter(Boolean)
         const code = words.length > 1 ? words.map((word) => word[0]).join('') : source.slice(0, 3)
         return code.slice(0, 3).toUpperCase() || 'SY'
+    }
+
+    private getBomRowFloorplanLabelText(row: any, categoryName: string, deviceName: string): string {
+        return String(row?.floorplanLabelText || '').trim().replace(/\s+/g, '').slice(0, 4)
+            || this.createFloorplanSymbolCode(categoryName, deviceName)
     }
 
     private getFloorplanSymbolColor(key: string): string {

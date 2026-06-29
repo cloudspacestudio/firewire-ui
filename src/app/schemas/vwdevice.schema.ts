@@ -10,6 +10,7 @@ export interface VwDevice {
     iconLabel?: string | null
     iconDataUrl?: string | null
     iconForegroundColor?: string | null
+    floorplanLabelText?: string | null
     deviceId: string
     name: string
     partNumber: string
@@ -18,6 +19,7 @@ export interface VwDevice {
     slcAddress: string
     speakerAddress: string
     strobeAddress: string
+    areaOfInfluence: string
     updateat: Date
     updateby: string
     vendorId: string

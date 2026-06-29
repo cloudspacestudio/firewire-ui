@@ -10,7 +10,6 @@
         <button *ngIf="firewireProject && isInstallProject()" mat-raised-button type="button" class="inactive" (click)="openFieldwireImportDialog()">FIELDWIRE IMPORT</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/dailyreport'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">DAILY REPORT</button>
         <button *ngIf="project && shouldShowExecutionNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/imports'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">IMPORT TASKS</button>
-        <button *ngIf="project && shouldShowChangeOrdersNav()" mat-raised-button type="button" class="inactive" [routerLink]="'/projects/' + project.id + '/change-orders'" [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">CHANGE ORDERS</button>
         <input #projectDocumentUploadInput type="file" multiple hidden (change)="onProjectDocumentFileSelected($event)" />
         <input #projectFloorplanUploadInput type="file" multiple hidden accept="image/*,application/pdf,.pdf" (change)="onProjectFloorplanFileSelected($event)" />
     </div>
@@ -21,6 +20,12 @@
     <div class="project-upload-toast__title">Upload Failed</div>
     <div class="project-upload-toast__message">{{projectUploadErrorToast}}</div>
     <button type="button" class="project-upload-toast__dismiss" (click)="clearProjectUploadErrorToast()">Dismiss</button>
+</div>
+
+<div *ngIf="projectSuccessToast" class="project-upload-toast project-upload-toast--success" role="status" aria-live="polite">
+    <div class="project-upload-toast__title">Import Complete</div>
+    <div class="project-upload-toast__message">{{projectSuccessToast}}</div>
+    <button type="button" class="project-upload-toast__dismiss" (click)="clearProjectSuccessToast()">Dismiss</button>
 </div>
 
 <div
@@ -120,6 +125,15 @@
                 </button>
             </div>
             <div *ngIf="firewireProject" class="tabstrip-actions tabstrip-actions--menu">
+                <button
+                    *ngIf="shouldShowChangeOrdersNav()"
+                    mat-stroked-button
+                    type="button"
+                    class="project-change-orders-button"
+                    [routerLink]="'/projects/' + firewireProject.uuid + '/change-orders'"
+                    [queryParams]="{ returnTo: getFirewireDetailRoute().join('/') }">
+                    CHANGE ORDERS
+                </button>
                 <button mat-icon-button class="project-overflow-button" [mat-menu-trigger-for]="projectActionsMenu" aria-label="Project actions">
                     <mat-icon fontIcon="more_vert"></mat-icon>
                 </button>
@@ -135,6 +149,10 @@
                     <button mat-menu-item type="button" (click)="loadProjectFromTemplate()" [disabled]="isFirewireProjectLocked()">
                         <mat-icon fontIcon="upload_file"></mat-icon>
                         <span>Load from Template</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="openManageReportSettingsDialog()" [disabled]="isFirewireProjectLocked()">
+                        <mat-icon fontIcon="fact_check"></mat-icon>
+                        <span>Manage Report Settings</span>
                     </button>
                     <button mat-menu-item type="button" (click)="toggleProjectManualLock()" [disabled]="isProjectStatusLocked()">
                         <mat-icon [fontIcon]="isProjectManuallyLocked() ? 'lock_open' : 'lock'"></mat-icon>
@@ -394,106 +412,10 @@
 
                                 <ng-template #firewireWorkspaceCustomerInfoOrContent>
                                     <div *ngIf="activeFirewireWorkspaceTab === 'CUSTOMER INFO'; else firewireWorkspaceContent" class="customer-info-panel" [class.workspace-locked]="isActiveFirewireWorkspaceLocked()">
-                                        <section class="customer-info-card">
-                                            <div class="customer-info-card__header">
-                                                <div>
-                                                    <div class="customer-info-card__eyebrow">Customer Reference</div>
-                                                    <h4>{{getCustomerInfoDisplayValue(customerInfo.billingName)}}</h4>
-                                                </div>
-                                                <button
-                                                    mat-stroked-button
-                                                    type="button"
-                                                    class="customer-info-card__edit"
-                                                    (click)="setCustomerInfoEditMode(!customerInfoEditMode)"
-                                                    [disabled]="isFirewireProjectLocked()">
-                                                    <mat-icon [fontIcon]="customerInfoEditMode ? 'visibility' : 'edit'"></mat-icon>
-                                                    {{customerInfoEditMode ? 'View Card' : 'Edit Info'}}
-                                                </button>
-                                            </div>
-
-                                            <div class="customer-info-card__body">
-                                                <div class="customer-info-card__primary">
-                                                    <div class="customer-info-card__label">Business Point of Contact</div>
-                                                    <div class="customer-info-card__value">{{getCustomerInfoDisplayValue(customerInfo.businessPointOfContactName)}}</div>
-                                                </div>
-                                                <div class="customer-info-card__quick-grid">
-                                                    <div class="customer-info-card__item">
-                                                        <mat-icon fontIcon="mail"></mat-icon>
-                                                        <span>Email</span>
-                                                        <a
-                                                            *ngIf="isValidCustomerEmail(customerInfo.billingEmail); else customerEmailText"
-                                                            class="customer-info-card__link"
-                                                            [href]="getCustomerEmailHref(customerInfo.billingEmail)">
-                                                            {{getCustomerInfoDisplayValue(customerInfo.billingEmail)}}
-                                                        </a>
-                                                        <ng-template #customerEmailText>
-                                                            <strong>{{getCustomerInfoDisplayValue(customerInfo.billingEmail)}}</strong>
-                                                        </ng-template>
-                                                    </div>
-                                                    <div class="customer-info-card__item">
-                                                        <mat-icon fontIcon="call"></mat-icon>
-                                                        <span>Phone</span>
-                                                        <a
-                                                            *ngIf="isValidCustomerPhone(customerInfo.billingPhone); else customerPhoneText"
-                                                            class="customer-info-card__link"
-                                                            [href]="getCustomerPhoneHref(customerInfo.billingPhone)">
-                                                            {{getCustomerInfoDisplayValue(customerInfo.billingPhone)}}
-                                                        </a>
-                                                        <ng-template #customerPhoneText>
-                                                            <strong>{{getCustomerInfoDisplayValue(customerInfo.billingPhone)}}</strong>
-                                                        </ng-template>
-                                                    </div>
-                                                    <div class="customer-info-card__item">
-                                                        <mat-icon fontIcon="receipt_long"></mat-icon>
-                                                        <span>Contract / PO</span>
-                                                        <strong>{{getCustomerInfoDisplayValue(customerInfo.contractOrPoNumber)}}</strong>
-                                                    </div>
-                                                </div>
-                                                <div class="customer-info-card__address">
-                                                    <mat-icon fontIcon="location_on"></mat-icon>
-                                                    <div>
-                                                        <span>Billing Address</span>
-                                                        <strong>{{getCustomerInfoDisplayValue(customerInfo.billingAddress)}}</strong>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        <div *ngIf="customerInfoEditMode && !isFirewireProjectLocked()" class="customer-info-editor">
-                                            <div class="customer-info-editor__header">
-                                                <div>
-                                                    <div class="customer-info-card__eyebrow">Edit Customer Info</div>
-                                                    <h5>Customer Details</h5>
-                                                </div>
-                                            </div>
-                                            <div class="customer-info-editor__fields">
-                                                <mat-form-field>
-                                                    <mat-label>Billing Name</mat-label>
-                                                    <input matInput [(ngModel)]="customerInfo.billingName" />
-                                                </mat-form-field>
-                                                <mat-form-field>
-                                                    <mat-label>Business Point of Contact</mat-label>
-                                                    <input matInput [(ngModel)]="customerInfo.businessPointOfContactName" />
-                                                </mat-form-field>
-                                                <mat-form-field>
-                                                    <mat-label>Email</mat-label>
-                                                    <input matInput type="email" inputmode="email" autocomplete="email" [(ngModel)]="customerInfo.billingEmail" />
-                                                </mat-form-field>
-                                                <mat-form-field>
-                                                    <mat-label>Phone</mat-label>
-                                                    <input matInput type="tel" inputmode="tel" autocomplete="tel" [(ngModel)]="customerInfo.billingPhone" />
-                                                </mat-form-field>
-                                                <mat-form-field>
-                                                    <mat-label>Contract / PO Number</mat-label>
-                                                    <input matInput [(ngModel)]="customerInfo.contractOrPoNumber" />
-                                                </mat-form-field>
-                                                <mat-form-field>
-                                                    <mat-label>Billing Address</mat-label>
-                                                    <textarea matInput rows="4" [(ngModel)]="customerInfo.billingAddress"></textarea>
-                                                </mat-form-field>
-                                            </div>
-                                        </div>
-
+                                        <firewire-customer-info-card
+                                            [customerInfo]="customerInfo"
+                                            [locked]="isFirewireProjectLocked()">
+                                        </firewire-customer-info-card>
                                         <div *ngIf="!isFirewireProjectLocked() && isProjectDirty" class="firewire-project-actions">
                                             <button
                                                 mat-stroked-button
@@ -1752,7 +1674,7 @@
                                                         <strong>{{getSummaryTotalJobCostHeaderAmount() | currency:'USD':'symbol':'1.0-0'}}</strong>
                                                     </div>
                                                     <div class="summary-grand-total">
-                                                        <span>Quote w/ Tax if Applicable</span>
+                                                        <span>Quote w/ Tax If Applicable</span>
                                                         <strong>{{getSummaryQuotedWithTax() | currency:'USD':'symbol':'1.0-0'}}</strong>
                                                     </div>
                                                 </div>
@@ -1870,7 +1792,7 @@
                                                     <div class="summary-tax-row">
                                                         <label class="summary-toggle summary-toggle--compact">
                                                             <span>Use Installation Material Tax</span>
-                                                            <button type="button" class="expenses-toggle-item__button summary-tax-toggle" [class.is-active]="summaryUseInstallationMaterialTax" (click)="summaryUseInstallationMaterialTax = !summaryUseInstallationMaterialTax">{{summaryUseInstallationMaterialTax ? 'X' : '--'}}</button>
+                                                            <button type="button" class="expenses-toggle-item__button summary-tax-toggle" [class.is-active]="summaryUseInstallationMaterialTax" (click)="summaryUseInstallationMaterialTax = !summaryUseInstallationMaterialTax">{{summaryUseInstallationMaterialTax ? 'Click Here to Remove' : 'Click Here to Include'}}</button>
                                                         </label>
                                                         <label class="ss-pm-summary__field">
                                                             <span>Installation Tax %</span>
@@ -1887,7 +1809,7 @@
                                                     <div class="summary-tax-row">
                                                         <label class="summary-toggle summary-toggle--compact">
                                                             <span>Use Equipment Material Tax</span>
-                                                            <button type="button" class="expenses-toggle-item__button summary-tax-toggle" [class.is-active]="summaryUseEquipmentMaterialTax" (click)="summaryUseEquipmentMaterialTax = !summaryUseEquipmentMaterialTax">{{summaryUseEquipmentMaterialTax ? 'X' : '--'}}</button>
+                                                            <button type="button" class="expenses-toggle-item__button summary-tax-toggle" [class.is-active]="summaryUseEquipmentMaterialTax" (click)="summaryUseEquipmentMaterialTax = !summaryUseEquipmentMaterialTax">{{summaryUseEquipmentMaterialTax ? 'Click Here to Remove' : 'Click Here to Include'}}</button>
                                                         </label>
                                                         <label class="ss-pm-summary__field">
                                                             <span>Equipment Tax %</span>
@@ -1944,7 +1866,7 @@
                                                         </label>
                                                         <div class="summary-quote-grid__row"><span>Margin $</span><strong>{{(isTurnkeyScope() ? getTurnkeyMarginAmount() : getSmartsAndPartsMarginAmount()) | currency:'USD':'symbol':'1.0-0'}}</strong></div>
                                                         <div class="summary-quote-grid__row"><span>Quoted Price</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPrice() : getSmartsAndPartsQuotedPrice()) | currency:'USD':'symbol':'1.0-0'}}</strong></div>
-                                                        <div class="summary-quote-grid__row"><span>Quoted Price w/ Tax</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency:'USD':'symbol':'1.0-0'}}</strong></div>
+                                                        <div class="summary-quote-grid__row"><span>Quote w/ Tax If Applicable</span><strong>{{(isTurnkeyScope() ? getTurnkeyQuotedPriceWithTax() : getSmartsAndPartsQuotedPriceWithTax()) | currency:'USD':'symbol':'1.0-0'}}</strong></div>
                                                     </div>
                                                 </div>
                                             </div>

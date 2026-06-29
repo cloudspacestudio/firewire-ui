@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common'
 import { Component, OnInit, inject } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
 import { MatButtonModule } from '@angular/material/button'
-import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog'
+import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog'
 import { MatIconModule } from '@angular/material/icon'
 import { MatProgressBarModule } from '@angular/material/progress-bar'
 
@@ -10,6 +10,11 @@ export interface FieldwireImportDialogData {
     projectId: string
     projectName: string
     fieldwireProjectId?: string | null
+}
+
+export interface FieldwireImportDialogResult {
+    success: boolean
+    message: string
 }
 
 interface FieldwireImportPlan {
@@ -93,7 +98,7 @@ interface FieldwireImportExecuteResult {
     template: `
         <h2 mat-dialog-title>Fieldwire Import</h2>
         <mat-dialog-content class="fieldwire-import">
-            <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+            <mat-progress-bar *ngIf="loading || executing" mode="indeterminate"></mat-progress-bar>
 
             <div *ngIf="errorMessage" class="fieldwire-import__notice fieldwire-import__notice--error">
                 <mat-icon fontIcon="error"></mat-icon>
@@ -139,6 +144,20 @@ interface FieldwireImportExecuteResult {
                     </div>
                 </section>
 
+                <section *ngIf="executing" class="fieldwire-import__panel fieldwire-import__live">
+                    <div class="fieldwire-import__panel-title">Execution Status</div>
+                    <div class="fieldwire-import__live-row">
+                        <mat-icon fontIcon="sync"></mat-icon>
+                        <div>
+                            <strong>Import is running</strong>
+                            <span>
+                                Creating Fieldwire project data, uploading floorplans, and waiting for Fieldwire to finish preparing new floorplans before task placement.
+                                This can take up to {{executionWaitSeconds}} seconds per new floorplan.
+                            </span>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="fieldwire-import__panel">
                     <div class="fieldwire-import__panel-title">Action List</div>
                     <div *ngIf="plan.actionItems.length <= 0" class="fieldwire-import__empty">
@@ -155,8 +174,8 @@ interface FieldwireImportExecuteResult {
 
                 <section *ngIf="executeResult?.results?.length" class="fieldwire-import__panel">
                     <div class="fieldwire-import__panel-title">Execution Results</div>
-                    <div *ngFor="let result of executeResult?.results" class="fieldwire-import__action" [class.is-failed]="result.status === 'failed'">
-                        <mat-icon [fontIcon]="result.status === 'success' ? 'check_circle' : result.status === 'skipped' ? 'skip_next' : result.status === 'pending' ? 'pending' : 'error'"></mat-icon>
+                    <div *ngFor="let result of executeResult?.results" class="fieldwire-import__action" [class.is-failed]="result.status === 'failed'" [class.is-pending]="result.status === 'pending'" [class.is-skipped]="result.status === 'skipped'">
+                        <mat-icon [fontIcon]="getResultIcon(result.status, result.type)"></mat-icon>
                         <div>
                             <strong>{{result.label}}</strong>
                             <span>{{result.detail}}</span>
@@ -296,6 +315,40 @@ interface FieldwireImportExecuteResult {
             border-color: rgba(255, 150, 150, 0.32);
         }
 
+        .fieldwire-import__action.is-pending {
+            border-color: rgba(247, 190, 85, 0.34);
+        }
+
+        .fieldwire-import__action.is-skipped {
+            border-color: rgba(139, 199, 255, 0.12);
+            opacity: 0.82;
+        }
+
+        .fieldwire-import__live {
+            border-color: rgba(126, 232, 255, 0.34);
+            box-shadow: 0 0 22px rgba(72, 221, 255, 0.08);
+        }
+
+        .fieldwire-import__live-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+            padding: 12px;
+            border-radius: 6px;
+            background: rgba(10, 42, 61, 0.72);
+        }
+
+        .fieldwire-import__live-row div {
+            display: grid;
+            gap: 4px;
+        }
+
+        .fieldwire-import__live-row span {
+            color: rgba(217, 239, 249, 0.72);
+            line-height: 1.45;
+        }
+
         .fieldwire-import__action div,
         .fieldwire-import__floorplan > div:first-child {
             display: grid;
@@ -365,6 +418,7 @@ interface FieldwireImportExecuteResult {
 })
 export class FieldwireImportComponent implements OnInit {
     private readonly http = inject(HttpClient)
+    private readonly dialogRef = inject(MatDialogRef<FieldwireImportComponent, FieldwireImportDialogResult>)
     readonly data = inject<FieldwireImportDialogData>(MAT_DIALOG_DATA)
 
     plan?: FieldwireImportPlan
@@ -373,6 +427,7 @@ export class FieldwireImportComponent implements OnInit {
     executing = false
     errorMessage = ''
     executeMessage = ''
+    readonly executionWaitSeconds = 100
 
     ngOnInit(): void {
         this.loadPlan()
@@ -405,13 +460,20 @@ export class FieldwireImportComponent implements OnInit {
         }
         this.executing = true
         this.errorMessage = ''
-        this.executeMessage = 'Executing Fieldwire import...'
+        this.executeMessage = 'Executing Fieldwire import. New floorplans may pause while Fieldwire finishes processing them.'
         this.executeResult = undefined
         this.http.post<{ data: FieldwireImportExecuteResult }>(`/api/firewire/projects/firewire/${encodeURIComponent(this.data.projectId)}/fieldwire-import/execute`, {}).subscribe({
             next: (response) => {
                 this.executeResult = response.data
                 this.executeMessage = response.data?.message || 'Fieldwire import finished.'
                 this.executing = false
+                if (response.data?.success) {
+                    this.dialogRef.close({
+                        success: true,
+                        message: response.data.message || 'Fieldwire import completed successfully.'
+                    })
+                    return
+                }
                 this.refreshPlanAfterExecute()
             },
             error: (err) => {
@@ -457,6 +519,22 @@ export class FieldwireImportComponent implements OnInit {
             return 'map'
         }
         return 'add_task'
+    }
+
+    getResultIcon(status: string, type: string): string {
+        if (status === 'success') {
+            return 'check_circle'
+        }
+        if (status === 'failed') {
+            return 'error'
+        }
+        if (status === 'pending') {
+            return 'pending'
+        }
+        if (type === 'wait-floorplan') {
+            return 'hourglass_top'
+        }
+        return 'skip_next'
     }
 
     getFloorplanStatusText(floorplan: FieldwireImportFloorplanPlan): string {

@@ -15,9 +15,10 @@ import { MatSelectModule } from '@angular/material/select'
 
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from '../../common/components/firewire-bom-worksheet.component'
+import { FirewireCustomerInfo, FirewireCustomerInfoCardComponent } from '../../common/components/firewire-customer-info-card.component'
 import { FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
 import { FirewireEstimateSummaryComponent, FirewireEstimateSummaryModel } from '../../common/components/firewire-estimate-summary.component'
-import { FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
+import { FirewireFloorplanFolderRenameEvent, FirewireFloorplanMoveEvent, FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
 import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectSchema, FirewireProjectType } from '../../schemas/firewire-project.schema'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
@@ -26,6 +27,9 @@ import {
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
     ProjectFloorplanDesignAnnotation,
+    ProjectFloorplanSymbolAttribute,
+    ProjectFloorplanSymbolMediaFile,
+    ProjectFloorplanSymbolTag,
     ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from '../../common/services/project-doc-library-storage.service'
@@ -35,6 +39,7 @@ import { DeviceSetSummary, DeviceSetDetail } from '../../schemas/device-set.sche
 import { VwDeviceMaterial } from '../../schemas/vwdevicematerial.schema'
 import { VwDevice } from '../../schemas/vwdevice.schema'
 import { VwPart } from '../../schemas/vwpart.schema'
+import { MaterialAttribute } from '../../schemas/materialattribute.schema'
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from '../design/floorplan-designer.dialog'
 import { FloorplanDesignerSymbolOption } from '../design/floorplan-designer.component'
 
@@ -59,6 +64,7 @@ interface SalesBomRowPart {
 
 interface SalesBomRow {
     id: string
+    deviceId?: string | null
     partNbr: string
     description: string
     qty: number
@@ -70,8 +76,19 @@ interface SalesBomRow {
     iconLabel?: string | null
     iconDataUrl?: string | null
     iconForegroundColor?: string | null
+    shortName?: string | null
+    floorplanLabelText?: string | null
+    customAttributes?: ProjectFloorplanSymbolAttribute[]
+    tags?: ProjectFloorplanSymbolTag[]
+    mediaFiles?: ProjectFloorplanSymbolMediaFile[]
     lookupQuery?: string
     bomRowParts?: SalesBomRowPart[]
+}
+
+interface SalesBomDeviceFloorplanSnapshot {
+    customAttributes: ProjectFloorplanSymbolAttribute[]
+    tags: ProjectFloorplanSymbolTag[]
+    mediaFiles: ProjectFloorplanSymbolMediaFile[]
 }
 
 interface SalesBomSection {
@@ -96,12 +113,12 @@ interface SalesProjectForm {
     address: string
 }
 
-interface SalesCustomerInfo {
-    billingName: string
-    billingAddress: string
-    billingEmail: string
-    billingPhone: string
-    contractOrPoNumber: string
+interface SalesCustomerInfo extends FirewireCustomerInfo {}
+
+interface SalesFloorplanFolder {
+    id: string
+    name: string
+    expanded?: boolean
 }
 
 interface SalesDocLibraryCategoryDialogData {
@@ -130,6 +147,7 @@ interface SalesFloorplanDeleteDialogData {
         MatSelectModule,
         PageToolbar,
         FirewireBomWorksheetComponent,
+        FirewireCustomerInfoCardComponent,
         FirewireDocLibraryExplorerComponent,
         FirewireEstimateSummaryComponent,
         FirewireFloorplansComponent,
@@ -142,6 +160,7 @@ export class SalesProjectPage {
     private readonly defaultLaborHourlyRate = 56
     private readonly defaultLaborCost = this.defaultLaborHourlyRate * 2
     private readonly floorplansFolderId = 'floorplans'
+    private readonly defaultFloorplanFolderId = 'general'
     @Input() projectId?: string
 
     @ViewChild('docLibraryUploadInput')
@@ -171,6 +190,8 @@ export class SalesProjectPage {
     floorplanStatusMessage = ''
     floorplanSavingFileIds: string[] = []
     floorplanUploadBusy = false
+    floorplanFolders: SalesFloorplanFolder[] = [{ id: 'general', name: 'General', expanded: true }]
+    private pendingFloorplanUploadFolderId = 'general'
     activeTab: SalesWorkspaceTab = 'PROJECT DETAILS'
     selectedDocLibraryFolder = 'all'
     selectedDeviceSetId = ''
@@ -211,6 +232,8 @@ export class SalesProjectPage {
         this.initialCustomerInfoSnapshot = ''
         this.initialBomSnapshot = '[]'
         this.docLibraryFiles = []
+        this.floorplanFolders = this.normalizeFloorplanFolders(undefined)
+        this.pendingFloorplanUploadFolderId = this.defaultFloorplanFolderId
         this.selectedDocLibraryFolder = 'all'
         this.selectedDeviceSetId = ''
         this.bomSections = []
@@ -233,6 +256,7 @@ export class SalesProjectPage {
             if (this.project) {
                 this.projectForm = this.buildForm(this.project)
                 this.customerInfo = this.buildCustomerInfo(this.project)
+                this.floorplanFolders = this.normalizeFloorplanFolders(this.project?.worksheetData?.floorplanFolders)
                 this.bomSections = this.cloneBomSections(this.project?.worksheetData?.bomSections)
                 this.captureInitialFormState()
                 this.captureInitialCustomerInfoState()
@@ -264,13 +288,14 @@ export class SalesProjectPage {
         return this.projectForm.projectStatus?.trim() || this.project?.projectStatus?.trim() || ''
     }
 
-    onUploadFloorplansClick(): void {
+    onUploadFloorplansClick(folderId?: string): void {
         if (!this.floorplanUploadInput?.nativeElement) {
             return
         }
 
         this.activeTab = 'FLOORPLANS'
         this.floorplanStatusMessage = ''
+        this.pendingFloorplanUploadFolderId = this.getValidFloorplanFolderId(folderId)
         this.floorplanUploadInput.nativeElement.click()
     }
 
@@ -305,6 +330,7 @@ export class SalesProjectPage {
             worksheetData: {
                 ...(this.project.worksheetData || {}),
                 customerInfo: this.customerInfo,
+                floorplanFolders: this.floorplanFolders,
                 bomSections: this.buildWorksheetBomSections()
             }
         }).subscribe({
@@ -313,6 +339,7 @@ export class SalesProjectPage {
                 if (response?.data) {
                     this.projectForm = this.buildForm(response.data)
                     this.customerInfo = this.buildCustomerInfo(response.data)
+                    this.floorplanFolders = this.normalizeFloorplanFolders(response?.data?.worksheetData?.floorplanFolders)
                     this.bomSections = this.cloneBomSections(response?.data?.worksheetData?.bomSections)
                     this.captureInitialFormState()
                     this.captureInitialCustomerInfoState()
@@ -348,6 +375,7 @@ export class SalesProjectPage {
         const worksheetData = {
             ...(this.project.worksheetData || {}),
             customerInfo: this.customerInfo,
+            floorplanFolders: this.floorplanFolders,
             bomSections: this.buildWorksheetBomSections()
         }
 
@@ -363,6 +391,7 @@ export class SalesProjectPage {
                 if (response?.data) {
                     this.projectForm = this.buildForm(response.data)
                     this.customerInfo = this.buildCustomerInfo(response.data)
+                    this.floorplanFolders = this.normalizeFloorplanFolders(response?.data?.worksheetData?.floorplanFolders)
                 }
                 this.bomSections = this.cloneBomSections((response?.data?.worksheetData || worksheetData)?.bomSections)
                 this.captureInitialFormState()
@@ -419,6 +448,126 @@ export class SalesProjectPage {
         return this.docLibraryFiles
             .filter((file) => file.folderId === this.floorplansFolderId)
             .sort((left, right) => this.compareFloorplanFilesByName(left, right))
+    }
+
+    getFloorplanFolderId(file: ProjectDocLibraryFileRecord): string {
+        return this.getValidFloorplanFolderId(file.floorplanFolderId)
+    }
+
+    createFloorplanFolder(): void {
+        const baseName = 'New Folder'
+        const existingNames = new Set(this.floorplanFolders.map((folder) => folder.name.toLowerCase()))
+        let name = baseName
+        let counter = 2
+        while (existingNames.has(name.toLowerCase())) {
+            name = `${baseName} ${counter}`
+            counter += 1
+        }
+
+        this.floorplanFolders = [
+            ...this.floorplanFolders.map((folder) => ({ ...folder, expanded: false })),
+            { id: this.createClientId(), name, expanded: true }
+        ]
+        this.floorplanStatusMessage = `Created ${name}.`
+        this.persistSalesWorksheetState()
+    }
+
+    renameFloorplanFolder(event: FirewireFloorplanFolderRenameEvent): void {
+        const folder = this.floorplanFolders.find((item) => item.id === event.folderId)
+        if (!folder) {
+            return
+        }
+
+        const nextName = String(event.name || '').trim() || 'Folder'
+        this.floorplanFolders = this.floorplanFolders.map((item) => item.id === folder.id ? { ...item, name: nextName } : item)
+        this.floorplanStatusMessage = `Renamed folder to ${nextName}.`
+        this.persistSalesWorksheetState()
+    }
+
+    async deleteFloorplanFolder(folderId: string): Promise<void> {
+        if (this.floorplanFolders.length <= 1) {
+            this.floorplanStatusMessage = 'At least one floorplan folder is required.'
+            return
+        }
+
+        const folder = this.floorplanFolders.find((item) => item.id === folderId)
+        if (!folder) {
+            return
+        }
+
+        const remainingFolders = this.floorplanFolders.filter((item) => item.id !== folderId)
+        const targetFolderId = remainingFolders[0]?.id || this.defaultFloorplanFolderId
+        const fileCount = this.getFloorplanFiles().filter((file) => this.getFloorplanFolderId(file) === folderId).length
+        const confirmed = window.confirm(fileCount > 0
+            ? `Delete ${folder.name}? ${fileCount} floorplan${fileCount === 1 ? '' : 's'} will be moved to ${remainingFolders[0]?.name || 'General'}.`
+            : `Delete ${folder.name}?`)
+        if (!confirmed) {
+            return
+        }
+
+        this.floorplanFolders = remainingFolders.length > 0
+            ? remainingFolders.map((item, index) => ({ ...item, expanded: index === 0 ? true : item.expanded }))
+            : this.normalizeFloorplanFolders(undefined)
+        for (const file of this.getFloorplanFiles()) {
+            if (this.getFloorplanFolderId(file) === folderId) {
+                file.floorplanFolderId = targetFolderId
+                file.updatedAt = new Date().toISOString()
+            }
+        }
+        await this.persistDocLibraryWorkspace()
+        this.floorplanStatusMessage = `Deleted ${folder.name}.`
+        this.persistSalesWorksheetState()
+    }
+
+    toggleFloorplanFolder(folderId: string): void {
+        this.floorplanFolders = this.floorplanFolders.map((folder) =>
+            folder.id === folderId ? { ...folder, expanded: !folder.expanded } : folder)
+        this.persistSalesWorksheetState()
+    }
+
+    async moveFloorplanFileToFolder(event: FirewireFloorplanMoveEvent): Promise<void> {
+        const file = this.docLibraryFiles.find((item) => item.id === event.fileId && item.folderId === this.floorplansFolderId)
+        const targetFolderId = this.getValidFloorplanFolderId(event.folderId)
+        if (!file || this.getFloorplanFolderId(file) === targetFolderId) {
+            return
+        }
+
+        file.floorplanFolderId = targetFolderId
+        file.updatedAt = new Date().toISOString()
+        await this.persistDocLibraryWorkspace()
+        const folderName = this.floorplanFolders.find((folder) => folder.id === targetFolderId)?.name || 'General'
+        this.floorplanStatusMessage = `Moved ${file.name} to ${folderName}.`
+    }
+
+    private getValidFloorplanFolderId(folderId: string | null | undefined): string {
+        const normalizedId = String(folderId || '').trim()
+        if (normalizedId && this.floorplanFolders.some((folder) => folder.id === normalizedId)) {
+            return normalizedId
+        }
+        return this.floorplanFolders[0]?.id || this.defaultFloorplanFolderId
+    }
+
+    private normalizeFloorplanFolders(folders: SalesFloorplanFolder[] | undefined): SalesFloorplanFolder[] {
+        const normalized = Array.isArray(folders)
+            ? folders.map((folder) => ({
+                id: String(folder?.id || '').trim(),
+                name: String(folder?.name || 'Folder').trim() || 'Folder',
+                expanded: folder?.expanded !== false
+            })).filter((folder) => !!folder.id)
+            : []
+
+        if (normalized.length <= 0) {
+            return [{ id: this.defaultFloorplanFolderId, name: 'General', expanded: true }]
+        }
+
+        const seenIds = new Set<string>()
+        return normalized.filter((folder) => {
+            if (seenIds.has(folder.id)) {
+                return false
+            }
+            seenIds.add(folder.id)
+            return true
+        })
     }
 
     private compareFloorplanFilesByName(left: ProjectDocLibraryFileRecord, right: ProjectDocLibraryFileRecord): number {
@@ -484,13 +633,18 @@ export class SalesProjectPage {
                     existing.totalQty += qty
                     existing.partDescription = existing.partDescription || partDescription
                     existing.iconDataUrl = existing.iconDataUrl || row.iconDataUrl || null
+                    existing.customAttributes = existing.customAttributes?.length ? existing.customAttributes : this.cloneFloorplanSymbolAttributes(row.customAttributes)
+                    existing.tags = existing.tags?.length ? existing.tags : this.cloneFloorplanSymbolTags(row.tags)
+                    existing.mediaFiles = existing.mediaFiles?.length ? existing.mediaFiles : this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                     continue
                 }
 
                 bySymbol.set(id, {
                     id,
                     bomRowId: row.id,
+                    deviceId: String(row.deviceId || '').trim() || undefined,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
+                    floorplanLabelText: this.getBomRowFloorplanLabelText(row, categoryName, deviceName),
                     label: deviceName,
                     color: this.getFloorplanSymbolColor(categoryKey),
                     totalQty: qty,
@@ -500,6 +654,7 @@ export class SalesProjectPage {
                     categoryName,
                     partNumber,
                     deviceName,
+                    shortName: String(row.shortName || '').trim(),
                     partDescription,
                     iconId: row.iconId || null,
                     iconLabel: row.iconLabel || null,
@@ -507,7 +662,9 @@ export class SalesProjectPage {
                     iconForegroundColor: row.iconForegroundColor || null,
                     materialCost: Number(row.cost || 0),
                     laborHours: Number(row.labor || 0),
-                    customAttributes: []
+                    customAttributes: this.cloneFloorplanSymbolAttributes(row.customAttributes),
+                    tags: this.cloneFloorplanSymbolTags(row.tags),
+                    mediaFiles: this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                 })
             }
         }
@@ -705,9 +862,12 @@ export class SalesProjectPage {
                     bomRowId: symbol.bomRowId,
                     symbolId: symbol.id,
                     categoryKey: symbol.categoryKey,
+                    deviceId: symbol.deviceId,
                     categoryName: symbol.categoryName,
                     partNumber: symbol.partNumber,
                     deviceName: symbol.deviceName,
+                    shortName: symbol.shortName,
+                    floorplanLabelText: symbol.floorplanLabelText,
                     partDescription: symbol.partDescription,
                     iconId: symbol.iconId,
                     iconLabel: symbol.iconLabel,
@@ -715,15 +875,17 @@ export class SalesProjectPage {
                     iconForegroundColor: symbol.iconForegroundColor,
                     materialCost: symbol.materialCost,
                     laborHours: symbol.laborHours,
-                    customAttributes: symbol.customAttributes ? [...symbol.customAttributes] : undefined,
-                    symbol: symbol.code,
+                    customAttributes: this.cloneFloorplanSymbolAttributes(symbol.customAttributes),
+                    tags: this.cloneFloorplanSymbolTags(symbol.tags),
+                    mediaFiles: this.cloneFloorplanSymbolMediaFiles(symbol.mediaFiles),
+                    symbol: symbol.floorplanLabelText || symbol.code,
                     label: symbol.label,
                     color: symbol.color
                 }
                 for (const [key, value] of Object.entries(updates) as [keyof ProjectFloorplanDesignAnnotation, any][]) {
-                    if (key === 'customAttributes') {
-                        if (JSON.stringify(annotation.customAttributes || []) !== JSON.stringify(value || [])) {
-                            annotation.customAttributes = value
+                    if (key === 'customAttributes' || key === 'tags' || key === 'mediaFiles') {
+                        if (typeof (annotation as any)[key] === 'undefined') {
+                            ;(annotation as any)[key] = value
                             changed = true
                         }
                         continue
@@ -774,6 +936,20 @@ export class SalesProjectPage {
             ? words.map((word) => word[0]).join('')
             : source.slice(0, 3)
         return code.slice(0, 3).toUpperCase() || 'SY'
+    }
+
+    private getBomRowFloorplanLabelText(row: SalesBomRow, categoryName: string, deviceName: string): string {
+        return String(row.floorplanLabelText || '').trim().replace(/\s+/g, '').slice(0, 4)
+            || this.createFloorplanSymbolCode(categoryName, deviceName)
+    }
+
+    private getDeviceFloorplanLabelText(device: VwDevice): string | null {
+        const explicit = String(device.floorplanLabelText || '').trim().replace(/\s+/g, '').slice(0, 4)
+        if (explicit) {
+            return explicit
+        }
+        const fallback = this.createFloorplanSymbolCode(String(device.categoryName || ''), String(device.shortName || device.name || device.partNumber || ''))
+        return fallback || null
     }
 
     private getFloorplanSymbolColor(key: string): string {
@@ -880,50 +1056,75 @@ export class SalesProjectPage {
     getQuickEstimateSummary(): FirewireEstimateSummaryModel {
         const installationMaterialTotal = this.getQuickEstimateInstallationMaterialTotal()
         const installationLaborTotal = this.getQuickEstimateInstallationLaborTotal()
+        const projectManagement = this.getWorksheetServiceSupportSummary('ssPm')
+        const cadDesign = this.getWorksheetServiceSupportSummary('ssCad')
+        const technicalLabor = this.getWorksheetServiceSupportSummary('ssTech')
+        const projectSupportCost = projectManagement.cost + cadDesign.cost + technicalLabor.cost
+        const projectSupportHours = projectManagement.hours + cadDesign.hours + technicalLabor.hours
+        const equipmentMaterialTotal = this.getWorksheetNumber('equipmentMaterialTotal', 0)
+        const rentalEquipmentTotal = this.getWorksheetExpenseSectionTotalByTitle('Rental Equipment')
+        const summaryEquipmentTotal = equipmentMaterialTotal + rentalEquipmentTotal
+        const generalExpenseTotal = this.getWorksheetGeneralExpenseTotal()
+        const subcontractTotal = this.getWorksheetExpenseSectionTotalByTitle('Subcontracts')
+        const specialMarkupTotal = this.getWorksheetExpenseSectionTotalByTitle('Special Markup Items')
         const projectSupportRows = [
-            { label: 'Project Management', hours: 0, cost: 0 },
-            { label: 'CAD Design', hours: 0, cost: 0 },
-            { label: 'Technical Labor', hours: 0, cost: 0 }
+            { label: 'Project Management', hours: projectManagement.hours, cost: projectManagement.cost },
+            { label: 'CAD Design', hours: cadDesign.hours, cost: cadDesign.cost },
+            { label: 'Technical Labor', hours: technicalLabor.hours, cost: technicalLabor.cost }
         ]
         const installationLaborRows = [
             { label: 'Pipe & Wire Labor', hours: this.getQuickEstimateLaborHours(), overtimeHours: 0, cost: installationLaborTotal },
             { label: 'Supervision Labor', hours: 0, overtimeHours: 0, cost: 0 },
             { label: 'Mobilization Labor', hours: 0, overtimeHours: 0, cost: 0 }
         ]
-        const totalCost = installationMaterialTotal + installationLaborTotal
+        const totalCost = projectSupportCost
+            + installationLaborTotal
+            + installationMaterialTotal
+            + summaryEquipmentTotal
+            + generalExpenseTotal
+            + subcontractTotal
+            + specialMarkupTotal
         const riskMultiplier = 1 + (this.getWorksheetSummaryNumber('summaryRiskProficiencyPercent', 0) / 100)
-        const preTax = totalCost * riskMultiplier
+        const totalCostWithRisk = this.roundUpSummaryPricingAmount(totalCost * riskMultiplier)
         const marginPercent = this.getWorksheetSummaryNumber('summaryMarginPercent', this.getDefaultSummaryMarginPercent())
-        const marginAmount = preTax * (marginPercent / 100)
-        const quotedPrice = preTax + marginAmount
-        const materialTaxAmount = this.getQuickEstimateMaterialTaxAmount(installationMaterialTotal)
-        const quotedPriceWithTax = quotedPrice + materialTaxAmount
+        const marginAmount = this.roundUpSummaryPricingAmount(totalCostWithRisk * (marginPercent / 100))
+        const quotedPrice = this.roundUpSummaryPricingAmount(totalCostWithRisk + marginAmount)
+        const taxSummary = this.getQuickEstimateMaterialTaxSummary(installationMaterialTotal, equipmentMaterialTotal)
+        const materialTaxAmount = taxSummary.installationTax + taxSummary.equipmentTax
+        const quotedPriceWithTax = this.roundUpSummaryPricingAmount(quotedPrice + materialTaxAmount)
 
         return {
             projectSupport: projectSupportRows,
             installationLabor: installationLaborRows,
             costs: [
-                { label: 'Project Support', cost: 0 },
+                { label: 'Project Support', cost: projectSupportCost },
                 { label: 'Installation Labor', cost: installationLaborTotal },
                 { label: 'Installation Material', cost: installationMaterialTotal },
-                { label: 'Equipment', cost: 0 },
-                { label: 'Expenses', cost: 0 },
-                { label: 'Subcontracts', cost: 0 },
-                { label: 'Special Markup Items', cost: 0 }
+                { label: 'Equipment', cost: summaryEquipmentTotal },
+                { label: 'Expenses', cost: generalExpenseTotal },
+                { label: 'Subcontracts', cost: subcontractTotal },
+                { label: 'Special Markup Items', cost: specialMarkupTotal }
             ],
             installationMaterialTotal,
-            equipmentMaterialTotal: 0,
+            equipmentMaterialTotal,
+            rentalEquipmentTotal,
+            summaryEquipmentTotal,
             materialTaxAmount,
+            installationMaterialTaxAmount: taxSummary.installationTax,
+            equipmentMaterialTaxAmount: taxSummary.equipmentTax,
+            useInstallationMaterialTax: taxSummary.useInstallationMaterialTax,
+            useEquipmentMaterialTax: taxSummary.useEquipmentMaterialTax,
             totalCost,
-            preTax,
+            totalCostWithRisk,
+            preTax: quotedPrice,
             marginAmount,
             quotedPrice,
             quotedPriceWithTax,
             scopeLabel: this.isQuickEstimateTurnkeyScope() ? 'Turnkey' : 'Smarts & Parts',
             deviceCount: this.getQuickEstimateDeviceCount(),
             totalSqFt: Number(this.projectForm.totalSqFt || 0),
-            engineeringHours: 0,
-            engineeringDollars: 0,
+            engineeringHours: projectSupportHours,
+            engineeringDollars: projectSupportCost,
             fieldHours: this.getQuickEstimateLaborHours(),
             fieldDollars: installationLaborTotal
         }
@@ -956,24 +1157,98 @@ export class SalesProjectPage {
         }, 0)
     }
 
-    private getQuickEstimateMaterialTaxAmount(installationMaterialTotal: number): number {
+    private getQuickEstimateMaterialTaxSummary(installationMaterialTotal: number, equipmentMaterialTotal: number): {
+        useInstallationMaterialTax: boolean
+        useEquipmentMaterialTax: boolean
+        installationTax: number
+        equipmentTax: number
+    } {
         const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
         const useInstallationMaterialTax = Boolean(
             worksheetData['summaryUseInstallationMaterialTax']
             ?? worksheetData['summaryUseMaterialTax']
             ?? false
         )
-        if (!useInstallationMaterialTax) {
-            return 0
+        const useEquipmentMaterialTax = Boolean(
+            worksheetData['summaryUseEquipmentMaterialTax']
+            ?? worksheetData['summaryUseMaterialTax']
+            ?? false
+        )
+        const installationTaxRate = this.getWorksheetSummaryNumber('summaryInstallationMaterialTaxRate', Number(worksheetData['summaryMaterialTaxRate'] ?? 8.25))
+        const equipmentTaxRate = this.getWorksheetSummaryNumber('summaryEquipmentMaterialTaxRate', Number(worksheetData['summaryMaterialTaxRate'] ?? 8.25))
+        const installationTax = useInstallationMaterialTax ? installationMaterialTotal * (installationTaxRate / 100) : 0
+        const equipmentTax = useEquipmentMaterialTax ? equipmentMaterialTotal * (equipmentTaxRate / 100) : 0
+        return {
+            useInstallationMaterialTax,
+            useEquipmentMaterialTax,
+            installationTax,
+            equipmentTax
         }
-        const taxRate = this.getWorksheetSummaryNumber('summaryInstallationMaterialTaxRate', Number(worksheetData['summaryMaterialTaxRate'] ?? 8.25))
-        return installationMaterialTotal * (taxRate / 100)
     }
 
     private getWorksheetSummaryNumber(key: string, fallback: number): number {
         const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
         const value = Number(worksheetData[key])
         return Number.isFinite(value) ? value : fallback
+    }
+
+    private getWorksheetNumber(key: string, fallback: number): number {
+        const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
+        const value = Number(worksheetData[key])
+        return Number.isFinite(value) ? value : fallback
+    }
+
+    private getWorksheetServiceSupportSummary(prefix: 'ssPm' | 'ssCad' | 'ssTech'): { hours: number, cost: number } {
+        const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
+        const rate = Number(worksheetData[`${prefix}Rate`] || 0)
+        const fixedAmount = Number(worksheetData[`${prefix}FixedAmount`] || 0)
+        const laborRows = Array.isArray(worksheetData[`${prefix}LaborRows`]) ? worksheetData[`${prefix}LaborRows`] : []
+        const expenseRows = Array.isArray(worksheetData[`${prefix}ExpenseRows`]) ? worksheetData[`${prefix}ExpenseRows`] : []
+        const hours = laborRows.reduce((sum: number, row: any) => sum + (Number(row?.hours || 0) * Number(row?.quantity || 0)), 0)
+        const expenses = expenseRows.reduce((sum: number, row: any) => sum + (Number(row?.cost || 0) * Number(row?.qty || 0)), 0)
+        return {
+            hours,
+            cost: (hours * rate) + expenses + fixedAmount
+        }
+    }
+
+    private getWorksheetExpenseSections(): any[] {
+        const worksheetData = (this.project?.worksheetData || {}) as Record<string, any>
+        return Array.isArray(worksheetData['expenseSections']) ? worksheetData['expenseSections'] : []
+    }
+
+    private getWorksheetExpenseRowExtended(row: any, section: any): number {
+        const qty = Number(row?.qty || 0)
+        const mode = String(section?.mode || '')
+        const baseValue = mode === 'cost-qty' ? Number(row?.cost || 0) : Number(row?.rate || 0)
+        if (mode === 'markup') {
+            return qty * baseValue * (1 + (Number(row?.markupPercent || 0) / 100))
+        }
+        if (row?.isToggle) {
+            return row?.toggleValue ? baseValue : 0
+        }
+        return qty * baseValue
+    }
+
+    private getWorksheetExpenseSectionTotal(section: any): number {
+        return Array.isArray(section?.rows)
+            ? section.rows.reduce((sum: number, row: any) => sum + this.getWorksheetExpenseRowExtended(row, section), 0)
+            : 0
+    }
+
+    private getWorksheetExpenseSectionTotalByTitle(title: string): number {
+        const section = this.getWorksheetExpenseSections().find((row) => String(row?.title || '').trim().toLowerCase() === title.toLowerCase())
+        return section ? this.getWorksheetExpenseSectionTotal(section) : 0
+    }
+
+    private getWorksheetGeneralExpenseTotal(): number {
+        return this.getWorksheetExpenseSections()
+            .filter((section) => !['Rental Equipment', 'Subcontracts', 'Special Markup Items'].includes(String(section?.title || '').trim()))
+            .reduce((sum, section) => sum + this.getWorksheetExpenseSectionTotal(section), 0)
+    }
+
+    private roundUpSummaryPricingAmount(amount: number): number {
+        return Math.ceil(Math.max(0, Number(amount || 0)))
     }
 
     private getDefaultSummaryMarginPercent(): number {
@@ -1186,6 +1461,16 @@ export class SalesProjectPage {
         row.cost = this.roundBomMoney(part.SalesPrice || part.MSRPPrice || 0)
         row.type = categoryName
         row.includeOnFloorplan = false
+        row.deviceId = null
+        row.shortName = null
+        row.floorplanLabelText = null
+        row.customAttributes = []
+        row.tags = []
+        row.mediaFiles = []
+        row.iconId = null
+        row.iconLabel = null
+        row.iconDataUrl = null
+        row.iconForegroundColor = null
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
         row.bomRowParts = this.createBomRowPartsFromVendorPart(part)
         this.closeBomPartLookup()
@@ -1209,7 +1494,7 @@ export class SalesProjectPage {
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
         row.bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
         row.description = this.getBomDeviceDescription(device, row.bomRowParts)
-        this.applyDeviceIconSnapshot(row, device)
+        this.applyDeviceFloorplanSnapshot(row, device, await this.loadDeviceFloorplanSnapshot(device.deviceId))
         this.closeBomPartLookup()
         this.saveMessage = `Loaded ${row.partNbr || row.description} from devices.`
     }
@@ -1329,10 +1614,14 @@ export class SalesProjectPage {
             const vendorParts = await this.devicePartPriceSync.getVendorPartRows()
             const vendorPartMap = this.devicePartPriceSync.createVendorPartMap(vendorParts)
             const materialResults = await Promise.all(detail.devices.map(async(device) => {
-                const response = await firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+                const [response, floorplanSnapshot] = await Promise.all([
+                    firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`)),
+                    this.loadDeviceFloorplanSnapshot(device.deviceId)
+                ])
                 return {
                     device,
-                    materials: Array.isArray(response?.rows) ? response.rows : []
+                    materials: Array.isArray(response?.rows) ? response.rows : [],
+                    floorplanSnapshot
                 }
             }))
 
@@ -1341,7 +1630,7 @@ export class SalesProjectPage {
                 sectionKey: this.createClientId(),
                 vendorIds: Array.from(new Set(detail.devices.map((device) => String(device.vendorId || '').trim()).filter(Boolean))),
                 vendorNames: Array.from(new Set(detail.devices.map((device) => String(device.vendorName || '').trim()).filter(Boolean))),
-                rows: materialResults.flatMap(({ device, materials }) => this.createBomRowsFromDevice(device, materials, vendorPartMap))
+                rows: materialResults.flatMap(({ device, materials, floorplanSnapshot }) => this.createBomRowsFromDevice(device, materials, vendorPartMap, floorplanSnapshot))
             }
 
             if (nextSection.rows.length <= 0) {
@@ -1542,6 +1831,7 @@ export class SalesProjectPage {
 
         try {
             const files = Array.from(input.files)
+            const targetFolderId = this.getValidFloorplanFolderId(this.pendingFloorplanUploadFolderId)
             let uploadedCount = 0
             let skippedCount = 0
 
@@ -1551,7 +1841,7 @@ export class SalesProjectPage {
                     continue
                 }
 
-                await this.uploadFileToDocLibraryFolder(file, this.floorplansFolderId, false, await this.createFloorplanThumbnailIfNeeded(file))
+                await this.uploadFileToDocLibraryFolder(file, this.floorplansFolderId, false, await this.createFloorplanThumbnailIfNeeded(file), targetFolderId)
                 uploadedCount += 1
             }
 
@@ -1571,6 +1861,7 @@ export class SalesProjectPage {
             this.floorplanStatusMessage = err?.message || 'Floorplan upload failed.'
         } finally {
             this.floorplanUploadBusy = false
+            this.pendingFloorplanUploadFolderId = this.getValidFloorplanFolderId(undefined)
             input.value = ''
         }
     }
@@ -1596,6 +1887,7 @@ export class SalesProjectPage {
             data: {
                 file,
                 imageUrl: this.getFloorplanVersionContent(file),
+                baselineDesign: this.getChangeOrderBaselineFloorplanDesign(file),
                 symbols: this.getFloorplanDesignerSymbols(),
                 validateDesign: (design: ProjectFloorplanDesignState) => this.getFloorplanSymbolBalanceErrors(file.id, design)
             }
@@ -1618,6 +1910,30 @@ export class SalesProjectPage {
         }
     }
 
+    private getChangeOrderBaselineFloorplanDesign(file: ProjectDocLibraryFileRecord): ProjectFloorplanDesignState | undefined {
+        const baseline = this.project?.worksheetData?.changeOrderBaseline
+        const baselineFloorplans = Array.isArray(baseline?.floorplans)
+            ? baseline.floorplans
+            : []
+        if (baselineFloorplans.length <= 0) {
+            return undefined
+        }
+
+        const sourceFileId = String(file.changeOrderSourceFileId || '').trim()
+        const sourceFileName = String(file.sourceFileName || '').trim().toLowerCase()
+        const displayName = String(file.name || '').trim().toLowerCase()
+        const match = baselineFloorplans.find((candidate: any) => {
+            const candidateId = String(candidate?.id || candidate?.fileId || '').trim()
+            const candidateSourceName = String(candidate?.sourceFileName || '').trim().toLowerCase()
+            const candidateName = String(candidate?.name || '').trim().toLowerCase()
+            return (!!sourceFileId && candidateId === sourceFileId)
+                || (!!sourceFileName && candidateSourceName === sourceFileName)
+                || (!!displayName && candidateName === displayName)
+        })
+        const design = match?.floorplanDesign || match?.design
+        return design ? JSON.parse(JSON.stringify(design)) : undefined
+    }
+
     private setFloorplanSaving(fileId: string, saving: boolean): void {
         if (!fileId) {
             return
@@ -1638,6 +1954,7 @@ export class SalesProjectPage {
         const worksheetData = {
             ...(this.project.worksheetData || {}),
             customerInfo: this.customerInfo,
+            floorplanFolders: this.floorplanFolders,
             bomSections: this.buildWorksheetBomSections()
         }
         const response: any = await firstValueFrom(this.http.patch(`/api/firewire/projects/firewire/${this.projectId}`, {
@@ -1648,11 +1965,48 @@ export class SalesProjectPage {
             this.project = { ...response.data }
             this.projectForm = this.buildForm(response.data)
             this.customerInfo = this.buildCustomerInfo(response.data)
+            this.floorplanFolders = this.normalizeFloorplanFolders(response.data.worksheetData?.floorplanFolders)
             this.bomSections = this.cloneBomSections((response.data.worksheetData || worksheetData).bomSections)
             this.captureInitialFormState()
             this.captureInitialCustomerInfoState()
             this.captureInitialBomState()
         }
+    }
+
+    private persistSalesWorksheetState(): void {
+        if (!this.projectId || !this.project) {
+            return
+        }
+
+        const worksheetData = {
+            ...(this.project.worksheetData || {}),
+            customerInfo: this.customerInfo,
+            floorplanFolders: this.floorplanFolders,
+            bomSections: this.buildWorksheetBomSections()
+        }
+
+        void firstValueFrom(this.http.patch(`/api/firewire/projects/firewire/${this.projectId}`, {
+            ...this.projectForm,
+            worksheetData
+        })).then((response: any) => {
+            if (response?.data) {
+                this.project = { ...response.data }
+                this.projectForm = this.buildForm(response.data)
+                this.customerInfo = this.buildCustomerInfo(response.data)
+                this.floorplanFolders = this.normalizeFloorplanFolders(response.data.worksheetData?.floorplanFolders)
+                this.bomSections = this.cloneBomSections((response.data.worksheetData || worksheetData).bomSections)
+                this.captureInitialFormState()
+                this.captureInitialCustomerInfoState()
+                this.captureInitialBomState()
+            } else {
+                this.project = {
+                    ...(this.project as FirewireProjectSchema),
+                    worksheetData
+                }
+            }
+        }).catch((err: any) => {
+            this.floorplanStatusMessage = err?.error?.message || err?.message || 'Unable to save floorplan folders.'
+        })
     }
 
     private async loadProjectSettings(): Promise<void> {
@@ -1691,7 +2045,7 @@ export class SalesProjectPage {
         return String(this.projectId || this.project?.uuid || '').trim()
     }
 
-    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): SalesBomRow[] {
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>, floorplanSnapshot?: SalesBomDeviceFloorplanSnapshot): SalesBomRow[] {
         const typeValue = String(device?.categoryName || '').trim()
         const includeOnFloorplan = !!device?.includeOnFloorplan
         const partNumber = String(device.partNumber || '').trim()
@@ -1702,6 +2056,7 @@ export class SalesProjectPage {
 
         return [{
             id: this.createClientId(),
+            deviceId: String(device.deviceId || '').trim() || null,
             partNbr: partNumber,
             lookupQuery: partNumber,
             description: this.getBomDeviceDescription(device, bomRowParts),
@@ -1714,15 +2069,104 @@ export class SalesProjectPage {
             iconLabel: device.iconLabel || null,
             iconDataUrl: device.iconDataUrl || null,
             iconForegroundColor: device.iconForegroundColor || null,
+            shortName: String(device.shortName || '').trim() || null,
+            floorplanLabelText: this.getDeviceFloorplanLabelText(device),
+            customAttributes: this.cloneFloorplanSymbolAttributes(floorplanSnapshot?.customAttributes),
+            tags: this.cloneFloorplanSymbolTags(floorplanSnapshot?.tags),
+            mediaFiles: this.cloneFloorplanSymbolMediaFiles(floorplanSnapshot?.mediaFiles),
             bomRowParts
         }]
     }
 
-    private applyDeviceIconSnapshot(row: SalesBomRow, device: VwDevice): void {
+    private applyDeviceFloorplanSnapshot(row: SalesBomRow, device: VwDevice, floorplanSnapshot?: SalesBomDeviceFloorplanSnapshot): void {
+        row.deviceId = String(device.deviceId || '').trim() || null
         row.iconId = device.iconId || null
         row.iconLabel = device.iconLabel || null
         row.iconDataUrl = device.iconDataUrl || null
         row.iconForegroundColor = device.iconForegroundColor || null
+        row.shortName = String(device.shortName || '').trim() || null
+        row.floorplanLabelText = this.getDeviceFloorplanLabelText(device)
+        row.customAttributes = this.cloneFloorplanSymbolAttributes(floorplanSnapshot?.customAttributes)
+        row.tags = this.cloneFloorplanSymbolTags(floorplanSnapshot?.tags)
+        row.mediaFiles = this.cloneFloorplanSymbolMediaFiles(floorplanSnapshot?.mediaFiles)
+    }
+
+    private async loadDeviceFloorplanSnapshot(deviceId: unknown): Promise<SalesBomDeviceFloorplanSnapshot> {
+        const normalizedDeviceId = String(deviceId || '').trim()
+        if (!normalizedDeviceId) {
+            return { customAttributes: [], tags: [], mediaFiles: [] }
+        }
+
+        try {
+            const [attributesResponse, tagsResponse, mediaResponse] = await Promise.all([
+                firstValueFrom(this.http.get<{ rows?: MaterialAttribute[] }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/attributes`)),
+                firstValueFrom(this.http.get<{ data?: { tags?: ProjectFloorplanSymbolTag[] } }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/tags`)),
+                firstValueFrom(this.http.get<{ data?: { files?: ProjectFloorplanSymbolMediaFile[] } }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/media`))
+            ])
+            return {
+                customAttributes: this.cloneFloorplanSymbolAttributes((attributesResponse?.rows || []).map((attribute) => ({
+                    name: String(attribute.name || '').trim(),
+                    value: String(attribute.defaultValue || '').trim(),
+                    defaultValue: String(attribute.defaultValue || '').trim(),
+                    valueType: String(attribute.valueType || 'text').trim() || 'text',
+                    isReadOnly: !!attribute.isReadOnly
+                }))),
+                tags: this.cloneFloorplanSymbolTags(tagsResponse?.data?.tags),
+                mediaFiles: this.cloneFloorplanSymbolMediaFiles(mediaResponse?.data?.files)
+            }
+        } catch {
+            return { customAttributes: [], tags: [], mediaFiles: [] }
+        }
+    }
+
+    private cloneFloorplanSymbolAttributes(input: unknown): ProjectFloorplanSymbolAttribute[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((attribute: any) => ({
+            name: String(attribute?.name || '').trim(),
+            value: String(attribute?.value ?? attribute?.defaultValue ?? '').trim(),
+            defaultValue: String(attribute?.defaultValue || '').trim(),
+            valueType: String(attribute?.valueType || 'text').trim() || 'text',
+            isReadOnly: !!attribute?.isReadOnly
+        })).filter((attribute) => !!attribute.name)
+    }
+
+    private cloneFloorplanSymbolTags(input: unknown): ProjectFloorplanSymbolTag[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        const seen = new Set<string>()
+        const tags: ProjectFloorplanSymbolTag[] = []
+        for (const raw of input) {
+            const label = String((raw as any)?.label ?? raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 80)
+            if (!label) {
+                continue
+            }
+            const key = label.toLowerCase()
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            tags.push({
+                id: String((raw as any)?.id || '').trim() || this.createClientId(),
+                label
+            })
+        }
+        return tags
+    }
+
+    private cloneFloorplanSymbolMediaFiles(input: unknown): ProjectFloorplanSymbolMediaFile[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((file: any) => ({
+            id: String(file?.id || '').trim(),
+            fileName: String(file?.fileName || file?.name || '').trim(),
+            mimeType: String(file?.mimeType || '').trim() || undefined,
+            sizeBytes: typeof file?.sizeBytes === 'undefined' || file?.sizeBytes === null ? undefined : Number(file.sizeBytes),
+            uploadedAt: String(file?.uploadedAt || '').trim() || undefined
+        })).filter((file) => !!file.id && !!file.fileName)
     }
 
     private createBomRowPartsFromVendorPart(part: VwPart): SalesBomRowPart[] {
@@ -1852,7 +2296,7 @@ export class SalesProjectPage {
         return this.uploadFileToDocLibraryFolder(file, this.selectedDocLibraryFolder || 'all')
     }
 
-    private async uploadFileToDocLibraryFolder(file: File, folderId: string, confirmVersion = false, thumbnailDataUrl = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
+    private async uploadFileToDocLibraryFolder(file: File, folderId: string, confirmVersion = false, thumbnailDataUrl = '', floorplanFolderId = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
             item.folderId === folderId && this.projectDocLibraryStorage.hasSourceFileName(item, file.name))
         const now = new Date().toISOString()
@@ -1871,6 +2315,9 @@ export class SalesProjectPage {
             duplicate.storageKey = duplicateStorageKey
             duplicate.versions.push(version)
             duplicate.updatedAt = now
+            if (folderId === this.floorplansFolderId) {
+                duplicate.floorplanFolderId = this.getValidFloorplanFolderId(floorplanFolderId)
+            }
             return 'versioned'
         }
 
@@ -1897,6 +2344,9 @@ export class SalesProjectPage {
                 extension: this.getDocLibraryExtension(file.name),
                 createdAt: now,
                 updatedAt: now,
+                floorplanFolderId: folderId === this.floorplansFolderId
+                    ? this.getValidFloorplanFolderId(floorplanFolderId)
+                    : undefined,
                 versions: [version]
             },
             ...this.docLibraryFiles
@@ -1987,6 +2437,7 @@ export class SalesProjectPage {
         const customerInfo = project?.worksheetData?.customerInfo || {}
         return {
             billingName: String(customerInfo?.billingName || '').trim(),
+            businessPointOfContactName: String(customerInfo?.businessPointOfContactName || '').trim(),
             billingAddress: String(customerInfo?.billingAddress || '').trim(),
             billingEmail: String(customerInfo?.billingEmail || '').trim(),
             billingPhone: String(customerInfo?.billingPhone || '').trim(),
@@ -2013,6 +2464,7 @@ export class SalesProjectPage {
     private createDefaultCustomerInfo(): SalesCustomerInfo {
         return {
             billingName: '',
+            businessPointOfContactName: '',
             billingAddress: '',
             billingEmail: '',
             billingPhone: '',
@@ -2059,6 +2511,7 @@ export class SalesProjectPage {
                     const bomRowParts = this.cloneBomRowParts(row?.bomRowParts)
                     return {
                         id: String(row?.id || this.createClientId()),
+                        deviceId: String(row?.deviceId || '').trim() || null,
                         partNbr: String(row?.partNbr || '').trim(),
                         lookupQuery: String(row?.partNbr || '').trim(),
                         description: this.getBomDescriptionWithParts(String(row?.description || '').trim(), bomRowParts),
@@ -2071,6 +2524,11 @@ export class SalesProjectPage {
                         iconLabel: String(row?.iconLabel || '').trim() || null,
                         iconDataUrl: String(row?.iconDataUrl || '').trim() || null,
                         iconForegroundColor: String(row?.iconForegroundColor || '').trim() || null,
+                        shortName: String(row?.shortName || '').trim() || null,
+                        floorplanLabelText: String(row?.floorplanLabelText || '').trim().slice(0, 4) || null,
+                        customAttributes: this.cloneFloorplanSymbolAttributes(row?.customAttributes),
+                        tags: this.cloneFloorplanSymbolTags(row?.tags),
+                        mediaFiles: this.cloneFloorplanSymbolMediaFiles(row?.mediaFiles),
                         bomRowParts
                     }
                 })
@@ -2081,6 +2539,7 @@ export class SalesProjectPage {
     private createEmptyBomRow(): SalesBomRow {
         return {
             id: this.createClientId(),
+            deviceId: null,
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -2093,6 +2552,11 @@ export class SalesProjectPage {
             iconLabel: null,
             iconDataUrl: null,
             iconForegroundColor: null,
+            shortName: null,
+            floorplanLabelText: null,
+            customAttributes: [],
+            tags: [],
+            mediaFiles: [],
             bomRowParts: []
         }
     }
@@ -2106,6 +2570,7 @@ export class SalesProjectPage {
             vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
             rows: (section.rows || []).map((row) => ({
                 id: String(row.id || this.createClientId()),
+                deviceId: String(row.deviceId || '').trim() || null,
                 partNbr: String(row.partNbr || '').trim(),
                 description: this.getBomDescriptionWithParts(String(row.description || '').trim(), row.bomRowParts || []),
                 qty: Number(row.qty || 0),
@@ -2117,6 +2582,11 @@ export class SalesProjectPage {
                 iconLabel: row.iconLabel || null,
                 iconDataUrl: row.iconDataUrl || null,
                 iconForegroundColor: row.iconForegroundColor || null,
+                shortName: row.shortName || null,
+                floorplanLabelText: String(row.floorplanLabelText || '').trim().slice(0, 4) || null,
+                customAttributes: this.cloneFloorplanSymbolAttributes(row.customAttributes),
+                tags: this.cloneFloorplanSymbolTags(row.tags),
+                mediaFiles: this.cloneFloorplanSymbolMediaFiles(row.mediaFiles),
                 bomRowParts: this.cloneBomRowParts(row.bomRowParts)
             }))
         }))

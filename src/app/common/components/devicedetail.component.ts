@@ -41,6 +41,7 @@ interface EditableAttribute {
     statusId: string
     valueType: string
     defaultValue: string
+    isReadOnly: boolean
     ordinal: number
     managed?: boolean
 }
@@ -91,6 +92,11 @@ interface DeviceMediaFile {
     uploadedBy?: string
 }
 
+interface DeviceTagRecord {
+    id: string
+    label: string
+}
+
 @Component({
     standalone: true,
     selector: 'device-detail',
@@ -103,6 +109,8 @@ export class DeviceDetailComponent implements OnChanges {
     private readonly slcNoneValue = 'none'
     private readonly speakerFalseValue = 'false'
     private readonly strobeFalseValue = 'false'
+    private readonly areaOfInfluenceFalseValue = 'false'
+    private readonly areaOfInfluenceAttributeName = 'Area of Influence'
     private readonly vendorPartLookupMinChars = 3
     private readonly defaultLaborRate = 56
 
@@ -126,6 +134,7 @@ export class DeviceDetailComponent implements OnChanges {
     deviceMaterials: VwDeviceMaterial[] = []
     deviceAttributes: MaterialAttribute[] = []
     deviceSubTasks: MaterialSubTask[] = []
+    deviceTags: DeviceTagRecord[] = []
     vendorLinkIssues: DeviceVendorLinkIssue[] = []
     vendors: Vendor[] = []
     deviceMediaFiles: DeviceMediaFile[] = []
@@ -152,6 +161,8 @@ export class DeviceDetailComponent implements OnChanges {
     editDeviceParts: EditableDevicePart[] = []
     editAttributes: EditableAttribute[] = []
     editSubTasks: EditableSubTask[] = []
+    editTags: DeviceTagRecord[] = []
+    newTagText = ''
     vendorPartFilter = ''
     selectedVendorPartVendorId = ''
     selectedVendorPartCategories: string[] = []
@@ -190,11 +201,12 @@ export class DeviceDetailComponent implements OnChanges {
         this.selectedVendorPartCategories = []
 
         try {
-            const [device, materials, attributes, subTasks, issuesResponse, vendorsResponse, mediaResponse, iconsResponse] = await Promise.all([
+            const [device, materials, attributes, subTasks, tagsResponse, issuesResponse, vendorsResponse, mediaResponse, iconsResponse] = await Promise.all([
                 firstValueFrom(this.http.get<VwDevice>(`/api/firewire/devices/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${this.deviceId}`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialAttribute[] }>(`/api/firewire/devices/${this.deviceId}/attributes`)),
                 firstValueFrom(this.http.get<{ rows?: MaterialSubTask[] }>(`/api/firewire/devices/${this.deviceId}/subtasks`)),
+                firstValueFrom(this.http.get<{ data?: { tags?: DeviceTagRecord[] } }>(`/api/firewire/devices/${this.deviceId}/tags`)),
                 firstValueFrom(this.http.get<{ rows?: DeviceVendorLinkIssue[] }>('/api/firewire/devices/vendor-link-issues', { params: { state: 'all' } })),
                 firstValueFrom(this.http.get<{ rows?: Vendor[] }>('/api/firewire/vendors')),
                 firstValueFrom(this.http.get<{ data?: { files?: DeviceMediaFile[] } }>(`/api/firewire/devices/${this.deviceId}/media`)),
@@ -206,6 +218,7 @@ export class DeviceDetailComponent implements OnChanges {
             this.deviceMaterials = Array.isArray(materials?.rows) ? materials.rows : []
             this.deviceAttributes = Array.isArray(attributes?.rows) ? attributes.rows : []
             this.deviceSubTasks = Array.isArray(subTasks?.rows) ? subTasks.rows : []
+            this.deviceTags = this.normalizeDeviceTags(tagsResponse?.data?.tags)
             this.vendors = (Array.isArray(vendorsResponse?.rows) ? vendorsResponse.rows : [])
                 .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
             this.deviceMediaFiles = Array.isArray(mediaResponse?.data?.files) ? mediaResponse.data.files : []
@@ -243,9 +256,11 @@ export class DeviceDetailComponent implements OnChanges {
                 slcAddress: this.readSlcMode(this.device.slcAddress),
                 speakerAddress: this.readBooleanMode(this.device.speakerAddress),
                 strobeAddress: this.readBooleanMode(this.device.strobeAddress),
+                areaOfInfluence: this.readBooleanMode(this.device.areaOfInfluence),
                 laborRate: this.getDeviceLaborRate(),
                 iconId: this.device.iconId || null,
-                iconForegroundColor: this.device.iconForegroundColor || '#210507'
+                iconForegroundColor: this.device.iconForegroundColor || '#210507',
+                floorplanLabelText: this.device.floorplanLabelText || this.createDefaultFloorplanLabelText(this.device.shortName || this.device.partNumber)
             }
             this.iconPickerOpen = false
             this.syncSelectedIconGroup(this.editDevice.iconId || null)
@@ -258,6 +273,7 @@ export class DeviceDetailComponent implements OnChanges {
                 statusId: attribute.statusId,
                 valueType: attribute.valueType || 'text',
                 defaultValue: String(attribute.defaultValue || ''),
+                isReadOnly: !!attribute.isReadOnly,
                 ordinal: attribute.ordinal,
                 managed: this.isManagedAttribute(attribute.name)
             }))
@@ -267,6 +283,8 @@ export class DeviceDetailComponent implements OnChanges {
                 laborHours: Number(subTask.laborHours || 0),
                 ordinal: subTask.ordinal
             }))
+            this.editTags = this.normalizeDeviceTags(this.deviceTags)
+            this.newTagText = ''
             this.vendorPartFilter = ''
             this.selectedVendorPartVendorId = this.resolveDefaultVendorPartVendorId(this.device)
             this.selectedVendorPartCategories = []
@@ -418,6 +436,34 @@ export class DeviceDetailComponent implements OnChanges {
         this.saveWorking = true
         this.statusText = 'Saving device...'
         this.syncDerivedAttributes()
+        const floorplanLabelText = this.normalizeFloorplanLabelText(this.editDevice.floorplanLabelText)
+        if (this.editDevice.includeOnFloorplan && !floorplanLabelText) {
+            this.statusText = 'Floorplan Label Text is required and must be 1 to 4 characters.'
+            this.saveWorking = false
+            return false
+        }
+        const readOnlyAttributeWithoutValue = this.editAttributes.find((attribute) =>
+            !!attribute.isReadOnly && !String(attribute.defaultValue || '').trim()
+        )
+        if (readOnlyAttributeWithoutValue) {
+            const attributeName = String(readOnlyAttributeWithoutValue.name || 'Read-only attribute').trim()
+            this.statusText = `${attributeName} is read-only and requires a value.`
+            this.saveWorking = false
+            return false
+        }
+        const areaOfInfluenceEnabled = String(this.editDevice.areaOfInfluence || this.areaOfInfluenceFalseValue) === 'true'
+        if (areaOfInfluenceEnabled) {
+            const areaAttribute = this.editAttributes.find((attribute) => attribute.name === this.areaOfInfluenceAttributeName)
+            const radiusFeet = Number(areaAttribute?.defaultValue)
+            if (!areaAttribute || !Number.isFinite(radiusFeet) || radiusFeet <= 0) {
+                this.statusText = 'Area of Influence requires a numeric radius greater than 0 feet.'
+                this.saveWorking = false
+                return false
+            }
+            areaAttribute.isReadOnly = true
+            areaAttribute.valueType = 'number'
+            areaAttribute.defaultValue = String(radiusFeet)
+        }
         const resolvedDefaultLabor = this.getResolvedDefaultLabor()
 
         const payload = {
@@ -427,8 +473,10 @@ export class DeviceDetailComponent implements OnChanges {
                 slcAddress: this.writeSlcMode(this.editDevice.slcAddress),
                 speakerAddress: this.writeBooleanMode(this.editDevice.speakerAddress),
                 strobeAddress: this.writeBooleanMode(this.editDevice.strobeAddress),
+                areaOfInfluence: this.writeBooleanMode(this.editDevice.areaOfInfluence),
                 defaultLabor: resolvedDefaultLabor,
-                laborRate: this.getDeviceLaborRate()
+                laborRate: this.getDeviceLaborRate(),
+                floorplanLabelText: this.editDevice.includeOnFloorplan ? floorplanLabelText : ''
             },
             partNumbers: [...this.editLinkedPartNumbers],
             deviceParts: this.editDeviceParts.map((part, index) => ({
@@ -438,12 +486,13 @@ export class DeviceDetailComponent implements OnChanges {
             attributes: this.editAttributes.map((attribute, index) => ({
                 ...attribute,
                 ordinal: index,
-                valueType: 'text'
+                valueType: attribute.name === this.areaOfInfluenceAttributeName ? 'number' : 'text'
             })),
             subTasks: this.editSubTasks.map((subTask, index) => ({
                 ...subTask,
                 ordinal: index
-            }))
+            })),
+            tags: this.normalizeDeviceTags(this.editTags)
         }
 
         try {
@@ -501,6 +550,19 @@ export class DeviceDetailComponent implements OnChanges {
         this.editSubTasks = this.editSubTasks.filter((_, rowIndex) => rowIndex !== index)
     }
 
+    addTag(): void {
+        const label = String(this.newTagText || '').replace(/\s+/g, ' ').trim()
+        if (!label) {
+            return
+        }
+        this.editTags = this.normalizeDeviceTags([...this.editTags, { id: this.createClientId(), label }])
+        this.newTagText = ''
+    }
+
+    removeTag(index: number): void {
+        this.editTags = this.editTags.filter((_, rowIndex) => rowIndex !== index)
+    }
+
     addCustomAttribute() {
         this.editAttributes = [
             ...this.editAttributes,
@@ -509,6 +571,7 @@ export class DeviceDetailComponent implements OnChanges {
                 statusId: '',
                 valueType: 'text',
                 defaultValue: '',
+                isReadOnly: false,
                 ordinal: this.editAttributes.length,
                 managed: false
             }
@@ -756,14 +819,6 @@ export class DeviceDetailComponent implements OnChanges {
         return `/api/firewire/devices/${encodeURIComponent(this.deviceId)}/media/${encodeURIComponent(file.id)}/content${query}`
     }
 
-    previewDeviceMedia(file: DeviceMediaFile): void {
-        const url = this.getDeviceMediaContentUrl(file, 'inline')
-        if (!url) {
-            return
-        }
-        window.open(url, '_blank', 'noopener')
-    }
-
     async downloadDeviceMedia(file: DeviceMediaFile): Promise<void> {
         const url = this.getDeviceMediaContentUrl(file, 'attachment')
         if (!url) {
@@ -845,6 +900,10 @@ export class DeviceDetailComponent implements OnChanges {
 
     getCustomAttributeRows(): EditableAttribute[] {
         return this.editAttributes.filter((attribute) => !attribute.managed)
+    }
+
+    getVisibleTags(): DeviceTagRecord[] {
+        return this.editMode ? this.editTags : this.deviceTags
     }
 
     getDefaultPartIssue(): DeviceVendorLinkIssue | null {
@@ -1002,6 +1061,9 @@ export class DeviceDetailComponent implements OnChanges {
         if (String(this.editDevice.strobeAddress || this.strobeFalseValue) === 'true') {
             nextManaged.push(this.createManagedAttribute('Strobe Address'))
         }
+        if (String(this.editDevice.areaOfInfluence || this.areaOfInfluenceFalseValue) === 'true') {
+            nextManaged.push(this.createManagedAttribute(this.areaOfInfluenceAttributeName))
+        }
 
         this.editAttributes = [
             ...nextManaged.map((attribute, index) => ({ ...attribute, ordinal: index })),
@@ -1011,18 +1073,20 @@ export class DeviceDetailComponent implements OnChanges {
 
     private createManagedAttribute(name: string): EditableAttribute {
         const existing = this.editAttributes.find((attribute) => attribute.name === name)
+        const isAreaOfInfluence = name === this.areaOfInfluenceAttributeName
         return {
             name,
             statusId: existing?.statusId || name,
-            valueType: 'text',
+            valueType: isAreaOfInfluence ? 'number' : 'text',
             defaultValue: existing?.defaultValue || '',
+            isReadOnly: isAreaOfInfluence ? true : !!existing?.isReadOnly,
             ordinal: existing?.ordinal || 0,
             managed: true
         }
     }
 
     private isManagedAttribute(name: string): boolean {
-        return ['Serial Number', 'SLC Channel 1', 'SLC Channel 2', 'MAC Address', 'SLC Address', 'Speaker Address', 'Strobe Address'].includes(name)
+        return ['Serial Number', 'SLC Channel 1', 'SLC Channel 2', 'MAC Address', 'SLC Address', 'Speaker Address', 'Strobe Address', this.areaOfInfluenceAttributeName].includes(name)
     }
 
     private readSlcMode(raw: string | undefined | null): string {
@@ -1097,6 +1161,7 @@ export class DeviceDetailComponent implements OnChanges {
                 partNumber: String(this.editDevice.partNumber || '').trim(),
                 categoryName: String(this.editDevice.categoryName || '').trim(),
                 includeOnFloorplan: !!this.editDevice.includeOnFloorplan,
+                floorplanLabelText: this.editDevice.includeOnFloorplan ? this.normalizeFloorplanLabelText(this.editDevice.floorplanLabelText) : '',
                 cost: Number(this.editDevice.cost || 0),
                 defaultLabor: Number(this.editDevice.defaultLabor || 0),
                 laborRate: this.getDeviceLaborRate(),
@@ -1117,6 +1182,7 @@ export class DeviceDetailComponent implements OnChanges {
                 statusId: String(attribute.statusId || '').trim(),
                 valueType: String(attribute.valueType || '').trim(),
                 defaultValue: String(attribute.defaultValue || ''),
+                isReadOnly: !!attribute.isReadOnly,
                 ordinal: Number(attribute.ordinal || 0),
                 managed: !!attribute.managed
             })),
@@ -1125,7 +1191,8 @@ export class DeviceDetailComponent implements OnChanges {
                 taskNameFormat: String(subTask.taskNameFormat || '').trim(),
                 laborHours: Number(subTask.laborHours || 0),
                 ordinal: Number(subTask.ordinal || 0)
-            }))
+            })),
+            tags: this.normalizeDeviceTags(this.editTags)
         })
     }
 
@@ -1251,6 +1318,42 @@ export class DeviceDetailComponent implements OnChanges {
 
     private getNormalizedVendorPartFilter(): string {
         return String(this.vendorPartFilter || '').trim().toLowerCase()
+    }
+
+    private normalizeDeviceTags(input: unknown): DeviceTagRecord[] {
+        const source = Array.isArray(input) ? input : []
+        const seen = new Set<string>()
+        const tags: DeviceTagRecord[] = []
+        for (const raw of source) {
+            const label = String((raw as any)?.label ?? raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 80)
+            if (!label) {
+                continue
+            }
+            const key = label.toLowerCase()
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            tags.push({
+                id: String((raw as any)?.id || '').trim() || this.createClientId(),
+                label
+            })
+        }
+        return tags
+    }
+
+    private createClientId(): string {
+        return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `id-${Math.random().toString(36).slice(2, 10)}`
+    }
+
+    private normalizeFloorplanLabelText(value: unknown): string {
+        return String(value ?? '').trim().replace(/\s+/g, '').slice(0, 4)
+    }
+
+    private createDefaultFloorplanLabelText(value: unknown): string {
+        return this.normalizeFloorplanLabelText(value) || 'DEV'
     }
 
     private hasVendorPartLookup(): boolean {

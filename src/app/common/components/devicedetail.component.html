@@ -68,7 +68,7 @@
                                 class="fw-control-help-button device-detail-help-button"
                                 type="button"
                                 aria-label="Help for device short name"
-                                matTooltip="Compact device label used in device lists, device set search, import/device resolution, and Fieldwire install task names. BOM descriptions use the full device name first and short name only as a fallback."
+                                matTooltip="Compact device label used in device lists, device set search, import/device resolution, Fieldwire install task names, and floorplan symbol tooltips. BOM descriptions use the full device name first and short name only as a fallback."
                                 matTooltipPosition="right"
                                 matTooltipClass="fw-control-help-tooltip"
                                 #shortNameReadHelp="matTooltip"
@@ -95,6 +95,10 @@
                             </button>
                         </td>
                         <td>{{device.includeOnFloorplan ? 'Yes' : 'No'}}</td>
+                    </tr>
+                    <tr *ngIf="device.includeOnFloorplan" class="device-detail-floorplan-row device-detail-floorplan-row--end">
+                        <td>Floorplan Label Text</td>
+                        <td>{{device.floorplanLabelText || 'Not set'}}</td>
                     </tr>
                     <tr class="device-detail-floorplan-row device-detail-floorplan-row--end">
                         <td>Floorplan Icon</td>
@@ -209,6 +213,13 @@
                         </td>
                         <td>{{displaySetting(device.strobeAddress)}}</td>
                     </tr>
+                    <tr>
+                        <td>
+                            <span class="device-detail-help-label">Area of Influence</span>
+                            <button mat-icon-button class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for area of influence" matTooltip="Controls whether this device captures a read-only radius in feet for floorplan influence overlays." matTooltipPosition="right" matTooltipClass="fw-control-help-tooltip" #areaReadHelp="matTooltip" (click)="areaReadHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </td>
+                        <td>{{displaySetting(device.areaOfInfluence)}}</td>
+                    </tr>
                 </table>
 
                 <div *ngIf="isDetailsEditView()" class="device-detail-form-grid">
@@ -230,13 +241,19 @@
                         <mat-form-field>
                             <mat-label>Short Name</mat-label>
                             <input matInput [(ngModel)]="editDevice.shortName" />
-                            <mat-hint>Compact operational label.</mat-hint>
-                            <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for device short name" matTooltip="Used in device lists, device set search, import/device resolution, and Fieldwire install task names. BOM descriptions prefer the full device name and use short name only as a fallback." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #shortNameEditHelp="matTooltip" (click)="shortNameEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                            <mat-hint>Compact operational label and floorplan symbol tooltip.</mat-hint>
+                            <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for device short name" matTooltip="Used in device lists, device set search, import/device resolution, Fieldwire install task names, and floorplan symbol tooltips. BOM descriptions prefer the full device name and use short name only as a fallback." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #shortNameEditHelp="matTooltip" (click)="shortNameEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                         </mat-form-field>
                         <div class="device-detail-form-toggle-block">
                             <mat-slide-toggle class="device-detail-form-toggle" [(ngModel)]="editDevice.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
                             <div class="device-detail-field-hint">Allows floorplan placement.</div>
                         </div>
+                        <mat-form-field *ngIf="editDevice.includeOnFloorplan">
+                            <mat-label>Floorplan Label Text</mat-label>
+                            <input matInput maxlength="4" minlength="1" [(ngModel)]="editDevice.floorplanLabelText" />
+                            <mat-hint>Text to show 1 - 4 characters on the bubble for this device on a floorplan.</mat-hint>
+                            <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for floorplan label text" matTooltip="Copied onto BOM rows when this device is added to a BOM. Existing BOM rows and placed symbols keep their captured label text." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #floorplanLabelHelp="matTooltip" (click)="floorplanLabelHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                        </mat-form-field>
                         <div class="device-detail-icon-picker">
                             <span class="device-detail-icon-picker__label">Floorplan Icon</span>
                             <button
@@ -351,6 +368,13 @@
                         </mat-select>
                         <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for strobe address" matTooltip="Controls whether this device captures an outbound signal address for optical signals." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #strobeEditHelp="matTooltip" (click)="strobeEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
                     </mat-form-field>
+                    <mat-form-field>
+                        <mat-label>Area of Influence</mat-label>
+                        <mat-select [(ngModel)]="editDevice.areaOfInfluence" (selectionChange)="onAddressSettingChanged()">
+                            <mat-option *ngFor="let option of booleanAddressOptions" [value]="option.value">{{option.label}}</mat-option>
+                        </mat-select>
+                        <button mat-icon-button matSuffix class="fw-control-help-button device-detail-help-button" type="button" aria-label="Help for area of influence" matTooltip="Creates a read-only Area of Influence attribute. Enter the radius in feet in the managed attribute value." matTooltipPosition="above" matTooltipClass="fw-control-help-tooltip" #areaEditHelp="matTooltip" (click)="areaEditHelp.toggle(); $event.stopPropagation()"><mat-icon>help_outline</mat-icon></button>
+                    </mat-form-field>
                 </div>
             </section>
 
@@ -365,6 +389,7 @@
                             <mat-icon matListItemIcon>text_fields</mat-icon>
                             <span matListItemTitle>{{attribute.name}}</span>
                             <span *ngIf="getAttributeDisplayValue(attribute)" matListItemLine>{{getAttributeDisplayValue(attribute)}}</span>
+                            <span matListItemLine>{{attribute.isReadOnly ? 'Read only' : 'Editable'}}</span>
                         </mat-list-item>
                     </mat-list>
                 </ng-container>
@@ -373,7 +398,14 @@
                         <div *ngFor="let attribute of getManagedAttributeRows()" class="device-detail-edit-row device-detail-edit-row--managed">
                             <mat-form-field>
                                 <mat-label>{{attribute.name}}</mat-label>
-                                <input matInput [(ngModel)]="attribute.defaultValue" />
+                                <input matInput [type]="attribute.valueType === 'number' ? 'number' : 'text'" [attr.min]="attribute.valueType === 'number' ? '0.01' : null" [attr.step]="attribute.valueType === 'number' ? '0.01' : null" [(ngModel)]="attribute.defaultValue" />
+                            </mat-form-field>
+                            <mat-form-field class="device-detail-attribute-mode">
+                                <mat-label>Mode</mat-label>
+                                <mat-select [(ngModel)]="attribute.isReadOnly" [disabled]="attribute.name === 'Area of Influence'">
+                                    <mat-option [value]="false">Editable</mat-option>
+                                    <mat-option [value]="true">Read Only</mat-option>
+                                </mat-select>
                             </mat-form-field>
                             <span class="device-detail-managed-lock" title="Managed by device address settings">
                                 <mat-icon>lock</mat-icon>
@@ -387,6 +419,13 @@
                             <mat-form-field>
                                 <mat-label>Value</mat-label>
                                 <input matInput [(ngModel)]="attribute.defaultValue" />
+                            </mat-form-field>
+                            <mat-form-field class="device-detail-attribute-mode">
+                                <mat-label>Mode</mat-label>
+                                <mat-select [(ngModel)]="attribute.isReadOnly">
+                                    <mat-option [value]="false">Editable</mat-option>
+                                    <mat-option [value]="true">Read Only</mat-option>
+                                </mat-select>
                             </mat-form-field>
                             <button mat-icon-button type="button" (click)="removeAttribute(getManagedAttributeRows().length + index)">
                                 <mat-icon>delete</mat-icon>
@@ -436,6 +475,43 @@
                 </ng-template>
                 <ng-template #emptySubTasks>
                     <div class="device-detail-empty">No sub tasks configured.</div>
+                </ng-template>
+            </section>
+
+            <section class="component-group">
+                <h4>DEVICE TAGS</h4>
+                <div *ngIf="!isDetailsEditView(); else tagEdit">
+                    <div *ngIf="getVisibleTags().length > 0; else emptyTags" class="device-detail-tag-list">
+                        <span *ngFor="let tag of getVisibleTags()" class="device-detail-tag">{{tag.label}}</span>
+                    </div>
+                </div>
+                <ng-template #tagEdit>
+                    <div class="device-detail-tag-editor">
+                        <div class="device-detail-tag-list" *ngIf="editTags.length > 0; else emptyEditTags">
+                            <span *ngFor="let tag of editTags; let index = index" class="device-detail-tag device-detail-tag--editable">
+                                {{tag.label}}
+                                <button mat-icon-button type="button" [attr.aria-label]="'Remove tag ' + tag.label" (click)="removeTag(index)">
+                                    <mat-icon>close</mat-icon>
+                                </button>
+                            </span>
+                        </div>
+                        <ng-template #emptyEditTags>
+                            <div class="device-detail-empty">No tags assigned.</div>
+                        </ng-template>
+                        <div class="device-detail-tag-entry">
+                            <mat-form-field>
+                                <mat-label>New Tag</mat-label>
+                                <input matInput maxlength="80" [(ngModel)]="newTagText" (keydown.enter)="addTag(); $event.preventDefault()" />
+                            </mat-form-field>
+                            <button mat-stroked-button type="button" class="device-detail-action-button" (click)="addTag()">
+                                <mat-icon>add</mat-icon>
+                                <span>Add Tag</span>
+                            </button>
+                        </div>
+                    </div>
+                </ng-template>
+                <ng-template #emptyTags>
+                    <div class="device-detail-empty">No tags assigned.</div>
                 </ng-template>
             </section>
 
@@ -500,9 +576,6 @@
                         <span>{{formatFileSize(file.sizeBytes)}}</span>
                         <span>{{file.uploadedAt | date:'medium'}}</span>
                         <span class="device-detail-media-actions">
-                            <button mat-icon-button type="button" [disabled]="mediaUploadWorking" [attr.aria-label]="'Preview ' + file.fileName" matTooltip="Preview" (click)="previewDeviceMedia(file)">
-                                <mat-icon>visibility</mat-icon>
-                            </button>
                             <button mat-icon-button type="button" [disabled]="mediaUploadWorking" [attr.aria-label]="'Download ' + file.fileName" matTooltip="Download" (click)="downloadDeviceMedia(file)">
                                 <mat-icon>download</mat-icon>
                             </button>

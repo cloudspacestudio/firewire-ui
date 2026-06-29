@@ -9,6 +9,7 @@ import { Subscription, catchError, firstValueFrom, map, Observable, of, switchMa
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
 import { MatCardModule } from "@angular/material/card"
+import { MatCheckboxModule } from "@angular/material/checkbox"
 import { MatChipsModule } from "@angular/material/chips"
 import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
 import { MatFormFieldModule } from "@angular/material/form-field"
@@ -23,20 +24,24 @@ import { Utils } from "../../common/utils"
 import { AccountProjectAttributes, AccountProjectSchema } from "../../schemas/account.project.schema"
 import { AccountProjectStatSchema } from "../../schemas/account.projectstat.schema"
 import { FIREWIRE_PROJECT_TYPE_OPTIONS, FirewireProjectActivity, FirewireProjectSchema, FirewireProjectUpsert } from "../../schemas/firewire-project.schema"
-import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
+import { createEmptyProjectSettingsCatalog, ProjectSettingItemSchema, ProjectSettingsCatalogSchema } from "../../schemas/project-settings.schema"
 import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list-item.schema"
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from "../../common/components/firewire-bom-worksheet.component"
+import { FirewireCustomerInfo, FirewireCustomerInfoCardComponent } from "../../common/components/firewire-customer-info-card.component"
 import { FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
 import { FirewireFloorplanFolderRenameEvent, FirewireFloorplanMoveEvent, FirewireFloorplansComponent } from "../../common/components/firewire-floorplans.component"
 import { FirewireTakeoffMatrixComponent } from "../../common/components/firewire-takeoff-matrix.component"
-import { FieldwireImportComponent, FieldwireImportDialogData } from "../../common/components/fieldwire-import.component"
+import { FieldwireImportComponent, FieldwireImportDialogData, FieldwireImportDialogResult } from "../../common/components/fieldwire-import.component"
 import { AzureMapsService } from "../../common/services/azure-maps.service"
 import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
     ProjectFloorplanDesignAnnotation,
+    ProjectFloorplanSymbolAttribute,
+    ProjectFloorplanSymbolMediaFile,
+    ProjectFloorplanSymbolTag,
     ProjectFloorplanDesignState,
     ProjectDocLibraryStorageService
 } from "../../common/services/project-doc-library-storage.service"
@@ -61,6 +66,7 @@ import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
 import { VwPart } from "../../schemas/vwpart.schema"
 import { VwDevice } from "../../schemas/vwdevice.schema"
 import { VwDeviceMaterial } from "../../schemas/vwdevicematerial.schema"
+import { MaterialAttribute } from "../../schemas/materialattribute.schema"
 import { DeviceSetDetail, DeviceSetSummary } from "../../schemas/device-set.schema"
 import { FloorplanDesignerDialog, FloorplanDesignerDialogResult, FloorplanSymbolBalanceDialog, FloorplanSymbolBalanceDialogData } from "../design/floorplan-designer.dialog"
 import { FloorplanDesignerSymbolOption } from "../design/floorplan-designer.component"
@@ -83,6 +89,7 @@ interface ProjectBomRowPart {
 
 interface ProjectBomRow {
     id: string
+    deviceId?: string | null
     partNbr: string
     description: string
     qty: number
@@ -94,8 +101,19 @@ interface ProjectBomRow {
     iconLabel?: string | null
     iconDataUrl?: string | null
     iconForegroundColor?: string | null
+    shortName?: string | null
+    floorplanLabelText?: string | null
+    customAttributes?: ProjectFloorplanSymbolAttribute[]
+    tags?: ProjectFloorplanSymbolTag[]
+    mediaFiles?: ProjectFloorplanSymbolMediaFile[]
     lookupQuery?: string
     bomRowParts?: ProjectBomRowPart[]
+}
+
+interface ProjectBomDeviceFloorplanSnapshot {
+    customAttributes: ProjectFloorplanSymbolAttribute[]
+    tags: ProjectFloorplanSymbolTag[]
+    mediaFiles: ProjectFloorplanSymbolMediaFile[]
 }
 
 interface ProjectBomSection {
@@ -173,14 +191,7 @@ interface FiretrolProvideRow {
     labor: number
 }
 
-interface ProjectCustomerInfo {
-    billingName: string
-    businessPointOfContactName: string
-    billingAddress: string
-    billingEmail: string
-    billingPhone: string
-    contractOrPoNumber: string
-}
+interface ProjectCustomerInfo extends FirewireCustomerInfo {}
 
 interface WireTakeoffSpecs {
     floors: number
@@ -295,6 +306,8 @@ interface ProjectFloorplanFolder {
 interface FirewireProjectWorksheetState {
     customerInfo: ProjectCustomerInfo
     floorplanFolders?: ProjectFloorplanFolder[]
+    reportSettings?: ProjectReportSettings
+    changeOrderBaseline?: any
     baseManHourEstimate: number
     workingHeightBands: WorkingHeightBand[]
     workingHeightFactorMultiplier: number
@@ -340,6 +353,35 @@ interface FirewireProjectWorksheetState {
     summaryMaterialTaxRate?: number
 }
 
+type ProjectReportSettingsListKey = 'assumptions' | 'inclusions' | 'exclusions'
+
+interface ProjectReportSettingsItem {
+    settingId: string
+    label: string
+    description: string
+    sortOrder: number
+    included: boolean
+}
+
+interface ProjectReportSettings {
+    projectType: string
+    assumptions: ProjectReportSettingsItem[]
+    inclusions: ProjectReportSettingsItem[]
+    exclusions: ProjectReportSettingsItem[]
+}
+
+interface ProjectReportSettingsDialogData {
+    projectName: string
+    projectType: string
+    settings: ProjectReportSettings
+}
+
+interface ProjectReportSettingsSection {
+    key: ProjectReportSettingsListKey
+    title: string
+    items: ProjectReportSettingsItem[]
+}
+
 interface ProjectTemplateRecord {
     templateId: string
     name: string
@@ -359,11 +401,12 @@ declare const atlas: any
     imports: [NgFor, NgIf, CommonModule, FormsModule,
         RouterLink, PageToolbar,
         FirewireBomWorksheetComponent,
+        FirewireCustomerInfoCardComponent,
         FirewireDocLibraryExplorerComponent, FirewireFloorplansComponent,
         FirewireTakeoffMatrixComponent,
         MatButtonModule, MatFormFieldModule,
         MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule,
-        MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
+        MatCheckboxModule, MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
     providers: [HttpClient],
     templateUrl: './project.page.html',
     styleUrls: ['./project.page.scss']
@@ -499,7 +542,6 @@ export class ProjectPage implements OnChanges, OnDestroy {
         billingPhone: '',
         contractOrPoNumber: ''
     }
-    customerInfoEditMode = false
     baseManHourEstimate = 0
     workingHeightBands: WorkingHeightBand[] = [
         { label: '0 - 10', percent: 100, factor: 0 },
@@ -633,6 +675,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         { item: 'J-Hooks', included: false, estQty: 1, price: 1.5, labor: 0 },
         { item: 'Straps/Misc', included: false, estQty: 1, price: 50, labor: 0 }
     ]
+    changeOrderBaseline: any = null
     bomSections: ProjectBomSection[] = []
     bomFilter = ''
     bomSortKey: ProjectBomSortKey = 'partNbr'
@@ -841,6 +884,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     summaryEquipmentMaterialTaxRate = 8.25
     summaryRiskProficiencyPercent = 0
     summaryMarginPercent = 35
+    reportSettings: ProjectReportSettings = this.createDefaultReportSettings()
     private readonly defaultFloorplanFolderId = 'general'
     private readonly worksheetDefaults = this.buildWorksheetStateSnapshot()
     selectedFloorplanId: string = ''
@@ -850,7 +894,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
     projectTemplates: ProjectTemplateRecord[] = []
     projectDocumentUploadBusy = false
     projectUploadErrorToast = ''
+    projectSuccessToast = ''
     private projectUploadErrorToastTimer?: ReturnType<typeof setTimeout>
+    private projectSuccessToastTimer?: ReturnType<typeof setTimeout>
 
     constructor(private http: HttpClient, private projectSettingsApi: ProjectSettingsApi) {
         this.systemPreferencesSubscription = this.userPreferences.preferences$.subscribe((preferences) => {
@@ -891,6 +937,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
     ngOnDestroy(): void {
         if (this.systemMapRenderHandle) {
             clearTimeout(this.systemMapRenderHandle)
+        }
+        if (this.projectUploadErrorToastTimer) {
+            clearTimeout(this.projectUploadErrorToastTimer)
+        }
+        if (this.projectSuccessToastTimer) {
+            clearTimeout(this.projectSuccessToastTimer)
         }
         this.systemPreferencesSubscription?.unsubscribe()
         this.resetSystemMap()
@@ -1055,7 +1107,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
         if (!this.firewireProject) {
             return
         }
-        this.dialog.open(FieldwireImportComponent, {
+        const dialogRef = this.dialog.open<FieldwireImportComponent, FieldwireImportDialogData, FieldwireImportDialogResult>(FieldwireImportComponent, {
             width: '1040px',
             maxWidth: '94vw',
             panelClass: 'fw-fieldwire-import-dialog-pane',
@@ -1064,6 +1116,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 projectName: this.firewireProject.name,
                 fieldwireProjectId: this.fieldwireProjectId || null
             } as FieldwireImportDialogData
+        })
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result?.success) {
+                this.showProjectSuccessToast(result.message || 'Fieldwire import completed successfully.')
+            }
         })
     }
 
@@ -1684,40 +1741,6 @@ export class ProjectPage implements OnChanges, OnDestroy {
         })
     }
 
-    setCustomerInfoEditMode(isEditing: boolean): void {
-        if (this.isFirewireProjectLocked()) {
-            this.customerInfoEditMode = false
-            return
-        }
-        this.customerInfoEditMode = isEditing
-    }
-
-    getCustomerInfoDisplayValue(value: string | null | undefined): string {
-        const normalized = String(value || '').trim()
-        return normalized || 'Not set'
-    }
-
-    isValidCustomerEmail(value: string | null | undefined): boolean {
-        const normalized = String(value || '').trim()
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
-    }
-
-    getCustomerEmailHref(value: string | null | undefined): string {
-        return `mailto:${String(value || '').trim()}`
-    }
-
-    isValidCustomerPhone(value: string | null | undefined): boolean {
-        const digits = String(value || '').replace(/\D/g, '')
-        return digits.length >= 7
-    }
-
-    getCustomerPhoneHref(value: string | null | undefined): string {
-        const normalized = String(value || '').trim()
-        const prefix = normalized.startsWith('+') ? '+' : ''
-        const digits = normalized.replace(/\D/g, '')
-        return `tel:${prefix}${digits}`
-    }
-
     formatDateForDisplay(input: Date | string | null | undefined): string {
         if (!input) {
             return ''
@@ -1746,6 +1769,19 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     getActiveSettings(listKey: keyof ProjectSettingsCatalogSchema) {
         return (this.projectSettings[listKey] || []).filter((item) => item.isActive)
+    }
+
+    getReportSettingSectionTitle(listKey: ProjectReportSettingsListKey): string {
+        switch (listKey) {
+            case 'assumptions':
+                return 'Assumptions'
+            case 'inclusions':
+                return 'Inclusions'
+            case 'exclusions':
+                return 'Exclusions'
+            default:
+                return listKey
+        }
     }
 
     toDateInputValue(input: string | null | undefined) {
@@ -2096,10 +2132,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
             const vendorParts = await this.devicePartPriceSync.getVendorPartRows()
             const vendorPartMap = this.devicePartPriceSync.createVendorPartMap(vendorParts)
             const materialResults = await Promise.all(detail.devices.map(async(device) => {
-                const response = await firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`))
+                const [response, floorplanSnapshot] = await Promise.all([
+                    firstValueFrom(this.http.get<{ rows?: VwDeviceMaterial[] }>(`/api/firewire/vwdevicematerials/${device.deviceId}`)),
+                    this.loadDeviceFloorplanSnapshot(device.deviceId)
+                ])
                 return {
                     device,
-                    materials: Array.isArray(response?.rows) ? response.rows : []
+                    materials: Array.isArray(response?.rows) ? response.rows : [],
+                    floorplanSnapshot
                 }
             }))
 
@@ -2108,7 +2148,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 sectionKey: this.createClientId(),
                 vendorIds: Array.from(new Set(detail.devices.map((device) => String(device.vendorId || '').trim()).filter(Boolean))),
                 vendorNames: Array.from(new Set(detail.devices.map((device) => String(device.vendorName || '').trim()).filter(Boolean))),
-                rows: materialResults.flatMap(({ device, materials }) => this.createBomRowsFromDevice(device, materials, vendorPartMap))
+                rows: materialResults.flatMap(({ device, materials, floorplanSnapshot }) => this.createBomRowsFromDevice(device, materials, vendorPartMap, floorplanSnapshot))
             }
 
             if (nextSection.rows.length <= 0) {
@@ -2272,6 +2312,16 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.cost = this.roundBomMoney(part.SalesPrice || part.MSRPPrice || 0)
         row.type = categoryName
         row.includeOnFloorplan = false
+        row.deviceId = null
+        row.shortName = null
+        row.floorplanLabelText = null
+        row.customAttributes = []
+        row.tags = []
+        row.mediaFiles = []
+        row.iconId = null
+        row.iconLabel = null
+        row.iconDataUrl = null
+        row.iconForegroundColor = null
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(null))
         row.bomRowParts = this.createBomRowPartsFromVendorPart(part)
         this.refreshTakeoffColumnDefinitions()
@@ -2296,13 +2346,13 @@ export class ProjectPage implements OnChanges, OnDestroy {
         row.labor = this.roundBomMoney(this.getDefaultLaborCost(device.defaultLabor))
         row.bomRowParts = this.createBomRowPartsFromDeviceMaterials(device, materials)
         row.description = this.getBomDeviceDescription(device, row.bomRowParts)
-        this.applyDeviceIconSnapshot(row, device)
+        this.applyDeviceFloorplanSnapshot(row, device, await this.loadDeviceFloorplanSnapshot(device.deviceId))
         this.refreshTakeoffColumnDefinitions()
         this.syncBomLaborToInstallLaborEstimate()
         this.closeBomPartLookup()
     }
 
-    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>): ProjectBomRow[] {
+    private createBomRowsFromDevice(device: any, materials: VwDeviceMaterial[], vendorPartMap?: Map<string, VwPart>, floorplanSnapshot?: ProjectBomDeviceFloorplanSnapshot): ProjectBomRow[] {
         const typeValue = String(device?.categoryName || '').trim()
         const includeOnFloorplan = !!device?.includeOnFloorplan
         const partNumber = String(device.partNumber || '').trim()
@@ -2313,6 +2363,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
         return [{
             id: this.createClientId(),
+            deviceId: String(device.deviceId || '').trim() || null,
             partNbr: partNumber,
             lookupQuery: partNumber,
             description: this.getBomDeviceDescription(device, bomRowParts),
@@ -2325,15 +2376,104 @@ export class ProjectPage implements OnChanges, OnDestroy {
             iconLabel: device.iconLabel || null,
             iconDataUrl: device.iconDataUrl || null,
             iconForegroundColor: device.iconForegroundColor || null,
+            shortName: String(device.shortName || '').trim() || null,
+            floorplanLabelText: this.getDeviceFloorplanLabelText(device),
+            customAttributes: this.cloneFloorplanSymbolAttributes(floorplanSnapshot?.customAttributes),
+            tags: this.cloneFloorplanSymbolTags(floorplanSnapshot?.tags),
+            mediaFiles: this.cloneFloorplanSymbolMediaFiles(floorplanSnapshot?.mediaFiles),
             bomRowParts
         }]
     }
 
-    private applyDeviceIconSnapshot(row: ProjectBomRow, device: VwDevice): void {
+    private applyDeviceFloorplanSnapshot(row: ProjectBomRow, device: VwDevice, floorplanSnapshot?: ProjectBomDeviceFloorplanSnapshot): void {
+        row.deviceId = String(device.deviceId || '').trim() || null
         row.iconId = device.iconId || null
         row.iconLabel = device.iconLabel || null
         row.iconDataUrl = device.iconDataUrl || null
         row.iconForegroundColor = device.iconForegroundColor || null
+        row.shortName = String(device.shortName || '').trim() || null
+        row.floorplanLabelText = this.getDeviceFloorplanLabelText(device)
+        row.customAttributes = this.cloneFloorplanSymbolAttributes(floorplanSnapshot?.customAttributes)
+        row.tags = this.cloneFloorplanSymbolTags(floorplanSnapshot?.tags)
+        row.mediaFiles = this.cloneFloorplanSymbolMediaFiles(floorplanSnapshot?.mediaFiles)
+    }
+
+    private async loadDeviceFloorplanSnapshot(deviceId: unknown): Promise<ProjectBomDeviceFloorplanSnapshot> {
+        const normalizedDeviceId = String(deviceId || '').trim()
+        if (!normalizedDeviceId) {
+            return { customAttributes: [], tags: [], mediaFiles: [] }
+        }
+
+        try {
+            const [attributesResponse, tagsResponse, mediaResponse] = await Promise.all([
+                firstValueFrom(this.http.get<{ rows?: MaterialAttribute[] }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/attributes`)),
+                firstValueFrom(this.http.get<{ data?: { tags?: ProjectFloorplanSymbolTag[] } }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/tags`)),
+                firstValueFrom(this.http.get<{ data?: { files?: ProjectFloorplanSymbolMediaFile[] } }>(`/api/firewire/devices/${encodeURIComponent(normalizedDeviceId)}/media`))
+            ])
+            return {
+                customAttributes: this.cloneFloorplanSymbolAttributes((attributesResponse?.rows || []).map((attribute) => ({
+                    name: String(attribute.name || '').trim(),
+                    value: String(attribute.defaultValue || '').trim(),
+                    defaultValue: String(attribute.defaultValue || '').trim(),
+                    valueType: String(attribute.valueType || 'text').trim() || 'text',
+                    isReadOnly: !!attribute.isReadOnly
+                }))),
+                tags: this.cloneFloorplanSymbolTags(tagsResponse?.data?.tags),
+                mediaFiles: this.cloneFloorplanSymbolMediaFiles(mediaResponse?.data?.files)
+            }
+        } catch {
+            return { customAttributes: [], tags: [], mediaFiles: [] }
+        }
+    }
+
+    private cloneFloorplanSymbolAttributes(input: unknown): ProjectFloorplanSymbolAttribute[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((attribute: any) => ({
+            name: String(attribute?.name || '').trim(),
+            value: String(attribute?.value ?? attribute?.defaultValue ?? '').trim(),
+            defaultValue: String(attribute?.defaultValue || '').trim(),
+            valueType: String(attribute?.valueType || 'text').trim() || 'text',
+            isReadOnly: !!attribute?.isReadOnly
+        })).filter((attribute) => !!attribute.name)
+    }
+
+    private cloneFloorplanSymbolTags(input: unknown): ProjectFloorplanSymbolTag[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        const seen = new Set<string>()
+        const tags: ProjectFloorplanSymbolTag[] = []
+        for (const raw of input) {
+            const label = String((raw as any)?.label ?? raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 80)
+            if (!label) {
+                continue
+            }
+            const key = label.toLowerCase()
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            tags.push({
+                id: String((raw as any)?.id || '').trim() || this.createClientId(),
+                label
+            })
+        }
+        return tags
+    }
+
+    private cloneFloorplanSymbolMediaFiles(input: unknown): ProjectFloorplanSymbolMediaFile[] {
+        if (!Array.isArray(input)) {
+            return []
+        }
+        return input.map((file: any) => ({
+            id: String(file?.id || '').trim(),
+            fileName: String(file?.fileName || file?.name || '').trim(),
+            mimeType: String(file?.mimeType || '').trim() || undefined,
+            sizeBytes: typeof file?.sizeBytes === 'undefined' || file?.sizeBytes === null ? undefined : Number(file.sizeBytes),
+            uploadedAt: String(file?.uploadedAt || '').trim() || undefined
+        })).filter((file) => !!file.id && !!file.fileName)
     }
 
     private createBomRowPartsFromVendorPart(part: VwPart): ProjectBomRowPart[] {
@@ -3183,13 +3323,18 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     existing.totalQty += qty
                     existing.partDescription = existing.partDescription || partDescription
                     existing.iconDataUrl = existing.iconDataUrl || row.iconDataUrl || null
+                    existing.customAttributes = existing.customAttributes?.length ? existing.customAttributes : this.cloneFloorplanSymbolAttributes(row.customAttributes)
+                    existing.tags = existing.tags?.length ? existing.tags : this.cloneFloorplanSymbolTags(row.tags)
+                    existing.mediaFiles = existing.mediaFiles?.length ? existing.mediaFiles : this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                     continue
                 }
 
                 bySymbol.set(id, {
                     id,
                     bomRowId: row.id,
+                    deviceId: String(row.deviceId || '').trim() || undefined,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
+                    floorplanLabelText: this.getBomRowFloorplanLabelText(row, categoryName, deviceName),
                     label: deviceName,
                     color: this.getFloorplanSymbolColor(categoryKey),
                     totalQty: qty,
@@ -3199,6 +3344,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     categoryName,
                     partNumber,
                     deviceName,
+                    shortName: String(row.shortName || '').trim(),
                     partDescription,
                     iconId: row.iconId || null,
                     iconLabel: row.iconLabel || null,
@@ -3206,7 +3352,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     iconForegroundColor: row.iconForegroundColor || null,
                     materialCost: Number(row.cost || 0),
                     laborHours: Number(row.labor || 0),
-                    customAttributes: []
+                    customAttributes: this.cloneFloorplanSymbolAttributes(row.customAttributes),
+                    tags: this.cloneFloorplanSymbolTags(row.tags),
+                    mediaFiles: this.cloneFloorplanSymbolMediaFiles(row.mediaFiles)
                 })
             }
         }
@@ -3406,9 +3554,12 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     bomRowId: symbol.bomRowId,
                     symbolId: symbol.id,
                     categoryKey: symbol.categoryKey,
+                    deviceId: symbol.deviceId,
                     categoryName: symbol.categoryName,
                     partNumber: symbol.partNumber,
                     deviceName: symbol.deviceName,
+                    shortName: symbol.shortName,
+                    floorplanLabelText: symbol.floorplanLabelText,
                     partDescription: symbol.partDescription,
                     iconId: symbol.iconId,
                     iconLabel: symbol.iconLabel,
@@ -3416,15 +3567,17 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     iconForegroundColor: symbol.iconForegroundColor,
                     materialCost: symbol.materialCost,
                     laborHours: symbol.laborHours,
-                    customAttributes: symbol.customAttributes ? [...symbol.customAttributes] : undefined,
-                    symbol: symbol.code,
+                    customAttributes: this.cloneFloorplanSymbolAttributes(symbol.customAttributes),
+                    tags: this.cloneFloorplanSymbolTags(symbol.tags),
+                    mediaFiles: this.cloneFloorplanSymbolMediaFiles(symbol.mediaFiles),
+                    symbol: symbol.floorplanLabelText || symbol.code,
                     label: symbol.label,
                     color: symbol.color
                 }
                 for (const [key, value] of Object.entries(updates) as [keyof ProjectFloorplanDesignAnnotation, any][]) {
-                    if (key === 'customAttributes') {
-                        if (JSON.stringify(annotation.customAttributes || []) !== JSON.stringify(value || [])) {
-                            annotation.customAttributes = value
+                    if (key === 'customAttributes' || key === 'tags' || key === 'mediaFiles') {
+                        if (typeof (annotation as any)[key] === 'undefined') {
+                            ;(annotation as any)[key] = value
                             changed = true
                         }
                         continue
@@ -3471,6 +3624,20 @@ export class ProjectPage implements OnChanges, OnDestroy {
             ? words.map((word) => word[0]).join('')
             : source.slice(0, 3)
         return code.slice(0, 3).toUpperCase() || 'SY'
+    }
+
+    private getBomRowFloorplanLabelText(row: ProjectBomRow, categoryName: string, deviceName: string): string {
+        return String(row.floorplanLabelText || '').trim().replace(/\s+/g, '').slice(0, 4)
+            || this.createFloorplanSymbolCode(categoryName, deviceName)
+    }
+
+    private getDeviceFloorplanLabelText(device: VwDevice): string | null {
+        const explicit = String(device.floorplanLabelText || '').trim().replace(/\s+/g, '').slice(0, 4)
+        if (explicit) {
+            return explicit
+        }
+        const fallback = this.createFloorplanSymbolCode(String(device.categoryName || ''), String(device.shortName || device.name || device.partNumber || ''))
+        return fallback || null
     }
 
     private getFloorplanSymbolColor(key: string): string {
@@ -4095,6 +4262,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     private createEmptyBomRow(): ProjectBomRow {
         return {
             id: this.createClientId(),
+            deviceId: null,
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -4107,6 +4275,11 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             iconLabel: null,
             iconDataUrl: null,
             iconForegroundColor: null,
+            shortName: null,
+            floorplanLabelText: null,
+            customAttributes: [],
+            tags: [],
+            mediaFiles: [],
             bomRowParts: []
         }
     }
@@ -4126,6 +4299,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                     const bomRowParts = this.cloneBomRowParts(row?.bomRowParts)
                     return {
                         id: String(row?.id || this.createClientId()),
+                        deviceId: String(row?.deviceId || '').trim() || null,
                         partNbr: String(row?.partNbr || '').trim(),
                         lookupQuery: String(row?.partNbr || '').trim(),
                         description: this.getBomDescriptionWithParts(String(row?.description || '').trim(), bomRowParts),
@@ -4138,6 +4312,11 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                         iconLabel: String(row?.iconLabel || '').trim() || null,
                         iconDataUrl: String(row?.iconDataUrl || '').trim() || null,
                         iconForegroundColor: String(row?.iconForegroundColor || '').trim() || null,
+                        shortName: String(row?.shortName || '').trim() || null,
+                        floorplanLabelText: String(row?.floorplanLabelText || '').trim().slice(0, 4) || null,
+                        customAttributes: this.cloneFloorplanSymbolAttributes(row?.customAttributes),
+                        tags: this.cloneFloorplanSymbolTags(row?.tags),
+                        mediaFiles: this.cloneFloorplanSymbolMediaFiles(row?.mediaFiles),
                         bomRowParts
                     }
                 })
@@ -4154,6 +4333,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
             rows: (section.rows || []).map((row) => ({
                 id: String(row.id || this.createClientId()),
+                deviceId: String(row.deviceId || '').trim() || null,
                 partNbr: String(row.partNbr || '').trim(),
                 description: this.getBomDescriptionWithParts(String(row.description || '').trim(), row.bomRowParts || []),
                 qty: Number(row.qty || 0),
@@ -4165,6 +4345,11 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 iconLabel: row.iconLabel || null,
                 iconDataUrl: row.iconDataUrl || null,
                 iconForegroundColor: row.iconForegroundColor || null,
+                shortName: row.shortName || null,
+                floorplanLabelText: String(row.floorplanLabelText || '').trim().slice(0, 4) || null,
+                customAttributes: this.cloneFloorplanSymbolAttributes(row.customAttributes),
+                tags: this.cloneFloorplanSymbolTags(row.tags),
+                mediaFiles: this.cloneFloorplanSymbolMediaFiles(row.mediaFiles),
                 bomRowParts: this.cloneBomRowParts(row.bomRowParts)
             }))
         }))
@@ -4254,6 +4439,34 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 console.error(err)
                 this.firewireSaveMessage = this.resolveErrorMessage(err, 'Unable to update project lock.')
             }
+        })
+    }
+
+    async openManageReportSettingsDialog(): Promise<void> {
+        if (!this.firewireProject || this.isFirewireProjectLocked()) {
+            return
+        }
+
+        this.ensureReportSettingsDefaults()
+        const result = await firstValueFrom(this.dialog.open(ProjectReportSettingsDialog, {
+            panelClass: 'fw-dialog-pane',
+            width: '900px',
+            maxWidth: '96vw',
+            data: {
+                projectName: this.firewireForm.name || this.firewireProject.name || 'Project',
+                projectType: this.getCurrentProjectType(),
+                settings: this.cloneJson(this.reportSettings)
+            } satisfies ProjectReportSettingsDialogData
+        }).afterClosed()) as ProjectReportSettings | undefined
+
+        if (!result) {
+            return
+        }
+
+        this.reportSettings = this.normalizeReportSettings(result)
+        this.firewireSaveMessage = 'Saving report settings...'
+        this.saveFirewireProjectRequest().subscribe((saved) => {
+            this.firewireSaveMessage = saved ? 'Report settings saved.' : this.firewireSaveMessage
         })
     }
 
@@ -4915,6 +5128,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.projectSettingsApi.getCatalog().subscribe({
             next: (catalog) => {
                 this.projectSettings = catalog
+                this.ensureReportSettingsDefaults()
             },
             error: (err) => {
                 console.error(err)
@@ -5404,6 +5618,14 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
     }
 
+    clearProjectSuccessToast() {
+        this.projectSuccessToast = ''
+        if (this.projectSuccessToastTimer) {
+            clearTimeout(this.projectSuccessToastTimer)
+            this.projectSuccessToastTimer = undefined
+        }
+    }
+
     private showProjectUploadErrorToast(message: string) {
         this.projectUploadErrorToast = message
         if (this.projectUploadErrorToastTimer) {
@@ -5413,6 +5635,17 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             this.projectUploadErrorToast = ''
             this.projectUploadErrorToastTimer = undefined
         }, 6000)
+    }
+
+    private showProjectSuccessToast(message: string) {
+        this.projectSuccessToast = message
+        if (this.projectSuccessToastTimer) {
+            clearTimeout(this.projectSuccessToastTimer)
+        }
+        this.projectSuccessToastTimer = setTimeout(() => {
+            this.projectSuccessToast = ''
+            this.projectSuccessToastTimer = undefined
+        }, 5000)
     }
 
     private storeRecentProject(project: FirewireProjectSchema) {
@@ -5457,6 +5690,93 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         } catch {}
     }
 
+    private ensureReportSettingsDefaults(): void {
+        this.reportSettings = this.normalizeReportSettings(this.reportSettings)
+    }
+
+    private createDefaultReportSettings(): ProjectReportSettings {
+        const projectType = this.getCurrentProjectType()
+        return {
+            projectType,
+            assumptions: this.createDefaultReportSettingItems('assumptions'),
+            inclusions: this.createDefaultReportSettingItems('inclusions'),
+            exclusions: this.createDefaultReportSettingItems('exclusions')
+        }
+    }
+
+    private normalizeReportSettings(input: unknown): ProjectReportSettings {
+        const projectType = this.getCurrentProjectType()
+        const raw = (input || {}) as Partial<ProjectReportSettings>
+        const previousType = String(raw.projectType || '').trim()
+        const shouldPreserveExistingSelections = !previousType || previousType === projectType
+        return {
+            projectType,
+            assumptions: this.mergeReportSettingItems('assumptions', shouldPreserveExistingSelections ? raw.assumptions : []),
+            inclusions: this.mergeReportSettingItems('inclusions', shouldPreserveExistingSelections ? raw.inclusions : []),
+            exclusions: this.mergeReportSettingItems('exclusions', shouldPreserveExistingSelections ? raw.exclusions : [])
+        }
+    }
+
+    private mergeReportSettingItems(listKey: ProjectReportSettingsListKey, existingInput: unknown): ProjectReportSettingsItem[] {
+        const existingItems = Array.isArray(existingInput) ? existingInput as Partial<ProjectReportSettingsItem>[] : []
+        const existingById = new Map(existingItems
+            .map((item) => [String(item.settingId || '').trim(), item] as const)
+            .filter(([settingId]) => !!settingId))
+        const existingByLabel = new Map(existingItems
+            .map((item) => [String(item.label || '').trim().toLowerCase(), item] as const)
+            .filter(([label]) => !!label))
+        const defaults = this.getActiveDivisionReportSettings(listKey)
+
+        if (defaults.length <= 0 && existingItems.length > 0) {
+            return existingItems.map((item, index) => this.normalizeProjectReportSettingItem(item, index))
+                .filter((item) => !!item.label)
+                .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
+        }
+
+        return defaults.map((setting, index) => {
+            const existing = existingById.get(setting.uuid) || existingByLabel.get(String(setting.label || '').trim().toLowerCase())
+            return {
+                settingId: setting.uuid,
+                label: String(setting.label || '').trim(),
+                description: String(setting.description || '').trim(),
+                sortOrder: Number(setting.sortOrder ?? index * 10),
+                included: typeof existing?.included === 'boolean' ? existing.included : true
+            }
+        }).filter((item) => !!item.label)
+            .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
+    }
+
+    private normalizeProjectReportSettingItem(item: Partial<ProjectReportSettingsItem>, index: number): ProjectReportSettingsItem {
+        return {
+            settingId: String(item.settingId || '').trim() || this.createClientId(),
+            label: String(item.label || '').trim(),
+            description: String(item.description || '').trim(),
+            sortOrder: Number(item.sortOrder ?? index * 10),
+            included: item.included !== false
+        }
+    }
+
+    private createDefaultReportSettingItems(listKey: ProjectReportSettingsListKey): ProjectReportSettingsItem[] {
+        return this.getActiveDivisionReportSettings(listKey).map((item, index) => ({
+            settingId: item.uuid,
+            label: String(item.label || '').trim(),
+            description: String(item.description || '').trim(),
+            sortOrder: Number(item.sortOrder ?? index * 10),
+            included: true
+        })).filter((item) => !!item.label)
+    }
+
+    private getActiveDivisionReportSettings(listKey: ProjectReportSettingsListKey): ProjectSettingItemSchema[] {
+        const projectType = this.getCurrentProjectType()
+        return (this.projectSettings[listKey] || [])
+            .filter((item) => item.isActive && String(item.division || '').trim() === projectType)
+            .sort((left, right) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0) || String(left.label || '').localeCompare(String(right.label || '')))
+    }
+
+    private getCurrentProjectType(): string {
+        return String(this.firewireForm.projectType || this.firewireProject?.projectType || 'Fire Alarm').trim() || 'Fire Alarm'
+    }
+
     private createEmptyFirewireForm(): FirewireProjectUpsert {
         return {
             name: '',
@@ -5490,6 +5810,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         return this.cloneJson({
             customerInfo: this.customerInfo,
             floorplanFolders: this.floorplanFolders,
+            reportSettings: this.normalizeReportSettings(this.reportSettings),
+            ...(this.changeOrderBaseline ? { changeOrderBaseline: this.cloneJson(this.changeOrderBaseline) } : {}),
             baseManHourEstimate: Number(this.baseManHourEstimate || 0),
             workingHeightBands: this.workingHeightBands,
             workingHeightFactorMultiplier: Number(this.workingHeightFactorMultiplier || 0),
@@ -5542,6 +5864,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             ...this.cloneJson(worksheet.customerInfo || {})
         }
         this.floorplanFolders = this.normalizeFloorplanFolders(worksheet.floorplanFolders || this.worksheetDefaults.floorplanFolders)
+        this.reportSettings = this.normalizeReportSettings(worksheet.reportSettings)
+        this.changeOrderBaseline = worksheet.changeOrderBaseline ? this.cloneJson(worksheet.changeOrderBaseline) : null
         this.baseManHourEstimate = Number(worksheet.baseManHourEstimate ?? this.worksheetDefaults.baseManHourEstimate)
         this.workingHeightBands = this.cloneJson(worksheet.workingHeightBands || this.worksheetDefaults.workingHeightBands)
         this.workingHeightFactorMultiplier = Number(worksheet.workingHeightFactorMultiplier ?? this.worksheetDefaults.workingHeightFactorMultiplier)
@@ -5680,6 +6004,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             data: {
                 file,
                 imageUrl: this.getFloorplanVersionContent(file),
+                baselineDesign: this.getChangeOrderBaselineFloorplanDesign(file),
                 symbols: this.getFloorplanDesignerSymbols(),
                 validateDesign: (design: ProjectFloorplanDesignState) => this.getFloorplanSymbolBalanceErrors(file.id, design)
             }
@@ -5701,6 +6026,29 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         } finally {
             this.setFloorplanSaving(file.id, false)
         }
+    }
+
+    private getChangeOrderBaselineFloorplanDesign(file: ProjectDocLibraryFileRecord): ProjectFloorplanDesignState | undefined {
+        const baselineFloorplans = Array.isArray(this.changeOrderBaseline?.floorplans)
+            ? this.changeOrderBaseline.floorplans
+            : []
+        if (baselineFloorplans.length <= 0) {
+            return undefined
+        }
+
+        const sourceFileId = String(file.changeOrderSourceFileId || '').trim()
+        const sourceFileName = String(file.sourceFileName || '').trim().toLowerCase()
+        const displayName = String(file.name || '').trim().toLowerCase()
+        const match = baselineFloorplans.find((candidate: any) => {
+            const candidateId = String(candidate?.id || candidate?.fileId || '').trim()
+            const candidateSourceName = String(candidate?.sourceFileName || '').trim().toLowerCase()
+            const candidateName = String(candidate?.name || '').trim().toLowerCase()
+            return (!!sourceFileId && candidateId === sourceFileId)
+                || (!!sourceFileName && candidateSourceName === sourceFileName)
+                || (!!displayName && candidateName === displayName)
+        })
+        const design = match?.floorplanDesign || match?.design
+        return design ? this.cloneJson(design) : undefined
     }
 
     private setFloorplanSaving(fileId: string, saving: boolean): void {
@@ -6227,6 +6575,212 @@ export class ProjectDocLibraryVersionsDialog {
 
     download(versionId: string): void {
         this.data.onDownload(versionId)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'project-report-settings-dialog',
+    imports: [
+        CommonModule,
+        NgFor,
+        NgIf,
+        MatButtonModule,
+        MatCheckboxModule,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose,
+        MatIconModule
+    ],
+    template: `
+        <div class="fw-dialog-titlebar" mat-dialog-title>
+            <div class="fw-dialog-titlebar__text">
+                <span>Project Reports</span>
+                <h2>Manage Report Settings</h2>
+            </div>
+            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" mat-dialog-close aria-label="Close dialog">
+                <mat-icon fontIcon="close"></mat-icon>
+            </button>
+        </div>
+        <mat-dialog-content class="project-report-settings-dialog">
+            <section class="project-report-settings-dialog__hero">
+                <div>
+                    <div class="project-report-settings-dialog__eyebrow">Project</div>
+                    <strong>{{data.projectName}}</strong>
+                </div>
+                <div>
+                    <div class="project-report-settings-dialog__eyebrow">Division</div>
+                    <strong>{{data.projectType}}</strong>
+                </div>
+            </section>
+
+            <section *ngFor="let section of sections" class="project-report-settings-dialog__section">
+                <div class="project-report-settings-dialog__section-header">
+                    <div>
+                        <div class="project-report-settings-dialog__eyebrow">{{section.title}}</div>
+                        <h3>{{getIncludedCount(section)}} of {{section.items.length}} included</h3>
+                    </div>
+                    <div class="project-report-settings-dialog__section-actions" *ngIf="section.items.length > 0">
+                        <button mat-button type="button" (click)="setSectionIncluded(section, true)">Include All</button>
+                        <button mat-button type="button" (click)="setSectionIncluded(section, false)">Remove All</button>
+                    </div>
+                </div>
+
+                <div *ngIf="section.items.length > 0; else noReportItems" class="project-report-settings-dialog__list">
+                    <label *ngFor="let item of section.items" class="project-report-settings-dialog__item" [class.is-muted]="!item.included">
+                        <mat-checkbox [checked]="item.included" (change)="item.included = $event.checked"></mat-checkbox>
+                        <span>
+                            <strong>{{item.label}}</strong>
+                            <small *ngIf="item.description">{{item.description}}</small>
+                        </span>
+                    </label>
+                </div>
+            </section>
+
+            <ng-template #noReportItems>
+                <div class="project-report-settings-dialog__empty">No active division defaults are configured for this list.</div>
+            </ng-template>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button type="button" (click)="save()">Save Report Settings</button>
+        </mat-dialog-actions>
+    `,
+    styles: [`
+        .project-report-settings-dialog {
+            display: grid;
+            gap: 14px;
+            min-width: min(760px, 88vw);
+            max-height: 72vh;
+        }
+        .project-report-settings-dialog__hero,
+        .project-report-settings-dialog__section {
+            border: 1px solid rgba(72, 221, 255, 0.16);
+            background: rgba(7, 14, 24, 0.72);
+        }
+        .project-report-settings-dialog__hero {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            padding: 14px;
+        }
+        .project-report-settings-dialog__hero strong,
+        .project-report-settings-dialog__section-header h3,
+        .project-report-settings-dialog__item strong {
+            color: var(--fw-text);
+        }
+        .project-report-settings-dialog__eyebrow {
+            color: var(--fw-accent);
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        .project-report-settings-dialog__section {
+            display: grid;
+            gap: 10px;
+            padding: 14px;
+        }
+        .project-report-settings-dialog__section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .project-report-settings-dialog__section-header h3 {
+            margin: 3px 0 0;
+            font-size: 0.96rem;
+            letter-spacing: 0;
+        }
+        .project-report-settings-dialog__section-actions {
+            display: flex;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+        .project-report-settings-dialog__list {
+            display: grid;
+            gap: 8px;
+        }
+        .project-report-settings-dialog__item {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            padding: 10px;
+            border: 1px solid rgba(72, 221, 255, 0.12);
+            background: rgba(4, 9, 16, 0.58);
+        }
+        .project-report-settings-dialog__item.is-muted {
+            opacity: 0.58;
+        }
+        .project-report-settings-dialog__item span {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+        }
+        .project-report-settings-dialog__item strong,
+        .project-report-settings-dialog__item small {
+            overflow-wrap: anywhere;
+        }
+        .project-report-settings-dialog__item small,
+        .project-report-settings-dialog__empty {
+            color: rgba(198, 216, 228, 0.72);
+            line-height: 1.35;
+        }
+        .project-report-settings-dialog__empty {
+            padding: 10px;
+            border: 1px dashed rgba(72, 221, 255, 0.18);
+        }
+        @media (max-width: 720px) {
+            .project-report-settings-dialog {
+                min-width: 0;
+            }
+            .project-report-settings-dialog__hero,
+            .project-report-settings-dialog__section-header {
+                grid-template-columns: 1fr;
+                display: grid;
+            }
+            .project-report-settings-dialog__section-actions {
+                justify-content: stretch;
+            }
+        }
+    `]
+})
+export class ProjectReportSettingsDialog {
+    readonly data = inject<ProjectReportSettingsDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<ProjectReportSettingsDialog>)
+    settings: ProjectReportSettings = {
+        ...this.data.settings,
+        assumptions: this.cloneItems(this.data.settings.assumptions),
+        inclusions: this.cloneItems(this.data.settings.inclusions),
+        exclusions: this.cloneItems(this.data.settings.exclusions)
+    }
+    sections: ProjectReportSettingsSection[] = [
+        { key: 'assumptions', title: 'Assumptions', items: this.settings.assumptions },
+        { key: 'inclusions', title: 'Inclusions', items: this.settings.inclusions },
+        { key: 'exclusions', title: 'Exclusions', items: this.settings.exclusions }
+    ]
+
+    getIncludedCount(section: ProjectReportSettingsSection): number {
+        return section.items.filter((item) => item.included).length
+    }
+
+    setSectionIncluded(section: ProjectReportSettingsSection, included: boolean): void {
+        section.items.forEach((item) => item.included = included)
+    }
+
+    save(): void {
+        this.dialogRef.close({
+            projectType: this.data.projectType,
+            assumptions: this.cloneItems(this.settings.assumptions),
+            inclusions: this.cloneItems(this.settings.inclusions),
+            exclusions: this.cloneItems(this.settings.exclusions)
+        } satisfies ProjectReportSettings)
+    }
+
+    private cloneItems(items: ProjectReportSettingsItem[] | undefined): ProjectReportSettingsItem[] {
+        return (items || []).map((item) => ({ ...item }))
     }
 }
 

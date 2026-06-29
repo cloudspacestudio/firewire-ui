@@ -39,6 +39,8 @@ export interface ProjectDocLibraryFileRecord {
     createdAt: string
     updatedAt: string
     floorplanFolderId?: string
+    changeOrderSourceProjectId?: string
+    changeOrderSourceFileId?: string
     floorplanDesign?: ProjectFloorplanDesignState
     versions: ProjectDocLibraryFileVersionRecord[]
 }
@@ -59,9 +61,12 @@ export interface ProjectFloorplanDesignAnnotation {
     bomRowId?: string
     symbolId?: string
     categoryKey?: string
+    deviceId?: string
     categoryName?: string
     partNumber?: string
     deviceName?: string
+    shortName?: string
+    floorplanLabelText?: string
     partDescription?: string
     iconId?: string | null
     iconLabel?: string | null
@@ -70,6 +75,9 @@ export interface ProjectFloorplanDesignAnnotation {
     materialCost?: number
     laborHours?: number
     customAttributes?: ProjectFloorplanSymbolAttribute[]
+    tags?: ProjectFloorplanSymbolTag[]
+    mediaFiles?: ProjectFloorplanSymbolMediaFile[]
+    showAreaOfInfluence?: boolean
     symbol?: string
     label?: string
     text?: string
@@ -81,6 +89,20 @@ export interface ProjectFloorplanSymbolAttribute {
     value?: string
     defaultValue?: string
     valueType?: string
+    isReadOnly?: boolean
+}
+
+export interface ProjectFloorplanSymbolTag {
+    id: string
+    label: string
+}
+
+export interface ProjectFloorplanSymbolMediaFile {
+    id: string
+    fileName: string
+    mimeType?: string
+    sizeBytes?: number
+    uploadedAt?: string
 }
 
 export interface ProjectFloorplanDesignState {

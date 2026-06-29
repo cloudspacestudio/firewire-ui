@@ -16,15 +16,6 @@
             <span class="tabstrip-spacer"></span>
             <div *ngIf="project" class="sales-project-toolbar-actions">
                 <button
-                    *ngIf="activeTab === 'FLOORPLANS'"
-                    mat-stroked-button
-                    type="button"
-                    (click)="onUploadFloorplansClick()"
-                    [disabled]="floorplanUploadBusy">
-                    <mat-icon fontIcon="add_photo_alternate"></mat-icon>
-                    UPLOAD FLOORPLANS
-                </button>
-                <button
                     *ngIf="activeTab === 'DOC LIBRARY'"
                     mat-stroked-button
                     type="button"
@@ -160,29 +151,8 @@
                                 <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
                             </div>
 
-                            <div *ngIf="activeTab === 'CUSTOMER INFO'" class="sales-project-form-panel">
-                                <div class="sales-project-form-grid">
-                                    <mat-form-field>
-                                        <mat-label>Billing Name</mat-label>
-                                        <input matInput [(ngModel)]="customerInfo.billingName" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Email</mat-label>
-                                        <input matInput [(ngModel)]="customerInfo.billingEmail" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Phone</mat-label>
-                                        <input matInput [(ngModel)]="customerInfo.billingPhone" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Contract / PO Number</mat-label>
-                                        <input matInput [(ngModel)]="customerInfo.contractOrPoNumber" />
-                                    </mat-form-field>
-                                    <mat-form-field class="sales-project-form-grid__span-2">
-                                        <mat-label>Billing Address</mat-label>
-                                        <textarea matInput rows="3" [(ngModel)]="customerInfo.billingAddress"></textarea>
-                                    </mat-form-field>
-                                </div>
+                            <div *ngIf="activeTab === 'CUSTOMER INFO'" class="sales-project-form-panel sales-project-form-panel--customer-info">
+                                <firewire-customer-info-card [customerInfo]="customerInfo"></firewire-customer-info-card>
                                 <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
                             </div>
                             <firewire-bom-worksheet
@@ -203,9 +173,17 @@
                                 <firewire-floorplans
                                     [projectKey]="project.uuid"
                                     [files]="getFloorplanFiles()"
+                                    [folders]="floorplanFolders"
+                                    [uploadBusy]="floorplanUploadBusy"
                                     [statusMessage]="floorplanStatusMessage"
                                     [savingFileIds]="floorplanSavingFileIds"
                                     [getPreviewContent]="getFloorplanPreview"
+                                    (createFolder)="createFloorplanFolder()"
+                                    (renameFolder)="renameFloorplanFolder($event)"
+                                    (deleteFolder)="deleteFloorplanFolder($event)"
+                                    (toggleFolder)="toggleFloorplanFolder($event)"
+                                    (uploadFiles)="onUploadFloorplansClick($event)"
+                                    (moveFile)="moveFloorplanFileToFolder($event)"
                                     (renameFile)="renameFloorplanFile($event)"
                                     (designFile)="openFloorplanDesigner($event)"
                                     (downloadFile)="downloadDocLibraryFile($event)"

@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common'
 import { Component, Input, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
+import { firstValueFrom } from 'rxjs'
 
 import { MatButtonModule } from '@angular/material/button'
-import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog'
+import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatIconModule } from '@angular/material/icon'
 import { MatSelectModule } from '@angular/material/select'
@@ -34,6 +35,19 @@ interface BomRowSourceDialogData {
     parts: BomRowSourcePart[]
 }
 
+interface BomRowDeleteConfirmDialogData {
+    symbolCount: number
+    partNumber: string
+}
+
+type BomCsvExportMode = 'device' | 'itemized'
+
+interface BomCsvExportDialogData {
+    selectedMode: BomCsvExportMode
+}
+
+const BOM_CSV_EXPORT_MODE_STORAGE_KEY = 'firewire.bomWorksheet.csvExportMode'
+
 @Component({
     standalone: true,
     selector: 'firewire-bom-worksheet',
@@ -51,6 +65,7 @@ interface BomRowSourceDialogData {
 })
 export class FirewireBomWorksheetComponent {
     private readonly dialog = inject(MatDialog)
+    private floorplanSymbolDeleteConfirmed = false
 
     @Input({ required: true }) host!: any
     @Input() context: 'sales' | 'project' = 'project'
@@ -76,7 +91,7 @@ export class FirewireBomWorksheetComponent {
     }
 
     get canExportCsv(): boolean {
-        return typeof this.host?.exportBomCsv === 'function'
+        return this.getSections().length > 0
     }
 
     get canRemoveSection(): boolean {
@@ -139,6 +154,50 @@ export class FirewireBomWorksheetComponent {
         return this.getBomMaterialTotal() + this.getBomLaborTotal()
     }
 
+    hasChangeOrderBaseline(): boolean {
+        return this.getBaselineSections().length > 0 || this.getBaselineFloorplans().length > 0
+    }
+
+    getBaselineProjectLabel(): string {
+        const baseline = this.getChangeOrderBaseline()
+        const name = String(baseline?.rootProjectName || '').trim()
+        const nbr = String(baseline?.rootProjectNbr || '').trim()
+        if (name && nbr) {
+            return `${name} (${nbr})`
+        }
+        return name || nbr || 'Original Project'
+    }
+
+    getBaselineBomRowCount(): number {
+        return this.getBaselineSections().reduce((sum, section) => sum + this.getSectionRows(section).length, 0)
+    }
+
+    getBaselineFloorplanCount(): number {
+        return this.getBaselineFloorplans().length
+    }
+
+    getBaselineSymbolCount(): number {
+        return this.getBaselineFloorplans().reduce((sum, file) => {
+            const annotations = Array.isArray(file?.floorplanDesign?.annotations) ? file.floorplanDesign.annotations : []
+            return sum + annotations.filter((annotation: any) => annotation?.kind === 'symbol').length
+        }, 0)
+    }
+
+    getBaselineCircuitCount(): number {
+        return this.getBaselineFloorplans().reduce((sum, file) => {
+            const circuits = Array.isArray(file?.floorplanDesign?.circuits) ? file.floorplanDesign.circuits : []
+            return sum + circuits.length
+        }, 0)
+    }
+
+    getBaselineMaterialTotal(): number {
+        return this.getBaselineSections().reduce((sum, section) => sum + this.getBomSectionMaterialTotal(section), 0)
+    }
+
+    getBaselineLaborTotal(): number {
+        return this.getBaselineSections().reduce((sum, section) => sum + this.getBomSectionLaborTotal(section), 0)
+    }
+
     getBomRowSource(row: any): BomRowSourceDialogData | null {
         const parts = this.getBomRowSourceParts(row)
         if (parts.length <= 0) {
@@ -190,6 +249,49 @@ export class FirewireBomWorksheetComponent {
         })
     }
 
+    async openBomCsvExportDialog(): Promise<void> {
+        const selectedMode = this.getPreferredBomCsvExportMode()
+        const result = await firstValueFrom(this.dialog.open(BomCsvExportDialog, {
+            width: '460px',
+            maxWidth: '92vw',
+            panelClass: 'fw-compact-dialog-pane',
+            data: { selectedMode } as BomCsvExportDialogData
+        }).afterClosed())
+
+        if (result !== 'device' && result !== 'itemized') {
+            return
+        }
+
+        this.setPreferredBomCsvExportMode(result)
+        this.exportBomCsv(result)
+    }
+
+    async requestRemoveBomRow(section: any, row: any): Promise<void> {
+        if (this.locked || typeof this.host?.removeBomRow !== 'function') {
+            return
+        }
+
+        const symbolCount = this.getFloorplanSymbolCountForBomRow(row)
+        if (symbolCount > 0 && !this.floorplanSymbolDeleteConfirmed) {
+            const confirmed = await firstValueFrom(this.dialog.open(BomRowDeleteConfirmDialog, {
+                width: '440px',
+                maxWidth: '92vw',
+                panelClass: 'fw-compact-dialog-pane',
+                data: {
+                    symbolCount,
+                    partNumber: String(row?.partNbr || row?.description || 'this BOM row').trim()
+                } as BomRowDeleteConfirmDialogData
+            }).afterClosed())
+
+            if (!confirmed) {
+                return
+            }
+            this.floorplanSymbolDeleteConfirmed = true
+        }
+
+        this.host.removeBomRow(section, row)
+    }
+
     private getBomRowSourceParts(row: any): BomRowSourcePart[] {
         return Array.isArray(row?.bomRowParts)
             ? row.bomRowParts
@@ -202,8 +304,164 @@ export class FirewireBomWorksheetComponent {
             : []
     }
 
+    private exportBomCsv(mode: BomCsvExportMode): void {
+        const csvLines = mode === 'itemized'
+            ? this.buildItemizedPartBomCsvLines()
+            : this.buildDeviceLevelBomCsvLines()
+
+        const blob = new Blob([csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `${this.getBomCsvFileBaseName()}-${mode === 'itemized' ? 'itemized-parts' : 'device-level'}.csv`
+        anchor.click()
+        URL.revokeObjectURL(url)
+    }
+
+    private buildDeviceLevelBomCsvLines(): string[] {
+        const headers = ['PART NBR', 'DESCRIPTION', 'QTY', 'COST', 'EXT COST', 'LABOR', 'EXT LABOR', 'FP', 'TYPE']
+        return this.getSections().flatMap((section) => {
+            const rows = this.getExportRows(section)
+            return [
+                this.toCsvCell(section?.title),
+                headers.join(','),
+                ...rows.map((row) => [
+                    this.toCsvCell(row?.partNbr),
+                    this.toCsvCell(row?.description),
+                    this.toCsvCell(`${Number(row?.qty || 0)}`),
+                    this.toCsvCell(`${this.roundBomMoney(row?.cost)}`),
+                    this.toCsvCell(`${this.getRowMaterialTotal(row)}`),
+                    this.toCsvCell(`${this.roundBomMoney(row?.labor)}`),
+                    this.toCsvCell(`${this.getRowLaborTotal(row)}`),
+                    this.toCsvCell(row?.includeOnFloorplan ? 'Yes' : 'No'),
+                    this.toCsvCell(row?.type)
+                ].join(',')),
+                ''
+            ]
+        })
+    }
+
+    private buildItemizedPartBomCsvLines(): string[] {
+        const headers = [
+            'SECTION',
+            'DEVICE PART NBR',
+            'DEVICE DESCRIPTION',
+            'PART NBR',
+            'PART DESCRIPTION',
+            'PART CATEGORY',
+            'QTY',
+            'COST',
+            'EXT COST',
+            'LABOR',
+            'EXT LABOR',
+            'FP',
+            'TYPE'
+        ]
+        const lines = [headers.join(',')]
+
+        for (const section of this.getSections()) {
+            for (const row of this.getExportRows(section)) {
+                const rowQty = Number(row?.qty || 0)
+                const rowLabor = this.roundBomMoney(row?.labor)
+                const sourceParts = this.getBomRowSourceParts(row)
+                const parts = sourceParts.length > 0 ? sourceParts : [this.createFallbackBomRowPart(row)]
+
+                parts.forEach((part, index) => {
+                    const quantityPerDevice = Math.max(1, Number(part?.quantityPerDevice || 1))
+                    const quantity = rowQty * quantityPerDevice
+                    const cost = this.roundBomMoney(part?.cost ?? row?.cost)
+                    const extCost = this.roundBomMoney(quantity * cost)
+                    const labor = index === 0 ? rowLabor : 0
+                    const extLabor = index === 0 ? this.getRowLaborTotal(row) : 0
+                    lines.push([
+                        this.toCsvCell(section?.title),
+                        this.toCsvCell(row?.partNbr),
+                        this.toCsvCell(row?.description),
+                        this.toCsvCell(part?.partNumber || row?.partNbr),
+                        this.toCsvCell(part?.description || row?.description),
+                        this.toCsvCell(part?.category || part?.parentCategory || ''),
+                        this.toCsvCell(`${quantity}`),
+                        this.toCsvCell(`${cost}`),
+                        this.toCsvCell(`${extCost}`),
+                        this.toCsvCell(`${labor}`),
+                        this.toCsvCell(`${extLabor}`),
+                        this.toCsvCell(row?.includeOnFloorplan ? 'Yes' : 'No'),
+                        this.toCsvCell(row?.type)
+                    ].join(','))
+                })
+            }
+        }
+
+        return lines
+    }
+
+    private createFallbackBomRowPart(row: any): BomRowSourcePart {
+        return {
+            partNumber: String(row?.partNbr || '').trim(),
+            description: String(row?.description || '').trim(),
+            category: String(row?.type || '').trim(),
+            cost: Number(row?.cost || 0),
+            quantityPerDevice: 1
+        }
+    }
+
+    private getExportRows(section: any): any[] {
+        return typeof this.host?.getFilteredBomRows === 'function'
+            ? this.host.getFilteredBomRows(section)
+            : this.getSectionRows(section)
+    }
+
+    private roundBomMoney(value: any): number {
+        if (typeof this.host?.roundBomMoney === 'function') {
+            return Number(this.host.roundBomMoney(value) || 0)
+        }
+        const numeric = Number(value || 0)
+        return Math.round(numeric * 100) / 100
+    }
+
+    private toCsvCell(value: any): string {
+        const raw = value === null || value === undefined ? '' : String(value)
+        return `"${raw.replace(/"/g, '""')}"`
+    }
+
+    private getBomCsvFileBaseName(): string {
+        const name = String(this.host?.firewireProject?.name || this.host?.project?.name || 'project-bom').trim() || 'project-bom'
+        return name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'project-bom'
+    }
+
+    private getPreferredBomCsvExportMode(): BomCsvExportMode {
+        try {
+            const storedMode = window.localStorage.getItem(BOM_CSV_EXPORT_MODE_STORAGE_KEY)
+            return storedMode === 'itemized' ? 'itemized' : 'device'
+        } catch {
+            return 'device'
+        }
+    }
+
+    private setPreferredBomCsvExportMode(mode: BomCsvExportMode): void {
+        try {
+            window.localStorage.setItem(BOM_CSV_EXPORT_MODE_STORAGE_KEY, mode)
+        } catch {
+            // Export still works if browser storage is unavailable.
+        }
+    }
+
     private getSections(): any[] {
         return Array.isArray(this.host?.bomSections) ? this.host.bomSections : []
+    }
+
+    private getChangeOrderBaseline(): any {
+        return this.host?.changeOrderBaseline || this.host?.project?.worksheetData?.changeOrderBaseline || null
+    }
+
+    private getBaselineSections(): any[] {
+        const baseline = this.getChangeOrderBaseline()
+        return Array.isArray(baseline?.bomSections) ? baseline.bomSections : []
+    }
+
+    private getBaselineFloorplans(): any[] {
+        const baseline = this.getChangeOrderBaseline()
+        return Array.isArray(baseline?.floorplans) ? baseline.floorplans : []
     }
 
     private getSectionRows(section: any): any[] {
@@ -222,6 +480,132 @@ export class FirewireBomWorksheetComponent {
             return Number(this.host.getBomRowExtLabor(row) || 0)
         }
         return Number(row?.qty || 0) * Number(row?.labor || 0)
+    }
+
+    private getFloorplanSymbolCountForBomRow(row: any): number {
+        const rowId = String(row?.id || '').trim()
+        const symbolId = rowId ? `bom-row-${rowId}` : ''
+        if (!rowId && !symbolId) {
+            return 0
+        }
+
+        const files = Array.isArray(this.host?.docLibraryFiles) ? this.host.docLibraryFiles : []
+        return files.reduce((sum: number, file: any) => {
+            const annotations = Array.isArray(file?.floorplanDesign?.annotations) ? file.floorplanDesign.annotations : []
+            return sum + annotations.filter((annotation: any) => {
+                if (annotation?.kind !== 'symbol') {
+                    return false
+                }
+                return (!!rowId && String(annotation?.bomRowId || '').trim() === rowId)
+                    || (!!symbolId && String(annotation?.symbolId || '').trim() === symbolId)
+            }).length
+        }, 0)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'firewire-bom-row-delete-confirm-dialog',
+    imports: [
+        CommonModule,
+        MatButtonModule,
+        MatDialogActions,
+        MatDialogClose,
+        MatDialogContent,
+        MatDialogTitle,
+        MatIconModule,
+    ],
+    template: `
+        <h2 mat-dialog-title>Delete BOM Row</h2>
+        <mat-dialog-content>
+            <p>
+                Delete <strong>{{data.partNumber}}</strong>?
+                This will also remove {{data.symbolCount}} placed floorplan symbol{{data.symbolCount === 1 ? '' : 's'}} tied to this BOM row.
+            </p>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button mat-dialog-close type="button">Cancel</button>
+            <button mat-flat-button color="warn" type="button" (click)="confirm()">Delete</button>
+        </mat-dialog-actions>
+    `
+})
+export class BomRowDeleteConfirmDialog {
+    readonly data = inject<BomRowDeleteConfirmDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<BomRowDeleteConfirmDialog>)
+
+    confirm(): void {
+        this.dialogRef.close(true)
+    }
+}
+
+@Component({
+    standalone: true,
+    selector: 'firewire-bom-csv-export-dialog',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MatButtonModule,
+        MatDialogActions,
+        MatDialogContent,
+        MatDialogTitle,
+        MatIconModule,
+    ],
+    template: `
+        <h2 mat-dialog-title>Export BOM CSV</h2>
+        <mat-dialog-content>
+            <section class="bom-csv-export-dialog">
+                <button
+                    type="button"
+                    class="bom-csv-export-dialog__option"
+                    [class.is-selected]="selectedMode === 'device'"
+                    (click)="selectedMode = 'device'">
+                    <span class="bom-csv-export-dialog__radio" aria-hidden="true"></span>
+                    <span>
+                        <strong>Device Level BOM Export</strong>
+                        <small>Exports the worksheet rows as shown across all BOM sections.</small>
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    class="bom-csv-export-dialog__option"
+                    [class.is-selected]="selectedMode === 'itemized'"
+                    (click)="selectedMode = 'itemized'">
+                    <span class="bom-csv-export-dialog__radio" aria-hidden="true"></span>
+                    <span>
+                        <strong>Itemized Part BOM Export</strong>
+                        <small>Exports underlying device parts with quantities, costs, labor, floorplan, and type.</small>
+                    </span>
+                </button>
+            </section>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button type="button" (click)="cancel()">Cancel</button>
+            <button mat-flat-button color="primary" type="button" (click)="export()">Export CSV</button>
+        </mat-dialog-actions>
+    `,
+    styles: [`
+        .bom-csv-export-dialog{display:grid;gap:10px;color:var(--fw-text)}
+        .bom-csv-export-dialog__option{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;width:100%;padding:12px 14px;border:1px solid rgba(72,221,255,.22);background:rgba(3,12,22,.52);color:inherit;text-align:left;cursor:pointer}
+        .bom-csv-export-dialog__option:hover{border-color:rgba(72,221,255,.45);background:rgba(72,221,255,.08)}
+        .bom-csv-export-dialog__option.is-selected{border-color:rgba(72,221,255,.78);box-shadow:inset 3px 0 0 rgba(72,221,255,.9);background:linear-gradient(90deg,rgba(72,221,255,.14),rgba(3,12,22,.58))}
+        .bom-csv-export-dialog__option strong{display:block;color:#f4fbff;font-size:.92rem;letter-spacing:.02em}
+        .bom-csv-export-dialog__option small{display:block;margin-top:3px;color:rgba(214,238,255,.72);font-size:.78rem;line-height:1.35}
+        .bom-csv-export-dialog__radio{display:inline-grid;place-items:center;width:18px;height:18px;border:1px solid rgba(165,214,236,.58);border-radius:50%;background:rgba(3,12,22,.86)}
+        .bom-csv-export-dialog__option.is-selected .bom-csv-export-dialog__radio::after{content:'';width:8px;height:8px;border-radius:50%;background:rgba(72,221,255,.95);box-shadow:0 0 10px rgba(72,221,255,.68)}
+    `]
+})
+export class BomCsvExportDialog {
+    readonly data = inject<BomCsvExportDialogData>(MAT_DIALOG_DATA)
+    private readonly dialogRef = inject(MatDialogRef<BomCsvExportDialog>)
+
+    selectedMode: BomCsvExportMode = this.data.selectedMode
+
+    cancel(): void {
+        this.dialogRef.close()
+    }
+
+    export(): void {
+        this.dialogRef.close(this.selectedMode)
     }
 }
 

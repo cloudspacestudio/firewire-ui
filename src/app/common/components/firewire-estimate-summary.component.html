@@ -6,12 +6,12 @@
         </div>
         <div class="fw-estimate-summary__badges">
             <div class="fw-estimate-summary__grand-total fw-estimate-summary__grand-total--pretax">
-                <span>Pre-Tax</span>
-                <strong>{{summary.preTax | currency}}</strong>
+                <span>Total Job Cost</span>
+                <strong>{{wholeCurrency(summary.totalCost)}}</strong>
             </div>
             <div class="fw-estimate-summary__grand-total">
-                <span>Quoted Price w/ Tax</span>
-                <strong>{{summary.quotedPriceWithTax | currency}}</strong>
+                <span>Quote w/ Tax If Applicable</span>
+                <strong>{{wholeCurrency(summary.quotedPriceWithTax)}}</strong>
             </div>
         </div>
     </div>
@@ -116,10 +116,21 @@
                     <tbody>
                         <tr><td>Installation Material Total</td><td class="right-align">{{summary.installationMaterialTotal | currency}}</td></tr>
                         <tr><td>Equipment Material Total</td><td class="right-align">{{summary.equipmentMaterialTotal | currency}}</td></tr>
-                        <tr><td>Material Total</td><td class="right-align">{{totalMaterial | currency}}</td></tr>
+                        <tr><td>Rental Equipment Total</td><td class="right-align">{{(summary.rentalEquipmentTotal || 0) | currency}}</td></tr>
+                        <tr><td>Material + Equipment Total</td><td class="right-align">{{totalMaterial | currency}}</td></tr>
                         <tr><td>Material Tax</td><td class="right-align">{{summary.materialTaxAmount | currency}}</td></tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="fw-estimate-summary__tax-grid">
+                <div class="fw-estimate-summary__tax-tile" [class.is-enabled]="summary.useInstallationMaterialTax">
+                    <span>Installation Tax Amount</span>
+                    <strong>{{(summary.useInstallationMaterialTax ? (summary.installationMaterialTaxAmount || 0) : 0) | currency:'USD':'symbol':'1.2-2'}}</strong>
+                </div>
+                <div class="fw-estimate-summary__tax-tile" [class.is-enabled]="summary.useEquipmentMaterialTax">
+                    <span>Equipment Tax Amount</span>
+                    <strong>{{(summary.useEquipmentMaterialTax ? (summary.equipmentMaterialTaxAmount || 0) : 0) | currency:'USD':'symbol':'1.2-2'}}</strong>
+                </div>
             </div>
         </div>
 
@@ -131,16 +142,20 @@
             <div class="fw-estimate-summary__quote-grid">
                 <div class="fw-estimate-summary__quote-group">
                     <div class="fw-estimate-summary__quote-title">Total Cost</div>
-                    <div class="fw-estimate-summary__quote-row"><span>Material</span><strong>{{totalMaterial | currency}}</strong></div>
-                    <div class="fw-estimate-summary__quote-row"><span>Labor</span><strong>{{laborTotal.cost + projectSupportTotal.cost | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Project Support</span><strong>{{projectSupportTotal.cost | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Installation Labor</span><strong>{{laborTotal.cost | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Installation Material</span><strong>{{summary.installationMaterialTotal | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Equipment</span><strong>{{equipmentTotal | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row" *ngFor="let row of summary.costs.slice(4)"><span>{{row.label}}</span><strong>{{row.cost | currency}}</strong></div>
                     <div class="fw-estimate-summary__quote-row"><span>Total Job Cost</span><strong>{{summary.totalCost | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Total Cost w/R&amp;P</span><strong>{{wholeCurrency(summary.totalCostWithRisk || summary.totalCost)}}</strong></div>
                 </div>
                 <div class="fw-estimate-summary__quote-group">
                     <div class="fw-estimate-summary__quote-title">Pricing</div>
-                    <div class="fw-estimate-summary__quote-row"><span>Pre-Tax</span><strong>{{summary.preTax | currency}}</strong></div>
-                    <div class="fw-estimate-summary__quote-row"><span>Margin $</span><strong>{{summary.marginAmount | currency}}</strong></div>
-                    <div class="fw-estimate-summary__quote-row"><span>Quoted Price</span><strong>{{summary.quotedPrice | currency}}</strong></div>
-                    <div class="fw-estimate-summary__quote-row"><span>Quoted Price w/ Tax</span><strong>{{summary.quotedPriceWithTax | currency}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Pre-Tax</span><strong>{{wholeCurrency(summary.preTax)}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Margin $</span><strong>{{wholeCurrency(summary.marginAmount)}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Quoted Price</span><strong>{{wholeCurrency(summary.quotedPrice)}}</strong></div>
+                    <div class="fw-estimate-summary__quote-row"><span>Quote w/ Tax If Applicable</span><strong>{{wholeCurrency(summary.quotedPriceWithTax)}}</strong></div>
                 </div>
             </div>
         </div>

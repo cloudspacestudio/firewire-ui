@@ -73,6 +73,11 @@
     grid-row: 3;
 }
 
+.component-group:nth-child(6) {
+    grid-column: 1 / 4;
+    grid-row: 4;
+}
+
 .device-detail-toolbar {
     display: flex;
     align-items: center;
@@ -112,6 +117,64 @@
     width: 18px;
     height: 18px;
     line-height: 18px;
+}
+
+.device-detail-tag-editor {
+    display: grid;
+    gap: 12px;
+}
+
+.device-detail-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
+.device-detail-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 3px 10px;
+    border: 1px solid rgba(72, 221, 255, 0.28);
+    background: rgba(72, 221, 255, 0.08);
+    color: var(--fw-text);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.device-detail-tag--editable {
+    padding-right: 2px;
+}
+
+.device-detail-tag button.mat-mdc-icon-button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--fw-muted);
+}
+
+.device-detail-tag button mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+}
+
+.device-detail-tag-entry {
+    display: grid;
+    grid-template-columns: minmax(220px, 360px) max-content;
+    gap: 10px;
+    align-items: center;
+    padding: 0 10px 10px;
+}
+
+.device-detail-tag-entry .device-detail-action-button {
+    justify-self: start;
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
 }
 
 .device-detail-table {
@@ -480,14 +543,14 @@
 }
 
 .device-detail-edit-row--custom {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(128px, 0.56fr) 40px;
     column-gap: 8px;
     align-items: center;
     overflow: hidden;
 }
 
 .device-detail-edit-row--managed {
-    grid-template-columns: minmax(0, 1fr) 40px;
+    grid-template-columns: minmax(0, 1fr) minmax(128px, 0.5fr) 40px;
     column-gap: 8px;
     align-items: center;
     overflow: hidden;
@@ -538,6 +601,10 @@
 
 .device-detail-edit-row--custom mat-form-field {
     max-width: 100%;
+}
+
+.device-detail-attribute-mode {
+    min-width: 0;
 }
 
 .device-detail-edit-row--custom button {
@@ -790,7 +857,8 @@
         grid-row: auto;
     }
 
-    .device-detail-edit-row--custom {
+    .device-detail-edit-row--custom,
+    .device-detail-edit-row--managed {
         grid-template-columns: 1fr;
     }
 

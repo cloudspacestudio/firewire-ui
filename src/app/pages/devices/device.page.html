@@ -8,8 +8,8 @@
 </page-toolbar>
 <div class="page-root">
     <div class="page-content">
-
-        <device-detail [deviceId]="deviceId" (deviceLoaded)="loadDevice($event)" (deviceDeleted)="onDeviceDeleted()"></device-detail>
-
+        <div class="content-root">
+            <device-detail [deviceId]="deviceId" (deviceLoaded)="loadDevice($event)" (deviceDeleted)="onDeviceDeleted()"></device-detail>
+        </div>
     </div>
 </div>

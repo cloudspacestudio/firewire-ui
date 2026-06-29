@@ -14,8 +14,15 @@ export interface FirewireEstimateSummaryModel {
     costs: FirewireEstimateSummaryRow[]
     installationMaterialTotal: number
     equipmentMaterialTotal: number
+    rentalEquipmentTotal?: number
+    summaryEquipmentTotal?: number
     materialTaxAmount: number
+    installationMaterialTaxAmount?: number
+    equipmentMaterialTaxAmount?: number
+    useInstallationMaterialTax?: boolean
+    useEquipmentMaterialTax?: boolean
     totalCost: number
+    totalCostWithRisk?: number
     preTax: number
     marginAmount: number
     quotedPrice: number
@@ -42,7 +49,11 @@ export class FirewireEstimateSummaryComponent {
     @Input() title = 'Summary'
 
     get totalMaterial(): number {
-        return Number(this.summary?.installationMaterialTotal || 0) + Number(this.summary?.equipmentMaterialTotal || 0)
+        return Number(this.summary?.installationMaterialTotal || 0) + this.equipmentTotal
+    }
+
+    get equipmentTotal(): number {
+        return Number(this.summary?.summaryEquipmentTotal ?? (Number(this.summary?.equipmentMaterialTotal || 0) + Number(this.summary?.rentalEquipmentTotal || 0)))
     }
 
     get laborTotal(): FirewireEstimateSummaryRow {
@@ -66,6 +77,14 @@ export class FirewireEstimateSummaryComponent {
     perSqFt(value: number): number {
         const sqft = Number(this.summary?.totalSqFt || 0)
         return sqft > 0 ? Number(value || 0) / sqft : 0
+    }
+
+    wholeCurrency(value: number): string {
+        return Math.ceil(Math.max(0, Number(value || 0))).toLocaleString(undefined, {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0
+        })
     }
 
     private totalRow(rows: FirewireEstimateSummaryRow[], label: string): FirewireEstimateSummaryRow {

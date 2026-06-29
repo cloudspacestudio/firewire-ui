@@ -49,14 +49,50 @@
                 </div>
             </div>
             <button *ngIf="canAddSection" mat-stroked-button type="button" (click)="host.addBomSection()" [disabled]="locked || saveWorking">ADD NEW SECTION</button>
-            <button *ngIf="canExportCsv" mat-stroked-button type="button" (click)="host.exportBomCsv()" [disabled]="saveWorking">EXPORT CSV</button>
+            <button *ngIf="canExportCsv" mat-stroked-button type="button" (click)="openBomCsvExportDialog()" [disabled]="saveWorking">EXPORT CSV</button>
         </div>
     </div>
 
     <div *ngIf="context === 'sales' && saveMessage" class="sales-project-form-message sales-project-bom-message">{{saveMessage}}</div>
 
+    <section *ngIf="hasChangeOrderBaseline()" class="change-order-baseline-card" aria-label="Original project reference">
+        <div class="change-order-baseline-card__header">
+            <div>
+                <div class="sales-project-placeholder__eyebrow">Read-only Original Scope</div>
+                <h5>{{getBaselineProjectLabel()}}</h5>
+            </div>
+            <span>Change order delta starts below</span>
+        </div>
+        <div class="change-order-baseline-card__metrics">
+            <div>
+                <span>Original BOM Rows</span>
+                <strong>{{getBaselineBomRowCount()}}</strong>
+            </div>
+            <div>
+                <span>Original Material</span>
+                <strong>{{getBaselineMaterialTotal() | currency:'USD':'symbol':'1.0-0'}}</strong>
+            </div>
+            <div>
+                <span>Original Labor</span>
+                <strong>{{getBaselineLaborTotal() | currency:'USD':'symbol':'1.0-0'}}</strong>
+            </div>
+            <div>
+                <span>Floorplans</span>
+                <strong>{{getBaselineFloorplanCount()}}</strong>
+            </div>
+            <div>
+                <span>Symbols</span>
+                <strong>{{getBaselineSymbolCount()}}</strong>
+            </div>
+            <div>
+                <span>Circuits</span>
+                <strong>{{getBaselineCircuitCount()}}</strong>
+            </div>
+        </div>
+    </section>
+
     <div *ngIf="host.bomSections.length <= 0" class="sales-project-doc-library__empty">
-        {{context === 'sales' ? 'Add a Device Set to start building the project BOM.' : 'No BOM sections have been added yet.'}}
+        {{hasChangeOrderBaseline() ? 'Add devices to this change order BOM. Original project scope remains read-only above.' : (context === 'sales' ? 'Add a Device Set to start building the project BOM.' : 'No BOM sections have been added yet.')}}
     </div>
 
     <div *ngFor="let section of host.bomSections; let sectionIndex = index" class="firewire-bom-section">
@@ -160,20 +196,20 @@
                         <td class="right-align">
                             <span *ngIf="row.includeOnFloorplan; else editableBomQty" class="bom-readonly-qty">{{row.qty || 0}}</span>
                             <ng-template #editableBomQty>
-                                <input type="number" min="0" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomQuantityChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
+                                <input type="number" min="0" max="9999" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomQuantityChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
                             </ng-template>
                         </td>
                         <td class="right-align">
                             <div class="bom-currency-input">
                                 <span>$</span>
-                                <input type="number" min="0" step="1" [(ngModel)]="row.cost" (blur)="host.normalizeBomMoneyField?.(row, 'cost')" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
+                                <input type="number" min="0" max="99999" step="1" [(ngModel)]="row.cost" (blur)="host.normalizeBomMoneyField?.(row, 'cost')" [attr.aria-label]="'BOM cost ' + (idx + 1)" />
                             </div>
                         </td>
                         <td class="right-align bom-total-cell">{{host.getBomRowExtCost(row) | currency:'USD':'symbol':'1.0-0'}}</td>
                         <td class="right-align">
                             <div class="bom-currency-input">
                                 <span>$</span>
-                                <input type="number" min="0" step="1" [(ngModel)]="row.labor" (ngModelChange)="onBomLaborChanged()" (blur)="onBomLaborBlur(row)" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
+                                <input type="number" min="0" max="99999" step="1" [(ngModel)]="row.labor" (ngModelChange)="onBomLaborChanged()" (blur)="onBomLaborBlur(row)" [attr.aria-label]="'BOM labor ' + (idx + 1)" />
                             </div>
                         </td>
                         <td class="right-align bom-total-cell">{{host.getBomRowExtLabor(row) | currency:'USD':'symbol':'1.0-0'}}</td>
@@ -189,7 +225,7 @@
                             <input [(ngModel)]="row.type" (ngModelChange)="onBomShapeChanged()" [attr.aria-label]="'BOM type ' + (idx + 1)" />
                         </td>
                         <td class="bom-actions-cell">
-                            <button mat-icon-button type="button" class="bom-delete-row-button" (click)="host.removeBomRow(section, row)" [disabled]="locked" [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
+                            <button mat-icon-button type="button" class="bom-delete-row-button" (click)="requestRemoveBomRow(section, row)" [disabled]="locked" [attr.aria-label]="'Delete BOM row ' + (idx + 1)">
                                 <mat-icon fontIcon="delete"></mat-icon>
                             </button>
                         </td>
