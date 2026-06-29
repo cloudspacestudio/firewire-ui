@@ -704,9 +704,21 @@
     grid-template-columns: 18px minmax(0, 1fr);
     align-items: center;
     gap: 7px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #aad4ff;
+    font: inherit;
     font-size: 0.76rem;
     text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.floorplan-designer__media-link:hover,
+.floorplan-designer__media-link:focus-visible {
+    color: #e8f6ff;
 }
 
 .floorplan-designer__media-link span {

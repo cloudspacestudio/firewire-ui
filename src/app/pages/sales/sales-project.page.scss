@@ -598,11 +598,11 @@
 }
 
 .bom-col-description {
-    width: auto;
+    width: 100%;
 }
 
 .bom-col-qty {
-    width: 64px;
+    width: 84px;
 }
 
 .bom-col-cost {
@@ -743,6 +743,13 @@
 
 .firewire-bom-grid .right-align input[type='number'] {
     text-align: left;
+}
+
+.firewire-bom-grid .bom-qty-cell input[type='number'] {
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 26px;
+    text-align: right;
 }
 
 .bom-readonly-qty {

@@ -238,15 +238,14 @@
                 </div>
                 <div *ngIf="selectedAnnotation.kind === 'symbol' && getSelectedSymbolMediaFiles().length > 0" class="floorplan-designer__selected-detail-block">
                     <div class="floorplan-designer__selected-subtitle">Media</div>
-                    <a
+                    <button
                         *ngFor="let file of getSelectedSymbolMediaFiles()"
+                        type="button"
                         class="floorplan-designer__media-link"
-                        [href]="getAnnotationMediaDownloadUrl(file)"
-                        target="_blank"
-                        rel="noopener">
+                        (click)="downloadSelectedSymbolMedia(file)">
                         <mat-icon fontIcon="download"></mat-icon>
                         <span>{{file.fileName}}</span>
-                    </a>
+                    </button>
                 </div>
                 <textarea
                     *ngIf="selectedAnnotation.kind !== 'symbol'"

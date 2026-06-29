@@ -751,6 +751,30 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         return `/api/firewire/devices/${encodeURIComponent(deviceId)}/media/${encodeURIComponent(fileId)}/content?disposition=attachment`
     }
 
+    async downloadSelectedSymbolMedia(file: ProjectFloorplanSymbolMediaFile): Promise<void> {
+        const url = this.getAnnotationMediaDownloadUrl(file)
+        if (!url) {
+            this.statusText = 'Unable to download media for this symbol.'
+            return
+        }
+        const fileName = String(file?.fileName || 'device-media').trim() || 'device-media'
+        this.statusText = `Downloading ${fileName}...`
+        try {
+            const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }))
+            const objectUrl = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = objectUrl
+            anchor.download = fileName
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
+            URL.revokeObjectURL(objectUrl)
+            this.statusText = `${fileName} downloaded.`
+        } catch (err: any) {
+            this.statusText = err?.error?.message || err?.message || 'Unable to download device media.'
+        }
+    }
+
     getAnnotationIconStyle(annotation: ProjectFloorplanDesignAnnotation): Record<string, string> {
         const dataUrl = String(annotation.iconDataUrl || '').trim()
         const color = String(annotation.iconForegroundColor || '#210507').trim() || '#210507'

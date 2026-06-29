@@ -193,7 +193,7 @@
                         <td>
                             <textarea fwAutosizeTextarea rows="2" [(ngModel)]="row.description" [attr.aria-label]="'BOM description ' + (idx + 1)"></textarea>
                         </td>
-                        <td class="right-align">
+                        <td class="right-align bom-qty-cell">
                             <span *ngIf="row.includeOnFloorplan; else editableBomQty" class="bom-readonly-qty">{{row.qty || 0}}</span>
                             <ng-template #editableBomQty>
                                 <input type="number" min="0" max="9999" step="1" [(ngModel)]="row.qty" (ngModelChange)="onBomQuantityChanged()" [attr.aria-label]="'BOM quantity ' + (idx + 1)" />
