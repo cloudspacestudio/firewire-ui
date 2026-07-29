@@ -1,6 +1,6 @@
-import { CommonModule, Location } from '@angular/common'
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http'
-import { Component, OnInit } from '@angular/core'
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 import { PageToolbar } from '../../common/components/page-toolbar'
@@ -33,8 +33,9 @@ type RuntimeServerAboutMetadata = Omit<AboutMetadata['server'], 'connection'> & 
 @Component({
     standalone: true,
     selector: 'about-page',
-    imports: [CommonModule, MatButtonModule, MatIconModule, PageToolbar],
+    imports: [MatButtonModule, MatIconModule, PageToolbar],
     templateUrl: './about.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./about.page.scss']
 })
 export class AboutPage implements OnInit {

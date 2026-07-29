@@ -1,6 +1,6 @@
-import { CommonModule } from '@angular/common'
+
 import { HttpClient } from '@angular/common/http'
-import { Component, ViewChild, inject } from '@angular/core'
+import { Component, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { Router, RouterLink } from '@angular/router'
 
@@ -27,21 +27,21 @@ import { ProjectSettingsApi } from '../projects/project-settings.api'
     standalone: true,
     selector: 'sales-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        MatPaginatorModule,
-        MatSelectModule,
-        MatSortModule,
-        MatTableModule,
-        PageToolbar
-    ],
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatPaginatorModule,
+    MatSelectModule,
+    MatSortModule,
+    MatTableModule,
+    PageToolbar
+],
     providers: [HttpClient],
     templateUrl: './sales.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./sales.page.scss']
 })
 export class SalesPage {

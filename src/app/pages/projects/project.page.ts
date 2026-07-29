@@ -1,6 +1,7 @@
-import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from "@angular/core"
-import { NgFor, NgIf } from '@angular/common'
+import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject, ChangeDetectionStrategy } from "@angular/core"
+
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import { FormsModule } from "@angular/forms"
@@ -393,22 +394,29 @@ interface ProjectTemplateRecord {
     updatedAt: string
 }
 
+interface SummaryCostBreakdownItem {
+    key: string
+    label: string
+    cost: number
+    tone: string
+    percent: number
+}
+
+interface SummaryPrimaryMetric {
+    key: string
+    label: string
+    value: string
+}
+
 declare const atlas: any
 
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [NgFor, NgIf, CommonModule, FormsModule,
-        RouterLink, PageToolbar,
-        FirewireBomWorksheetComponent,
-        FirewireCustomerInfoCardComponent,
-        FirewireDocLibraryExplorerComponent, FirewireFloorplansComponent,
-        FirewireTakeoffMatrixComponent,
-        MatButtonModule, MatFormFieldModule,
-        MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule,
-        MatCheckboxModule, MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
+    imports: [CommonModule, FormsModule, RouterLink, PageToolbar, FirewireBomWorksheetComponent, FirewireCustomerInfoCardComponent, FirewireDocLibraryExplorerComponent, FirewireFloorplansComponent, FirewireTakeoffMatrixComponent, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonToggleModule, MatDatepickerModule, MatCheckboxModule, MatChipsModule, MatIconModule, MatCardModule, MatMenuModule, MatDividerModule],
     providers: [HttpClient],
     templateUrl: './project.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./project.page.scss']
 })
 export class ProjectPage implements OnChanges, OnDestroy {
@@ -2953,27 +2961,27 @@ export class ProjectPage implements OnChanges, OnDestroy {
         return total > 0 ? (cost / total) * 100 : 0
     }
 
-    getSummaryCostBreakdown() {
+    getSummaryCostBreakdown(): SummaryCostBreakdownItem[] {
         return [
-            { label: 'Project Support', cost: this.getProjectSupportCost(), tone: 'support' },
-            { label: 'Installation Labor', cost: this.getInstallationLaborTotalCost(), tone: 'labor' },
-            { label: 'Installation Material', cost: this.getInstallationMaterialTotal(), tone: 'material' },
-            { label: 'Equipment', cost: this.getSummaryEquipmentTotal(), tone: 'equipment' },
-            { label: 'Expenses', cost: this.getGeneralExpenseTotal(), tone: 'expenses' },
-            { label: 'Subcontracts', cost: this.getSubcontractTotal(), tone: 'subcontracts' },
-            { label: 'Special Markup', cost: this.getSpecialMarkupTotal(), tone: 'markup' }
+            { key: 'project-support', label: 'Project Support', cost: this.getProjectSupportCost(), tone: 'support' },
+            { key: 'installation-labor', label: 'Installation Labor', cost: this.getInstallationLaborTotalCost(), tone: 'labor' },
+            { key: 'installation-material', label: 'Installation Material', cost: this.getInstallationMaterialTotal(), tone: 'material' },
+            { key: 'equipment', label: 'Equipment', cost: this.getSummaryEquipmentTotal(), tone: 'equipment' },
+            { key: 'expenses', label: 'Expenses', cost: this.getGeneralExpenseTotal(), tone: 'expenses' },
+            { key: 'subcontracts', label: 'Subcontracts', cost: this.getSubcontractTotal(), tone: 'subcontracts' },
+            { key: 'special-markup', label: 'Special Markup', cost: this.getSpecialMarkupTotal(), tone: 'markup' }
         ].map((item) => ({
             ...item,
             percent: this.getSummaryCategoryPercent(item.cost)
         }))
     }
 
-    getSummaryPrimaryMetrics() {
+    getSummaryPrimaryMetrics(): SummaryPrimaryMetric[] {
         return [
-            { label: 'Device Count', value: `${this.getSummaryDeviceCount()}` },
-            { label: 'Square Feet', value: Number(this.firewireForm.totalSqFt || 0).toLocaleString() },
-            { label: 'Project Support', value: `${this.getProjectSupportHours().toFixed(2)} hrs` },
-            { label: 'Field Labor', value: `${this.getInstallationLaborTotalHours().toFixed(2)} hrs` }
+            { key: 'device-count', label: 'Device Count', value: `${this.getSummaryDeviceCount()}` },
+            { key: 'square-feet', label: 'Square Feet', value: Number(this.firewireForm.totalSqFt || 0).toLocaleString() },
+            { key: 'project-support', label: 'Project Support', value: `${this.getProjectSupportHours().toFixed(2)} hrs` },
+            { key: 'field-labor', label: 'Field Labor', value: `${this.getInstallationLaborTotalHours().toFixed(2)} hrs` }
         ]
     }
 
@@ -6514,6 +6522,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         MatDialogActions,
         MatDialogClose
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>File Already Exists</h2>
         <mat-dialog-content>
@@ -6539,36 +6548,38 @@ export class ProjectDocLibraryOverwriteDialog {
     standalone: true,
     selector: 'project-doc-library-versions-dialog',
     imports: [
-        CommonModule,
-        NgFor,
-        MatButtonModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatIconModule
-    ],
+    CommonModule,
+    MatButtonModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatIconModule
+],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>{{data.fileName}}</h2>
         <mat-dialog-content class="project-doc-library-versions-dialog">
-            <div class="project-doc-library-versions-dialog__eyebrow">Stored Versions</div>
-            <div *ngFor="let version of data.versions" class="project-doc-library-versions-dialog__row">
-                <div>
-                    <div class="project-doc-library-versions-dialog__version">Version {{version.versionNumber}}</div>
-                    <div class="project-doc-library-versions-dialog__meta">
-                        {{version.sourceFileName}} · {{version.uploadedBy}} · {{version.uploadedAt | date:'short'}}
-                    </div>
+          <div class="project-doc-library-versions-dialog__eyebrow">Stored Versions</div>
+          @for (version of data.versions; track version) {
+            <div class="project-doc-library-versions-dialog__row">
+              <div>
+                <div class="project-doc-library-versions-dialog__version">Version {{version.versionNumber}}</div>
+                <div class="project-doc-library-versions-dialog__meta">
+                  {{version.sourceFileName}} · {{version.uploadedBy}} · {{version.uploadedAt | date:'short'}}
                 </div>
-                <button mat-stroked-button type="button" (click)="download(version.id)">
-                    <mat-icon fontIcon="download"></mat-icon>
-                    Download
-                </button>
+              </div>
+              <button mat-stroked-button type="button" (click)="download(version.id)">
+                <mat-icon fontIcon="download"></mat-icon>
+                Download
+              </button>
             </div>
+          }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Close</button>
+          <button mat-button mat-dialog-close type="button">Close</button>
         </mat-dialog-actions>
-    `
+        `
 })
 export class ProjectDocLibraryVersionsDialog {
     readonly data = inject<ProjectDocLibraryVersionsDialogData>(MAT_DIALOG_DATA)
@@ -6582,71 +6593,77 @@ export class ProjectDocLibraryVersionsDialog {
     standalone: true,
     selector: 'project-report-settings-dialog',
     imports: [
-        CommonModule,
-        NgFor,
-        NgIf,
-        MatButtonModule,
-        MatCheckboxModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatIconModule
-    ],
+    MatButtonModule,
+    MatCheckboxModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatIconModule
+],
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
-            <div class="fw-dialog-titlebar__text">
-                <span>Project Reports</span>
-                <h2>Manage Report Settings</h2>
-            </div>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" mat-dialog-close aria-label="Close dialog">
-                <mat-icon fontIcon="close"></mat-icon>
-            </button>
+          <div class="fw-dialog-titlebar__text">
+            <span>Project Reports</span>
+            <h2>Manage Report Settings</h2>
+          </div>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" mat-dialog-close aria-label="Close dialog">
+            <mat-icon fontIcon="close"></mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="project-report-settings-dialog">
-            <section class="project-report-settings-dialog__hero">
-                <div>
-                    <div class="project-report-settings-dialog__eyebrow">Project</div>
-                    <strong>{{data.projectName}}</strong>
-                </div>
-                <div>
-                    <div class="project-report-settings-dialog__eyebrow">Division</div>
-                    <strong>{{data.projectType}}</strong>
-                </div>
-            </section>
+          <section class="project-report-settings-dialog__hero">
+            <div>
+              <div class="project-report-settings-dialog__eyebrow">Project</div>
+              <strong>{{data.projectName}}</strong>
+            </div>
+            <div>
+              <div class="project-report-settings-dialog__eyebrow">Division</div>
+              <strong>{{data.projectType}}</strong>
+            </div>
+          </section>
 
-            <section *ngFor="let section of sections" class="project-report-settings-dialog__section">
-                <div class="project-report-settings-dialog__section-header">
-                    <div>
-                        <div class="project-report-settings-dialog__eyebrow">{{section.title}}</div>
-                        <h3>{{getIncludedCount(section)}} of {{section.items.length}} included</h3>
-                    </div>
-                    <div class="project-report-settings-dialog__section-actions" *ngIf="section.items.length > 0">
-                        <button mat-button type="button" (click)="setSectionIncluded(section, true)">Include All</button>
-                        <button mat-button type="button" (click)="setSectionIncluded(section, false)">Remove All</button>
-                    </div>
+          @for (section of sections; track section) {
+            <section class="project-report-settings-dialog__section">
+              <div class="project-report-settings-dialog__section-header">
+                <div>
+                  <div class="project-report-settings-dialog__eyebrow">{{section.title}}</div>
+                  <h3>{{getIncludedCount(section)}} of {{section.items.length}} included</h3>
                 </div>
-
-                <div *ngIf="section.items.length > 0; else noReportItems" class="project-report-settings-dialog__list">
-                    <label *ngFor="let item of section.items" class="project-report-settings-dialog__item" [class.is-muted]="!item.included">
-                        <mat-checkbox [checked]="item.included" (change)="item.included = $event.checked"></mat-checkbox>
-                        <span>
-                            <strong>{{item.label}}</strong>
-                            <small *ngIf="item.description">{{item.description}}</small>
-                        </span>
+                @if (section.items.length > 0) {
+                  <div class="project-report-settings-dialog__section-actions">
+                    <button mat-button type="button" (click)="setSectionIncluded(section, true)">Include All</button>
+                    <button mat-button type="button" (click)="setSectionIncluded(section, false)">Remove All</button>
+                  </div>
+                }
+              </div>
+              @if (section.items.length > 0) {
+                <div class="project-report-settings-dialog__list">
+                  @for (item of section.items; track item) {
+                    <label class="project-report-settings-dialog__item" [class.is-muted]="!item.included">
+                      <mat-checkbox [checked]="item.included" (change)="item.included = $event.checked"></mat-checkbox>
+                      <span>
+                        <strong>{{item.label}}</strong>
+                        @if (item.description) {
+                          <small>{{item.description}}</small>
+                        }
+                      </span>
                     </label>
+                  }
                 </div>
-            </section>
-
-            <ng-template #noReportItems>
+              } @else {
                 <div class="project-report-settings-dialog__empty">No active division defaults are configured for this list.</div>
-            </ng-template>
+              }
+            </section>
+          }
+
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" (click)="save()">Save Report Settings</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" (click)="save()">Save Report Settings</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .project-report-settings-dialog {
             display: grid;
@@ -6788,32 +6805,34 @@ export class ProjectReportSettingsDialog {
     standalone: true,
     selector: 'project-doc-library-category-dialog',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatSelectModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose
-    ],
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose
+],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>{{data.title}}</h2>
         <mat-dialog-content class="project-doc-library-category-dialog">
-            <div class="project-doc-library-category-dialog__hint">Choose the document category for this action.</div>
-            <mat-form-field>
-                <mat-label>Category</mat-label>
-                <mat-select [(ngModel)]="selectedFolderId">
-                    <mat-option *ngFor="let folder of data.folders" [value]="folder.id">{{folder.label}}</mat-option>
-                </mat-select>
-            </mat-form-field>
+          <div class="project-doc-library-category-dialog__hint">Choose the document category for this action.</div>
+          <mat-form-field>
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="selectedFolderId">
+              @for (folder of data.folders; track folder) {
+                <mat-option [value]="folder.id">{{folder.label}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
         </mat-dialog-actions>
-    `
+        `
 })
 export class ProjectDocLibraryCategoryDialog {
     readonly data = inject<ProjectDocLibraryCategoryDialogData>(MAT_DIALOG_DATA)
@@ -6828,7 +6847,8 @@ export class ProjectDocLibraryCategoryDialog {
 @Component({
     standalone: true,
     selector: 'project-doc-library-delete-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>Delete File</h2>
         <mat-dialog-content>

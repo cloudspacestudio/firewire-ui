@@ -1,5 +1,5 @@
-import { Component, Input, inject } from "@angular/core";
-import { NgIf } from "@angular/common";
+import { Component, Input, inject, ChangeDetectionStrategy } from "@angular/core";
+
 import { Router, RouterLink } from "@angular/router";
 
 import { MatToolbarModule } from '@angular/material/toolbar'
@@ -9,7 +9,7 @@ import { MatMenuModule } from '@angular/material/menu'
 
 @Component({
     selector: 'nav-toolbar',
-    imports: [NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule],
+    imports: [RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule],
     styles: [`
         :host {
             display: flex;
@@ -71,12 +71,17 @@ import { MatMenuModule } from '@angular/material/menu'
             margin-left: auto !important;
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
     <div class="button-bar">
-        @for (item of navItems; track item) {
-        <button *ngIf="isActiveItem(item)" mat-flat-button class="active" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
-        <button *ngIf="!isActiveItem(item)" mat-raised-button class="inactive" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
+      @for (item of navItems; track item) {
+        @if (isActiveItem(item)) {
+          <button mat-flat-button class="active" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
         }
+        @if (!isActiveItem(item)) {
+          <button mat-raised-button class="inactive" [class.nav-toolbar__button--right]="item.rightAligned" [routerLink]="item.route" [queryParams]="item.queryParams || null">{{item.caption}}</button>
+        }
+      }
     </div>
 
     `

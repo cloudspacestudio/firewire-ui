@@ -1,8 +1,8 @@
-import { Component, OnInit } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
+import { Component, OnInit, ChangeDetectionStrategy } from "@angular/core"
+
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { RouterLink } from "@angular/router"
 
 import { MatButtonModule } from "@angular/material/button"
@@ -15,19 +15,17 @@ import { NavToolbar } from "../../common/components/nav-toolbar";
 @Component({
     standalone: true,
     selector: 'settings-page',
-    imports: [CommonModule, PageToolbar, NavToolbar,
-        RouterLink, MatButtonModule,
-        MatIconModule
-    ],
+    imports: [PageToolbar, NavToolbar, RouterLink, MatButtonModule, MatIconModule],
     providers: [HttpClient],
     templateUrl: './settings.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./settings.page.scss']
 })
 export class SettingsPage implements OnInit {
     navItems = NavToolbar.SettingsNavItems
 
     pageWorking = true
-    
+
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {

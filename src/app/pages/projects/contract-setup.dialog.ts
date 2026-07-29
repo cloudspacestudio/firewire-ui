@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, ViewChild, inject } from '@angular/core'
+
+import { AfterViewInit, Component, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog'
@@ -44,254 +44,271 @@ interface ChecklistRow {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatButtonModule, MatIconModule],
+    imports: [FormsModule, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatButtonModule, MatIconModule],
     template: `
         <div mat-dialog-title class="contract-setup__titlebar">
-            <div>
-                <div class="contract-setup__kicker">Booking Output</div>
-                <div class="contract-setup__title">Contract Set Up</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="contract-setup__kicker">Booking Output</div>
+            <div class="contract-setup__title">Contract Set Up</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
 
         <mat-dialog-content class="contract-setup">
-            <div class="contract-setup__toolbar">
-                <div class="contract-setup__eyebrow">Operations Setup Preview</div>
-            </div>
+          <div class="contract-setup__toolbar">
+            <div class="contract-setup__eyebrow">Operations Setup Preview</div>
+          </div>
 
-            <div class="contract-setup__paper">
-                <div #printRoot class="contract-setup__paper-inner">
-                    <div class="contract-setup__brand-row">
-                        <div class="contract-setup__brand-block">
-                            <img class="contract-setup__logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
-                            <div class="contract-setup__brand-meta">
-                                <div>4616 W. Howard Ln., Suite 700</div>
-                                <div>Austin, TX 78728</div>
-                                <div>Phone: (512) 687-0115</div>
-                                <div>Fax: (512) 687-0120</div>
-                            </div>
-                        </div>
-                        <div class="contract-setup__header-card">
-                            <label class="contract-setup__mini-field">
-                                <span>Firetrol Job #:</span>
-                                <input class="contract-setup__input" [(ngModel)]="editable.firetrolJobNumber" />
-                            </label>
-                            <div class="contract-setup__sheet-name">CONTRACT SET UP</div>
-                        </div>
-                    </div>
-
-                    <div class="contract-setup__top-grid">
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__section-title">Billing</div>
-                            <div class="contract-setup__field-grid">
-                                <label class="contract-setup__field">
-                                    <span>Customer</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.customer" />
-                                </label>
-                                <label class="contract-setup__field contract-setup__field--full">
-                                    <span>Address</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.billingAddress1" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>City</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.billingCity" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>State</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.billingState" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Zip</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.billingZip" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Phone</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.phone" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Fax</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.fax" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Date</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.date" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Salesman</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.salesman" />
-                                </label>
-                                <label class="contract-setup__field contract-setup__field--full">
-                                    <span>Contract / PO #</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.contractPoNumber" />
-                                </label>
-                            </div>
-                        </section>
-
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__field-grid">
-                                <label class="contract-setup__field">
-                                    <span>Job Name</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.projectName" />
-                                </label>
-                                <label class="contract-setup__field contract-setup__field--full">
-                                    <span>Address</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.projectAddress" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>City</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.projectCity" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>State</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.projectState" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Zip Code</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.projectZip" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Contact Person</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.contactPerson" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Mobile #</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.mobilePhone" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Site Email</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.siteEmail" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Start Date</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.startDate" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Completion Date</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.completionDate" />
-                                </label>
-                            </div>
-                        </section>
-                    </div>
-
-                    <div class="contract-setup__amount-row">
-                        <div class="contract-setup__amount-label">Contract Amount $</div>
-                        <div class="contract-setup__amount-value">{{editable.contractAmount}}</div>
-                    </div>
-
-                    <div class="contract-setup__checks-grid">
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__check-head"><span></span><strong>Yes</strong><strong>No</strong></div>
-                            <div *ngFor="let row of leftChecks" class="contract-setup__check-row">
-                                <span>{{row.label}}</span>
-                                <input type="checkbox" [(ngModel)]="row.yes" />
-                                <input type="checkbox" [(ngModel)]="row.no" />
-                            </div>
-                            <div class="contract-setup__mini-stats">
-                                <label class="contract-setup__field">
-                                    <span>Est Device Count</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.estDeviceCount" />
-                                </label>
-                                <label class="contract-setup__field">
-                                    <span>Est Sq Footage</span>
-                                    <input class="contract-setup__input" [(ngModel)]="editable.estSqFootage" />
-                                </label>
-                            </div>
-                        </section>
-
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__check-head"><span></span><strong>Yes</strong><strong>No</strong></div>
-                            <div *ngFor="let row of rightChecks" class="contract-setup__check-row">
-                                <span>{{row.label}}</span>
-                                <input type="checkbox" [(ngModel)]="row.yes" />
-                                <input type="checkbox" [(ngModel)]="row.no" />
-                            </div>
-                            <label class="contract-setup__field contract-setup__field--full">
-                                <span>Job Classification</span>
-                                <input class="contract-setup__input" [(ngModel)]="editable.jobClassification" />
-                            </label>
-                        </section>
-                    </div>
-
-                    <section class="contract-setup__scope">
-                        <div class="contract-setup__section-title">Scope of Work</div>
-                        <textarea
-                            #scopeInput
-                            class="contract-setup__input contract-setup__input--multiline"
-                            [(ngModel)]="editable.scopeOfWork"
-                            (input)="autosizeScope()"></textarea>
-                    </section>
-
-                    <section class="contract-setup__options-block">
-                        <div class="contract-setup__section-title">System Type</div>
-                        <div class="contract-setup__option-grid">
-                            <label *ngFor="let row of systemTypes" class="contract-setup__option-row">
-                                <input type="checkbox" [(ngModel)]="row.checked" />
-                                <span>{{row.label}}</span>
-                            </label>
-                        </div>
-                    </section>
-
-                    <section class="contract-setup__options-block">
-                        <div class="contract-setup__section-title">Building Type</div>
-                        <div class="contract-setup__option-grid contract-setup__option-grid--wide">
-                            <label *ngFor="let row of buildingTypes" class="contract-setup__option-row">
-                                <input type="checkbox" [(ngModel)]="row.checked" />
-                                <span>{{row.label}}</span>
-                            </label>
-                        </div>
-                    </section>
-
-                    <div class="contract-setup__office-grid">
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__section-title">Checklist</div>
-                            <ng-container *ngFor="let item of checklistItems">
-                                <label class="contract-setup__task-check">
-                                    <input type="checkbox" [(ngModel)]="item.checked" />
-                                    <span>{{item.label}}</span>
-                                </label>
-                                <label *ngIf="item.label === 'Contract reviewed by'" class="contract-setup__field contract-setup__field--compact contract-setup__field--inline">
-                                    <span>Reviewer</span>
-                                    <input class="contract-setup__input contract-setup__input--line" [(ngModel)]="editable.contractReviewedBy" />
-                                </label>
-                            </ng-container>
-                        </section>
-
-                        <section class="contract-setup__panel">
-                            <div class="contract-setup__section-title">Billing Requirements</div>
-                            <label class="contract-setup__field contract-setup__field--compact">
-                                <span>Billing due by</span>
-                                <input class="contract-setup__input contract-setup__input--line" [(ngModel)]="editable.billingDueBy" />
-                            </label>
-                            <label class="contract-setup__task-check" *ngFor="let item of billingCheckboxItems">
-                                <input type="checkbox" [(ngModel)]="item.checked" />
-                                <span>{{item.label}}</span>
-                            </label>
-                            <div class="contract-setup__section-title contract-setup__section-title--sub">Other Items Listed Below</div>
-                            <label class="contract-setup__task-check" *ngFor="let item of otherItems">
-                                <input type="checkbox" [(ngModel)]="item.checked" />
-                                <span [innerHTML]="item.label"></span>
-                            </label>
-                        </section>
-                    </div>
+          <div class="contract-setup__paper">
+            <div #printRoot class="contract-setup__paper-inner">
+              <div class="contract-setup__brand-row">
+                <div class="contract-setup__brand-block">
+                  <img class="contract-setup__logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
+                  <div class="contract-setup__brand-meta">
+                    <div>4616 W. Howard Ln., Suite 700</div>
+                    <div>Austin, TX 78728</div>
+                    <div>Phone: (512) 687-0115</div>
+                    <div>Fax: (512) 687-0120</div>
+                  </div>
                 </div>
+                <div class="contract-setup__header-card">
+                  <label class="contract-setup__mini-field">
+                    <span>Firetrol Job #:</span>
+                    <input class="contract-setup__input" [(ngModel)]="editable.firetrolJobNumber" />
+                  </label>
+                  <div class="contract-setup__sheet-name">CONTRACT SET UP</div>
+                </div>
+              </div>
+
+              <div class="contract-setup__top-grid">
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__section-title">Billing</div>
+                  <div class="contract-setup__field-grid">
+                    <label class="contract-setup__field">
+                      <span>Customer</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.customer" />
+                    </label>
+                    <label class="contract-setup__field contract-setup__field--full">
+                      <span>Address</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.billingAddress1" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>City</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.billingCity" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>State</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.billingState" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Zip</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.billingZip" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Phone</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.phone" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Fax</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.fax" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Date</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.date" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Salesman</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.salesman" />
+                    </label>
+                    <label class="contract-setup__field contract-setup__field--full">
+                      <span>Contract / PO #</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.contractPoNumber" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__field-grid">
+                    <label class="contract-setup__field">
+                      <span>Job Name</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.projectName" />
+                    </label>
+                    <label class="contract-setup__field contract-setup__field--full">
+                      <span>Address</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.projectAddress" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>City</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.projectCity" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>State</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.projectState" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Zip Code</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.projectZip" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Contact Person</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.contactPerson" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Mobile #</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.mobilePhone" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Site Email</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.siteEmail" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Start Date</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.startDate" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Completion Date</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.completionDate" />
+                    </label>
+                  </div>
+                </section>
+              </div>
+
+              <div class="contract-setup__amount-row">
+                <div class="contract-setup__amount-label">Contract Amount $</div>
+                <div class="contract-setup__amount-value">{{editable.contractAmount}}</div>
+              </div>
+
+              <div class="contract-setup__checks-grid">
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__check-head"><span></span><strong>Yes</strong><strong>No</strong></div>
+                  @for (row of leftChecks; track row) {
+                    <div class="contract-setup__check-row">
+                      <span>{{row.label}}</span>
+                      <input type="checkbox" [(ngModel)]="row.yes" />
+                      <input type="checkbox" [(ngModel)]="row.no" />
+                    </div>
+                  }
+                  <div class="contract-setup__mini-stats">
+                    <label class="contract-setup__field">
+                      <span>Est Device Count</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.estDeviceCount" />
+                    </label>
+                    <label class="contract-setup__field">
+                      <span>Est Sq Footage</span>
+                      <input class="contract-setup__input" [(ngModel)]="editable.estSqFootage" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__check-head"><span></span><strong>Yes</strong><strong>No</strong></div>
+                  @for (row of rightChecks; track row) {
+                    <div class="contract-setup__check-row">
+                      <span>{{row.label}}</span>
+                      <input type="checkbox" [(ngModel)]="row.yes" />
+                      <input type="checkbox" [(ngModel)]="row.no" />
+                    </div>
+                  }
+                  <label class="contract-setup__field contract-setup__field--full">
+                    <span>Job Classification</span>
+                    <input class="contract-setup__input" [(ngModel)]="editable.jobClassification" />
+                  </label>
+                </section>
+              </div>
+
+              <section class="contract-setup__scope">
+                <div class="contract-setup__section-title">Scope of Work</div>
+                <textarea
+                  #scopeInput
+                  class="contract-setup__input contract-setup__input--multiline"
+                  [(ngModel)]="editable.scopeOfWork"
+                (input)="autosizeScope()"></textarea>
+              </section>
+
+              <section class="contract-setup__options-block">
+                <div class="contract-setup__section-title">System Type</div>
+                <div class="contract-setup__option-grid">
+                  @for (row of systemTypes; track row) {
+                    <label class="contract-setup__option-row">
+                      <input type="checkbox" [(ngModel)]="row.checked" />
+                      <span>{{row.label}}</span>
+                    </label>
+                  }
+                </div>
+              </section>
+
+              <section class="contract-setup__options-block">
+                <div class="contract-setup__section-title">Building Type</div>
+                <div class="contract-setup__option-grid contract-setup__option-grid--wide">
+                  @for (row of buildingTypes; track row) {
+                    <label class="contract-setup__option-row">
+                      <input type="checkbox" [(ngModel)]="row.checked" />
+                      <span>{{row.label}}</span>
+                    </label>
+                  }
+                </div>
+              </section>
+
+              <div class="contract-setup__office-grid">
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__section-title">Checklist</div>
+                  @for (item of checklistItems; track item) {
+                    <label class="contract-setup__task-check">
+                      <input type="checkbox" [(ngModel)]="item.checked" />
+                      <span>{{item.label}}</span>
+                    </label>
+                    @if (item.label === 'Contract reviewed by') {
+                      <label class="contract-setup__field contract-setup__field--compact contract-setup__field--inline">
+                        <span>Reviewer</span>
+                        <input class="contract-setup__input contract-setup__input--line" [(ngModel)]="editable.contractReviewedBy" />
+                      </label>
+                    }
+                  }
+                </section>
+
+                <section class="contract-setup__panel">
+                  <div class="contract-setup__section-title">Billing Requirements</div>
+                  <label class="contract-setup__field contract-setup__field--compact">
+                    <span>Billing due by</span>
+                    <input class="contract-setup__input contract-setup__input--line" [(ngModel)]="editable.billingDueBy" />
+                  </label>
+                  @for (item of billingCheckboxItems; track item) {
+                    <label class="contract-setup__task-check">
+                      <input type="checkbox" [(ngModel)]="item.checked" />
+                      <span>{{item.label}}</span>
+                    </label>
+                  }
+                  <div class="contract-setup__section-title contract-setup__section-title--sub">Other Items Listed Below</div>
+                  @for (item of otherItems; track item) {
+                    <label class="contract-setup__task-check">
+                      <input type="checkbox" [(ngModel)]="item.checked" />
+                      <span [innerHTML]="item.label"></span>
+                    </label>
+                  }
+                </section>
+              </div>
             </div>
+          </div>
         </mat-dialog-content>
 
         <mat-dialog-actions align="end" class="contract-setup__footer">
-            <div class="contract-setup__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="contract-setup__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            Create Sheet
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .contract-setup__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),#0a1019}
         .contract-setup__kicker,.contract-setup__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}

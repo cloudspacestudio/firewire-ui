@@ -1,5 +1,5 @@
-import { Component, inject } from "@angular/core"
-import { CommonModule } from "@angular/common"
+import { Component, inject, ChangeDetectionStrategy } from "@angular/core"
+
 import { RouterLink } from "@angular/router"
 
 import { MatButtonModule } from "@angular/material/button"
@@ -9,8 +9,9 @@ import { AuthService } from "../../auth/auth.service"
 @Component({
     standalone: true,
     selector: 'logged-out-page',
-    imports: [CommonModule, RouterLink, MatButtonModule],
+    imports: [RouterLink, MatButtonModule],
     templateUrl: './logged-out.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./logged-out.page.scss']
 })
 export class LoggedOutPage {

@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core'
+
+import { Component, Input, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 
 import { MatButtonModule } from '@angular/material/button'
@@ -20,14 +20,14 @@ export interface FirewireCustomerInfo {
     standalone: true,
     selector: 'firewire-customer-info-card',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule
-    ],
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule
+],
     templateUrl: './firewire-customer-info-card.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-customer-info-card.component.scss']
 })
 export class FirewireCustomerInfoCardComponent implements OnChanges {

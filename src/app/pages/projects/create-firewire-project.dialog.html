@@ -1,84 +1,98 @@
 <div mat-dialog-title class="fw-dialog-titlebar">
-    <div class="fw-dialog-titlebar__text">
-        <h2 style="margin:0;">Create Firewire Project</h2>
-        <div>{{data.fieldwireProject.name || 'Sales Project'}}</div>
-    </div>
-    <button mat-icon-button class="fw-dialog-titlebar__close" aria-label="Cancel create project" mat-dialog-close [disabled]="saveWorking">
-        <mat-icon>close</mat-icon>
-    </button>
+  <div class="fw-dialog-titlebar__text">
+    <h2 style="margin:0;">Create Firewire Project</h2>
+    <div>{{data.fieldwireProject.name || 'Sales Project'}}</div>
+  </div>
+  <button mat-icon-button class="fw-dialog-titlebar__close" aria-label="Cancel create project" mat-dialog-close [disabled]="saveWorking">
+    <mat-icon>close</mat-icon>
+  </button>
 </div>
 
 <mat-dialog-content class="create-firewire-project-dialog">
-    <div class="create-firewire-project-dialog__grid">
-        <mat-form-field class="create-firewire-project-dialog__span-2">
-            <mat-label>Name</mat-label>
-            <input matInput [(ngModel)]="model.name" />
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Project Number</mat-label>
-            <input matInput [(ngModel)]="model.projectNbr" />
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Bid Due Date</mat-label>
-            <input matInput type="date" [(ngModel)]="model.bidDueDate" />
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Project Status</mat-label>
-            <mat-select [(ngModel)]="model.projectStatus">
-                <mat-option *ngFor="let option of getActiveSettings('projectStatus')" [value]="option.label">{{option.label}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Project Type</mat-label>
-            <mat-select [(ngModel)]="model.projectType">
-                <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Total Sq Ft</mat-label>
-            <input matInput type="number" min="0" [(ngModel)]="model.totalSqFt" />
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Salesman</mat-label>
-            <input matInput [(ngModel)]="model.salesman" />
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Job Type</mat-label>
-            <mat-select [(ngModel)]="model.jobType">
-                <mat-option [value]="''">None</mat-option>
-                <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Scope Type</mat-label>
-            <mat-select [(ngModel)]="model.scopeType">
-                <mat-option [value]="''">None</mat-option>
-                <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-            <mat-label>Difficulty</mat-label>
-            <mat-select [(ngModel)]="model.difficulty">
-                <mat-option [value]="''">None</mat-option>
-                <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field class="create-firewire-project-dialog__span-3">
-            <mat-label>Address</mat-label>
-            <input matInput [(ngModel)]="model.address" />
-        </mat-form-field>
-        <mat-form-field class="create-firewire-project-dialog__span-2">
-            <mat-label>Project Scope</mat-label>
-            <mat-select [(ngModel)]="model.projectScope">
-                <mat-option [value]="''">None</mat-option>
-                <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
-            </mat-select>
-        </mat-form-field>
-    </div>
-    <div *ngIf="saveError" class="project-create-status">{{saveError}}</div>
+  <div class="create-firewire-project-dialog__grid">
+    <mat-form-field class="create-firewire-project-dialog__span-2">
+      <mat-label>Name</mat-label>
+      <input matInput [(ngModel)]="model.name" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Project Number</mat-label>
+      <input matInput [(ngModel)]="model.projectNbr" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Bid Due Date</mat-label>
+      <input matInput type="date" [(ngModel)]="model.bidDueDate" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Project Status</mat-label>
+      <mat-select [(ngModel)]="model.projectStatus">
+        @for (option of getActiveSettings('projectStatus'); track option) {
+          <mat-option [value]="option.label">{{option.label}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Project Type</mat-label>
+      <mat-select [(ngModel)]="model.projectType">
+        @for (option of projectTypeOptions; track option) {
+          <mat-option [value]="option">{{option}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Total Sq Ft</mat-label>
+      <input matInput type="number" min="0" [(ngModel)]="model.totalSqFt" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Salesman</mat-label>
+      <input matInput [(ngModel)]="model.salesman" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Job Type</mat-label>
+      <mat-select [(ngModel)]="model.jobType">
+        <mat-option [value]="''">None</mat-option>
+        @for (option of getActiveSettings('jobType'); track option) {
+          <mat-option [value]="option.label">{{option.label}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Scope Type</mat-label>
+      <mat-select [(ngModel)]="model.scopeType">
+        <mat-option [value]="''">None</mat-option>
+        @for (option of getActiveSettings('scopeType'); track option) {
+          <mat-option [value]="option.label">{{option.label}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Difficulty</mat-label>
+      <mat-select [(ngModel)]="model.difficulty">
+        <mat-option [value]="''">None</mat-option>
+        @for (option of getActiveSettings('difficulty'); track option) {
+          <mat-option [value]="option.label">{{option.label}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field class="create-firewire-project-dialog__span-3">
+      <mat-label>Address</mat-label>
+      <input matInput [(ngModel)]="model.address" />
+    </mat-form-field>
+    <mat-form-field class="create-firewire-project-dialog__span-2">
+      <mat-label>Project Scope</mat-label>
+      <mat-select [(ngModel)]="model.projectScope">
+        <mat-option [value]="''">None</mat-option>
+        @for (option of getActiveSettings('projectScope'); track option) {
+          <mat-option [value]="option.label">{{option.label}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+  @if (saveError) {
+    <div class="project-create-status">{{saveError}}</div>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-    <button mat-stroked-button type="button" mat-dialog-close [disabled]="saveWorking">Cancel</button>
-    <button mat-flat-button type="button" (click)="submit()" [disabled]="saveWorking">Create</button>
+  <button mat-stroked-button type="button" mat-dialog-close [disabled]="saveWorking">Cancel</button>
+  <button mat-flat-button type="button" (click)="submit()" [disabled]="saveWorking">Create</button>
 </mat-dialog-actions>

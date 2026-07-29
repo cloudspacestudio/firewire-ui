@@ -1,8 +1,8 @@
-import { Component, OnInit } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
+import { Component, OnInit, ChangeDetectionStrategy } from "@angular/core"
+
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { RouterLink } from "@angular/router"
 
 import { MatButtonModule } from "@angular/material/button"
@@ -17,13 +17,9 @@ import {FormControl, FormsModule, ReactiveFormsModule} from '@angular/forms';
 @Component({
     standalone: true,
     selector: 'tech-page',
-    imports: [CommonModule, PageToolbar,
-        RouterLink, MatButtonModule,
-        MatIconModule, MatAutocompleteModule,
-        MatFormFieldModule,
-        FormsModule, ReactiveFormsModule
-    ],
+    imports: [PageToolbar, RouterLink, MatButtonModule, MatIconModule, MatAutocompleteModule, MatFormFieldModule, FormsModule, ReactiveFormsModule],
     providers: [HttpClient],
+    changeDetection: ChangeDetectionStrategy.Eager,
     templateUrl: './tech.page.html'
 })
 export class TechPage implements OnInit {
@@ -38,7 +34,7 @@ export class TechPage implements OnInit {
         'Access Point Model A400', 'Wireless Access Point', 'Model A400', 'FW-445566',
         'Server Model SV500', 'Application Server', 'Model SV500', 'FW-778899', 'Maintenance'
     ]
-    
+
     constructor(private http: HttpClient) {}
 
     ngOnInit(): void {

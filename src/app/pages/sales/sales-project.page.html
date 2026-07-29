@@ -1,232 +1,265 @@
 <page-toolbar title="SALES QUICK START">
-    <div class="button-bar">
-        <button mat-fab class="back" [routerLink]="'/sales'">
-            <mat-icon fontIcon="chevron_left"></mat-icon>
-        </button>
-    </div>
+  <div class="button-bar">
+    <button mat-fab class="back" [routerLink]="'/sales'">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+  </div>
 </page-toolbar>
 
 <div class="page-root">
-    <div class="page-content">
-        <div class="tabstrip">
-            <h3 class="project-tabstrip-title">{{getSalesProjectTitle()}}</h3>
-            <span *ngIf="project" class="sales-project-status-chip" [attr.data-status]="getSalesProjectStatus()">
-                {{getSalesProjectStatus() || 'Status Pending'}}
-            </span>
-            <span class="tabstrip-spacer"></span>
-            <div *ngIf="project" class="sales-project-toolbar-actions">
-                <button
-                    *ngIf="activeTab === 'DOC LIBRARY'"
-                    mat-stroked-button
-                    type="button"
-                    (click)="onUploadDocsClick()"
-                    [disabled]="docLibraryUploadBusy">
-                    <mat-icon fontIcon="upload_file"></mat-icon>
-                    UPLOAD DOCS
-                </button>
-                <button
-                    *ngIf="activeTab === 'PROJECT DETAILS'"
-                    mat-flat-button
-                    type="button"
-                    class="firewire-save-button firewire-save-button--header"
-                    [class.is-dirty]="isProjectDirty"
-                    (click)="saveProjectDetails()"
-                    [disabled]="saveWorking || !isProjectDirty">
-                    SAVE DETAILS
-                </button>
-                <button
-                    *ngIf="activeTab === 'CUSTOMER INFO'"
-                    mat-flat-button
-                    type="button"
-                    class="firewire-save-button firewire-save-button--header"
-                    [class.is-dirty]="isCustomerInfoDirty"
-                    (click)="saveProjectDetails()"
-                    [disabled]="saveWorking || !isCustomerInfoDirty">
-                    SAVE CUSTOMER INFO
-                </button>
-                <button
-                    *ngIf="activeTab === 'BOM'"
-                    mat-flat-button
-                    type="button"
-                    class="firewire-save-button firewire-save-button--header"
-                    [class.is-dirty]="isBomDirty"
-                    (click)="saveBom()"
-                    [disabled]="saveWorking || !isBomDirty">
-                    SAVE BOM
-                </button>
-                <a
-                    mat-stroked-button
-                    [routerLink]="['/projects', 'firewire', project.uuid, 'project-details']"
-                    [queryParams]="{ returnTo: '/sales' }">
-                    FINE TUNE
-                </a>
-            </div>
+  <div class="page-content">
+    <div class="tabstrip">
+      <h3 class="project-tabstrip-title">{{getSalesProjectTitle()}}</h3>
+      @if (project) {
+        <span class="sales-project-status-chip" [attr.data-status]="getSalesProjectStatus()">
+          {{getSalesProjectStatus() || 'Status Pending'}}
+        </span>
+      }
+      <span class="tabstrip-spacer"></span>
+      @if (project) {
+        <div class="sales-project-toolbar-actions">
+          @if (activeTab === 'DOC LIBRARY') {
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="onUploadDocsClick()"
+              [disabled]="docLibraryUploadBusy">
+              <mat-icon fontIcon="upload_file"></mat-icon>
+              UPLOAD DOCS
+            </button>
+          }
+          @if (activeTab === 'PROJECT DETAILS') {
+            <button
+              mat-flat-button
+              type="button"
+              class="firewire-save-button firewire-save-button--header"
+              [class.is-dirty]="isProjectDirty"
+              (click)="saveProjectDetails()"
+              [disabled]="saveWorking || !isProjectDirty">
+              SAVE DETAILS
+            </button>
+          }
+          @if (activeTab === 'CUSTOMER INFO') {
+            <button
+              mat-flat-button
+              type="button"
+              class="firewire-save-button firewire-save-button--header"
+              [class.is-dirty]="isCustomerInfoDirty"
+              (click)="saveProjectDetails()"
+              [disabled]="saveWorking || !isCustomerInfoDirty">
+              SAVE CUSTOMER INFO
+            </button>
+          }
+          @if (activeTab === 'BOM') {
+            <button
+              mat-flat-button
+              type="button"
+              class="firewire-save-button firewire-save-button--header"
+              [class.is-dirty]="isBomDirty"
+              (click)="saveBom()"
+              [disabled]="saveWorking || !isBomDirty">
+              SAVE BOM
+            </button>
+          }
+          <a
+            mat-stroked-button
+            [routerLink]="['/projects', 'firewire', project.uuid, 'project-details']"
+            [queryParams]="{ returnTo: '/sales' }">
+            FINE TUNE
+          </a>
         </div>
-
-        <div class="content-root with-tabstrip">
-            <mat-card class="sales-project-card">
-                <mat-card-content>
-                    <div *ngIf="pageWorking" class="sales-project-placeholder">
-                        <div class="sales-project-placeholder__eyebrow">Loading</div>
-                        <h4>Preparing sales quick start...</h4>
-                    </div>
-
-                    <div *ngIf="!pageWorking && pageMessage" class="sales-project-placeholder">
-                        <div class="sales-project-placeholder__eyebrow">Unavailable</div>
-                        <h4>{{pageMessage}}</h4>
-                    </div>
-
-                    <div *ngIf="!pageWorking && !pageMessage && project" class="sales-project-workspace">
-                        <div class="sales-project-workspace__nav" role="tablist" aria-label="Sales quick start sections">
-                            <button
-                                *ngFor="let tab of workspaceTabs"
-                                mat-stroked-button
-                                type="button"
-                                class="sales-project-workspace__nav-button"
-                                [class.is-active]="activeTab === tab"
-                                [attr.aria-selected]="activeTab === tab"
-                                (click)="setActiveTab(tab)">
-                                {{tab}}
-                            </button>
-                        </div>
-
-                        <div class="sales-project-workspace__panel">
-                            <div *ngIf="activeTab === 'PROJECT DETAILS'" class="sales-project-form-panel">
-                                <div class="sales-project-form-grid">
-                                    <mat-form-field>
-                                        <mat-label>Name</mat-label>
-                                        <input matInput [(ngModel)]="projectForm.name" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Bid Due Date</mat-label>
-                                        <input matInput type="date" [(ngModel)]="projectForm.bidDueDate" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Project Type</mat-label>
-                                        <mat-select [(ngModel)]="projectForm.projectType">
-                                            <mat-option *ngFor="let option of projectTypeOptions" [value]="option">{{option}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Total Sq Ft</mat-label>
-                                        <input matInput type="number" min="0" [(ngModel)]="projectForm.totalSqFt" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Salesman</mat-label>
-                                        <input matInput [(ngModel)]="projectForm.salesman" />
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Job Type</mat-label>
-                                        <mat-select [(ngModel)]="projectForm.jobType">
-                                            <mat-option [value]="''">None</mat-option>
-                                            <mat-option *ngFor="let option of getActiveSettings('jobType')" [value]="option.label">{{option.label}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Scope Type</mat-label>
-                                        <mat-select [(ngModel)]="projectForm.scopeType">
-                                            <mat-option [value]="''">None</mat-option>
-                                            <mat-option *ngFor="let option of getActiveSettings('scopeType')" [value]="option.label">{{option.label}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                    <mat-form-field>
-                                        <mat-label>Difficulty</mat-label>
-                                        <mat-select [(ngModel)]="projectForm.difficulty">
-                                            <mat-option [value]="''">None</mat-option>
-                                            <mat-option *ngFor="let option of getActiveSettings('difficulty')" [value]="option.label">{{option.label}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                    <mat-form-field class="sales-project-form-grid__span-2">
-                                        <mat-label>Address</mat-label>
-                                        <input matInput [(ngModel)]="projectForm.address" />
-                                    </mat-form-field>
-                                    <mat-form-field class="sales-project-form-grid__span-2">
-                                        <mat-label>Project Scope</mat-label>
-                                        <mat-select [(ngModel)]="projectForm.projectScope">
-                                            <mat-option [value]="''">None</mat-option>
-                                            <mat-option *ngFor="let option of getActiveSettings('projectScope')" [value]="option.label">{{option.label}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                </div>
-                                <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
-                            </div>
-
-                            <div *ngIf="activeTab === 'CUSTOMER INFO'" class="sales-project-form-panel sales-project-form-panel--customer-info">
-                                <firewire-customer-info-card [customerInfo]="customerInfo"></firewire-customer-info-card>
-                                <div *ngIf="saveMessage" class="sales-project-form-message">{{saveMessage}}</div>
-                            </div>
-                            <firewire-bom-worksheet
-                                *ngIf="activeTab === 'BOM'"
-                                [host]="bomWorksheetHost"
-                                context="sales">
-                            </firewire-bom-worksheet>
-
-                            <div *ngIf="activeTab === 'FLOORPLANS'" class="sales-project-doc-library sales-project-floorplans">
-                                <input
-                                    #floorplanUploadInput
-                                    type="file"
-                                    class="sales-project-doc-library__file-input"
-                                    multiple
-                                    accept="image/*,application/pdf,.pdf"
-                                    (change)="onFloorplanFileSelected($event)" />
-
-                                <firewire-floorplans
-                                    [projectKey]="project.uuid"
-                                    [files]="getFloorplanFiles()"
-                                    [folders]="floorplanFolders"
-                                    [uploadBusy]="floorplanUploadBusy"
-                                    [statusMessage]="floorplanStatusMessage"
-                                    [savingFileIds]="floorplanSavingFileIds"
-                                    [getPreviewContent]="getFloorplanPreview"
-                                    (createFolder)="createFloorplanFolder()"
-                                    (renameFolder)="renameFloorplanFolder($event)"
-                                    (deleteFolder)="deleteFloorplanFolder($event)"
-                                    (toggleFolder)="toggleFloorplanFolder($event)"
-                                    (uploadFiles)="onUploadFloorplansClick($event)"
-                                    (moveFile)="moveFloorplanFileToFolder($event)"
-                                    (renameFile)="renameFloorplanFile($event)"
-                                    (designFile)="openFloorplanDesigner($event)"
-                                    (downloadFile)="downloadDocLibraryFile($event)"
-                                    (deleteFile)="deleteFloorplanFile($event)">
-                                </firewire-floorplans>
-                            </div>
-
-                            <div *ngIf="activeTab === 'DOC LIBRARY'" class="sales-project-doc-library">
-                                <input
-                                    #docLibraryUploadInput
-                                    type="file"
-                                    class="sales-project-doc-library__file-input"
-                                    multiple
-                                    (change)="onDocLibraryFileSelected($event)" />
-
-                                <firewire-doc-library-explorer
-                                    [projectKey]="project.uuid"
-                                    [files]="docLibraryFiles"
-                                    [directories]="docLibraryDirectories"
-                                    [selectedFolder]="selectedDocLibraryFolder"
-                                    [statusMessage]="docLibraryStatusMessage"
-                                    [allowMarkup]="true"
-                                    [markupQueryParams]="getDocLibraryRecordMarkupQueryParams"
-                                    (selectedFolderChange)="selectedDocLibraryFolder = $event"
-                                    (downloadFile)="downloadDocLibraryFile($event)"
-                                    (deleteFile)="deleteDocLibraryFile($event)"
-                                    (createDirectory)="createDocLibraryDirectory($event)"
-                                    (renameDirectory)="renameDocLibraryDirectory($event)"
-                                    (deleteDirectory)="deleteDocLibraryDirectory($event)">
-                                </firewire-doc-library-explorer>
-                            </div>
-
-                            <div *ngIf="activeTab === 'QUICK ESTIMATE'" class="sales-project-quick-estimate">
-                                <firewire-estimate-summary
-                                    eyebrow="Quick Estimate"
-                                    title="Estimate Summary"
-                                    [summary]="getQuickEstimateSummary()">
-                                </firewire-estimate-summary>
-                            </div>
-                        </div>
-                    </div>
-                </mat-card-content>
-            </mat-card>
-        </div>
+      }
     </div>
+
+    <div class="content-root with-tabstrip">
+      <mat-card class="sales-project-card">
+        <mat-card-content>
+          @if (pageWorking) {
+            <div class="sales-project-placeholder">
+              <div class="sales-project-placeholder__eyebrow">Loading</div>
+              <h4>Preparing sales quick start...</h4>
+            </div>
+          }
+
+          @if (!pageWorking && pageMessage) {
+            <div class="sales-project-placeholder">
+              <div class="sales-project-placeholder__eyebrow">Unavailable</div>
+              <h4>{{pageMessage}}</h4>
+            </div>
+          }
+
+          @if (!pageWorking && !pageMessage && project) {
+            <div class="sales-project-workspace">
+              <div class="sales-project-workspace__nav" role="tablist" aria-label="Sales quick start sections">
+                @for (tab of workspaceTabs; track tab) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="sales-project-workspace__nav-button"
+                    [class.is-active]="activeTab === tab"
+                    [attr.aria-selected]="activeTab === tab"
+                    (click)="setActiveTab(tab)">
+                    {{tab}}
+                  </button>
+                }
+              </div>
+              <div class="sales-project-workspace__panel">
+                @if (activeTab === 'PROJECT DETAILS') {
+                  <div class="sales-project-form-panel">
+                    <div class="sales-project-form-grid">
+                      <mat-form-field>
+                        <mat-label>Name</mat-label>
+                        <input matInput [(ngModel)]="projectForm.name" />
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Bid Due Date</mat-label>
+                        <input matInput type="date" [(ngModel)]="projectForm.bidDueDate" />
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Project Type</mat-label>
+                        <mat-select [(ngModel)]="projectForm.projectType">
+                          @for (option of projectTypeOptions; track option) {
+                            <mat-option [value]="option">{{option}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Total Sq Ft</mat-label>
+                        <input matInput type="number" min="0" [(ngModel)]="projectForm.totalSqFt" />
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Salesman</mat-label>
+                        <input matInput [(ngModel)]="projectForm.salesman" />
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Job Type</mat-label>
+                        <mat-select [(ngModel)]="projectForm.jobType">
+                          <mat-option [value]="''">None</mat-option>
+                          @for (option of getActiveSettings('jobType'); track option) {
+                            <mat-option [value]="option.label">{{option.label}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Scope Type</mat-label>
+                        <mat-select [(ngModel)]="projectForm.scopeType">
+                          <mat-option [value]="''">None</mat-option>
+                          @for (option of getActiveSettings('scopeType'); track option) {
+                            <mat-option [value]="option.label">{{option.label}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Difficulty</mat-label>
+                        <mat-select [(ngModel)]="projectForm.difficulty">
+                          <mat-option [value]="''">None</mat-option>
+                          @for (option of getActiveSettings('difficulty'); track option) {
+                            <mat-option [value]="option.label">{{option.label}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field class="sales-project-form-grid__span-2">
+                        <mat-label>Address</mat-label>
+                        <input matInput [(ngModel)]="projectForm.address" />
+                      </mat-form-field>
+                      <mat-form-field class="sales-project-form-grid__span-2">
+                        <mat-label>Project Scope</mat-label>
+                        <mat-select [(ngModel)]="projectForm.projectScope">
+                          <mat-option [value]="''">None</mat-option>
+                          @for (option of getActiveSettings('projectScope'); track option) {
+                            <mat-option [value]="option.label">{{option.label}}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    @if (saveMessage) {
+                      <div class="sales-project-form-message">{{saveMessage}}</div>
+                    }
+                  </div>
+                }
+                @if (activeTab === 'CUSTOMER INFO') {
+                  <div class="sales-project-form-panel sales-project-form-panel--customer-info">
+                    <firewire-customer-info-card [customerInfo]="customerInfo"></firewire-customer-info-card>
+                    @if (saveMessage) {
+                      <div class="sales-project-form-message">{{saveMessage}}</div>
+                    }
+                  </div>
+                }
+                @if (activeTab === 'BOM') {
+                  <firewire-bom-worksheet
+                    [host]="bomWorksheetHost"
+                    context="sales">
+                  </firewire-bom-worksheet>
+                }
+                @if (activeTab === 'FLOORPLANS') {
+                  <div class="sales-project-doc-library sales-project-floorplans">
+                    <input
+                      #floorplanUploadInput
+                      type="file"
+                      class="sales-project-doc-library__file-input"
+                      multiple
+                      accept="image/*,application/pdf,.pdf"
+                      (change)="onFloorplanFileSelected($event)" />
+                    <firewire-floorplans
+                      [projectKey]="project.uuid"
+                      [files]="getFloorplanFiles()"
+                      [folders]="floorplanFolders"
+                      [uploadBusy]="floorplanUploadBusy"
+                      [statusMessage]="floorplanStatusMessage"
+                      [savingFileIds]="floorplanSavingFileIds"
+                      [getPreviewContent]="getFloorplanPreview"
+                      (createFolder)="createFloorplanFolder()"
+                      (renameFolder)="renameFloorplanFolder($event)"
+                      (deleteFolder)="deleteFloorplanFolder($event)"
+                      (toggleFolder)="toggleFloorplanFolder($event)"
+                      (uploadFiles)="onUploadFloorplansClick($event)"
+                      (moveFile)="moveFloorplanFileToFolder($event)"
+                      (renameFile)="renameFloorplanFile($event)"
+                      (designFile)="openFloorplanDesigner($event)"
+                      (downloadFile)="downloadDocLibraryFile($event)"
+                      (deleteFile)="deleteFloorplanFile($event)">
+                    </firewire-floorplans>
+                  </div>
+                }
+                @if (activeTab === 'DOC LIBRARY') {
+                  <div class="sales-project-doc-library">
+                    <input
+                      #docLibraryUploadInput
+                      type="file"
+                      class="sales-project-doc-library__file-input"
+                      multiple
+                      (change)="onDocLibraryFileSelected($event)" />
+                    <firewire-doc-library-explorer
+                      [projectKey]="project.uuid"
+                      [files]="docLibraryFiles"
+                      [directories]="docLibraryDirectories"
+                      [selectedFolder]="selectedDocLibraryFolder"
+                      [statusMessage]="docLibraryStatusMessage"
+                      [allowMarkup]="true"
+                      [markupQueryParams]="getDocLibraryRecordMarkupQueryParams"
+                      (selectedFolderChange)="selectedDocLibraryFolder = $event"
+                      (downloadFile)="downloadDocLibraryFile($event)"
+                      (deleteFile)="deleteDocLibraryFile($event)"
+                      (createDirectory)="createDocLibraryDirectory($event)"
+                      (renameDirectory)="renameDocLibraryDirectory($event)"
+                      (deleteDirectory)="deleteDocLibraryDirectory($event)">
+                    </firewire-doc-library-explorer>
+                  </div>
+                }
+                @if (activeTab === 'QUICK ESTIMATE') {
+                  <div class="sales-project-quick-estimate">
+                    <firewire-estimate-summary
+                      eyebrow="Quick Estimate"
+                      title="Estimate Summary"
+                      [summary]="getQuickEstimateSummary()">
+                    </firewire-estimate-summary>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
 </div>

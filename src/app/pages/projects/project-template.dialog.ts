@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, inject } from '@angular/core'
+
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import { MatButtonToggleModule } from '@angular/material/button-toggle'
@@ -38,70 +38,77 @@ export interface SaveProjectTemplateDialogResult {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatButtonToggleModule,
-        MatFormFieldModule,
-        MatInputModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="template-dialog__titlebar">
-            <span>{{data.mode === 'save' ? 'Save Project Template' : 'Load Project Template'}}</span>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <span>{{data.mode === 'save' ? 'Save Project Template' : 'Load Project Template'}}</span>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="template-dialog">
-            <mat-form-field *ngIf="data.mode === 'save'" appearance="outline" class="template-dialog__field">
-                <mat-label>Template Name</mat-label>
-                <input matInput [(ngModel)]="templateName" />
+          @if (data.mode === 'save') {
+            <mat-form-field appearance="outline" class="template-dialog__field">
+              <mat-label>Template Name</mat-label>
+              <input matInput [(ngModel)]="templateName" />
             </mat-form-field>
+          }
 
-            <div *ngIf="data.mode === 'save'" class="template-dialog__visibility">
-                <span class="template-dialog__visibility-label">Visibility</span>
-                <mat-button-toggle-group [(ngModel)]="visibility" aria-label="Template visibility">
-                    <mat-button-toggle value="Private">Private</mat-button-toggle>
-                    <mat-button-toggle value="Public">Public</mat-button-toggle>
-                </mat-button-toggle-group>
+          @if (data.mode === 'save') {
+            <div class="template-dialog__visibility">
+              <span class="template-dialog__visibility-label">Visibility</span>
+              <mat-button-toggle-group [(ngModel)]="visibility" aria-label="Template visibility">
+                <mat-button-toggle value="Private">Private</mat-button-toggle>
+                <mat-button-toggle value="Public">Public</mat-button-toggle>
+              </mat-button-toggle-group>
             </div>
+          }
 
-            <div class="template-dialog__list">
-                <button
-                    *ngFor="let template of data.templates"
-                    type="button"
-                    class="template-dialog__item"
-                    [class.is-selected]="template.templateId === selectedTemplateId"
-                    (click)="selectTemplate(template)">
-                    <span class="template-dialog__item-main">
-                        <span class="template-dialog__item-name">{{template.name}}</span>
-                        <span class="template-dialog__item-visibility">{{template.visibility}}</span>
-                    </span>
-                    <span class="template-dialog__item-date">{{formatSavedAt(template.updatedAt)}}</span>
-                </button>
-                <div *ngIf="data.templates.length <= 0" class="template-dialog__empty">
-                    <mat-icon fontIcon="inventory_2"></mat-icon>
-                    <span>No saved templates yet.</span>
-                </div>
-            </div>
+          <div class="template-dialog__list">
+            @for (template of data.templates; track template) {
+              <button
+                type="button"
+                class="template-dialog__item"
+                [class.is-selected]="template.templateId === selectedTemplateId"
+                (click)="selectTemplate(template)">
+                <span class="template-dialog__item-main">
+                  <span class="template-dialog__item-name">{{template.name}}</span>
+                  <span class="template-dialog__item-visibility">{{template.visibility}}</span>
+                </span>
+                <span class="template-dialog__item-date">{{formatSavedAt(template.updatedAt)}}</span>
+              </button>
+            }
+            @if (data.templates.length <= 0) {
+              <div class="template-dialog__empty">
+                <mat-icon fontIcon="inventory_2"></mat-icon>
+                <span>No saved templates yet.</span>
+              </div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button type="button" mat-dialog-close>Cancel</button>
-            <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [mat-dialog-close]="data.mode === 'save' ? resolveSaveResult() : resolveLoadResult()"
-                [disabled]="!canSubmit()">
-                {{data.mode === 'save' ? 'Save Template' : 'Load Template'}}
-            </button>
+          <button mat-button type="button" mat-dialog-close>Cancel</button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [mat-dialog-close]="data.mode === 'save' ? resolveSaveResult() : resolveLoadResult()"
+            [disabled]="!canSubmit()">
+            {{data.mode === 'save' ? 'Save Template' : 'Load Template'}}
+          </button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .template-dialog__titlebar {
             display: flex;

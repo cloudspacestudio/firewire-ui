@@ -1,135 +1,153 @@
 <page-toolbar title="Admin">
-    <div class="button-bar">
-        <button mat-fab class="back" [routerLink]="'/settings'">
-            <mat-icon fontIcon="chevron_left"></mat-icon>
-        </button>
-    </div>
-    <nav-toolbar [navItems]="navItems" [selectedItem]="'project-admin'"></nav-toolbar>
+  <div class="button-bar">
+    <button mat-fab class="back" [routerLink]="'/settings'">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+  </div>
+  <nav-toolbar [navItems]="navItems" [selectedItem]="'project-admin'"></nav-toolbar>
 </page-toolbar>
 
 <div class="page-root">
-    <div class="page-content">
-        <div class="content-root">
-        <section class="admin-hero">
-            <div>
-                <div class="admin-kicker">PROJECT CONTROL MATRIX</div>
-                <h1>Global Firewire project settings</h1>
-                <p>These lists drive default values and selectable values for new and existing Firewire projects.</p>
+  <div class="page-content">
+    <div class="content-root">
+      <section class="admin-hero">
+        <div>
+          <div class="admin-kicker">PROJECT CONTROL MATRIX</div>
+          <h1>Global Firewire project settings</h1>
+          <p>These lists drive default values and selectable values for new and existing Firewire projects.</p>
+        </div>
+        <div class="admin-status-shell">
+          <div class="admin-status-label">SYSTEM STATUS</div>
+          <div class="admin-status-value">{{pageWorking ? 'SYNCING' : 'ONLINE'}}</div>
+          @if (statusText) {
+            <div class="admin-status-message">{{statusText}}</div>
+          }
+        </div>
+      </section>
+
+      @if (!pageWorking) {
+        <div class="admin-workspace">
+          <aside class="admin-subnav">
+            @for (list of lists; track list) {
+              <button
+                mat-button
+                type="button"
+                class="admin-subnav-button"
+                [class.active]="activeListKey === list.key"
+                (click)="setActiveList(list.key)">
+                <span class="admin-subnav-text">{{list.title}}</span>
+                <span class="admin-subnav-count">{{getItems(list.key).length}}</span>
+              </button>
+            }
+          </aside>
+          <section class="admin-card">
+            <header class="admin-card-header">
+              <div>
+                <div class="admin-card-title">{{activeList.title}}</div>
+                <div class="admin-card-subtitle">{{activeList.subtitle}}</div>
+              </div>
+              <div class="admin-card-count">{{getItems(activeList.key).length}}</div>
+            </header>
+            <div class="admin-create-panel">
+              @if (isDivisionSpecificList(activeList.key)) {
+                <mat-form-field>
+                  <mat-label>Division</mat-label>
+                  <mat-select [(ngModel)]="createModels[activeList.key].division">
+                    @for (division of divisionOptions; track division) {
+                      <mat-option [value]="division">{{division}}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+              <mat-form-field>
+                <mat-label>{{getItemTextLabel(activeList.key)}}</mat-label>
+                @if (isDivisionSpecificList(activeList.key)) {
+                  <textarea
+                    matInput
+                    rows="4"
+                  [(ngModel)]="createModels[activeList.key].label"></textarea>
+                } @else {
+                  <input matInput [(ngModel)]="createModels[activeList.key].label" />
+                }
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Sort Order</mat-label>
+                <input matInput type="number" [(ngModel)]="createModels[activeList.key].sortOrder" />
+              </mat-form-field>
+              @if (!isDivisionSpecificList(activeList.key)) {
+                <mat-form-field class="span-2">
+                  <mat-label>Description</mat-label>
+                  <textarea matInput rows="3" [(ngModel)]="createModels[activeList.key].description"></textarea>
+                </mat-form-field>
+              }
+              <mat-checkbox [(ngModel)]="createModels[activeList.key].isActive">Active</mat-checkbox>
+              <button mat-flat-button type="button" (click)="createItem(activeList.key)" [disabled]="saveBusy['create-' + activeList.key]">
+                ADD ITEM
+              </button>
             </div>
-            <div class="admin-status-shell">
-                <div class="admin-status-label">SYSTEM STATUS</div>
-                <div class="admin-status-value">{{pageWorking ? 'SYNCING' : 'ONLINE'}}</div>
-                <div *ngIf="statusText" class="admin-status-message">{{statusText}}</div>
+            <div class="admin-list">
+              <div class="admin-table-shell">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      @if (isDivisionSpecificList(activeList.key)) {
+                        <th>Division</th>
+                      }
+                      <th>{{getItemTextLabel(activeList.key)}}</th>
+                      <th>Sort</th>
+                      <th>Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of getItems(activeList.key); track trackByUuid($index, item)) {
+                      <tr>
+                        @if (isDivisionSpecificList(activeList.key)) {
+                          <td class="cell-division">
+                            <select class="admin-cell-input" [(ngModel)]="item.division">
+                              @for (division of divisionOptions; track division) {
+                                <option [ngValue]="division">{{division}}</option>
+                              }
+                            </select>
+                          </td>
+                        }
+                        <td class="cell-label">
+                          @if (isDivisionSpecificList(activeList.key)) {
+                            <textarea
+                              class="admin-cell-input admin-cell-textarea"
+                              rows="3"
+                            [(ngModel)]="item.label"></textarea>
+                          } @else {
+                            <input class="admin-cell-input" [(ngModel)]="item.label" />
+                          }
+                        </td>
+                        <td class="cell-sort">
+                          <input class="admin-cell-input" type="number" [(ngModel)]="item.sortOrder" />
+                        </td>
+                        <td class="cell-active">
+                          <mat-checkbox [(ngModel)]="item.isActive"></mat-checkbox>
+                        </td>
+                        <td class="cell-actions">
+                          <div class="admin-item-actions">
+                            <button mat-button type="button" (click)="deleteItem(item)" [disabled]="saveBusy['delete-' + item.uuid]">DELETE</button>
+                            <button mat-flat-button type="button" (click)="saveItem(item)" [disabled]="saveBusy[item.uuid]">SAVE</button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
-        </section>
-
-        <div *ngIf="!pageWorking" class="admin-workspace">
-            <aside class="admin-subnav">
-                <button
-                    *ngFor="let list of lists"
-                    mat-button
-                    type="button"
-                    class="admin-subnav-button"
-                    [class.active]="activeListKey === list.key"
-                    (click)="setActiveList(list.key)">
-                    <span class="admin-subnav-text">{{list.title}}</span>
-                    <span class="admin-subnav-count">{{getItems(list.key).length}}</span>
-                </button>
-            </aside>
-
-            <section class="admin-card">
-                <header class="admin-card-header">
-                    <div>
-                        <div class="admin-card-title">{{activeList.title}}</div>
-                        <div class="admin-card-subtitle">{{activeList.subtitle}}</div>
-                    </div>
-                    <div class="admin-card-count">{{getItems(activeList.key).length}}</div>
-                </header>
-
-                <div class="admin-create-panel">
-                    <mat-form-field *ngIf="isDivisionSpecificList(activeList.key)">
-                        <mat-label>Division</mat-label>
-                        <mat-select [(ngModel)]="createModels[activeList.key].division">
-                            <mat-option *ngFor="let division of divisionOptions" [value]="division">{{division}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>{{getItemTextLabel(activeList.key)}}</mat-label>
-                        <textarea
-                            *ngIf="isDivisionSpecificList(activeList.key); else standardLabelInput"
-                            matInput
-                            rows="4"
-                            [(ngModel)]="createModels[activeList.key].label"></textarea>
-                        <ng-template #standardLabelInput>
-                            <input matInput [(ngModel)]="createModels[activeList.key].label" />
-                        </ng-template>
-                    </mat-form-field>
-                    <mat-form-field>
-                        <mat-label>Sort Order</mat-label>
-                        <input matInput type="number" [(ngModel)]="createModels[activeList.key].sortOrder" />
-                    </mat-form-field>
-                    <mat-form-field *ngIf="!isDivisionSpecificList(activeList.key)" class="span-2">
-                        <mat-label>Description</mat-label>
-                        <textarea matInput rows="3" [(ngModel)]="createModels[activeList.key].description"></textarea>
-                    </mat-form-field>
-                    <mat-checkbox [(ngModel)]="createModels[activeList.key].isActive">Active</mat-checkbox>
-                    <button mat-flat-button type="button" (click)="createItem(activeList.key)" [disabled]="saveBusy['create-' + activeList.key]">
-                        ADD ITEM
-                    </button>
-                </div>
-
-                <div class="admin-list">
-                    <div class="admin-table-shell">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th *ngIf="isDivisionSpecificList(activeList.key)">Division</th>
-                                    <th>{{getItemTextLabel(activeList.key)}}</th>
-                                    <th>Sort</th>
-                                    <th>Active</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let item of getItems(activeList.key); trackBy: trackByUuid">
-                                    <td *ngIf="isDivisionSpecificList(activeList.key)" class="cell-division">
-                                        <select class="admin-cell-input" [(ngModel)]="item.division">
-                                            <option *ngFor="let division of divisionOptions" [ngValue]="division">{{division}}</option>
-                                        </select>
-                                    </td>
-                                    <td class="cell-label">
-                                        <textarea
-                                            *ngIf="isDivisionSpecificList(activeList.key); else standardItemLabelInput"
-                                            class="admin-cell-input admin-cell-textarea"
-                                            rows="3"
-                                            [(ngModel)]="item.label"></textarea>
-                                        <ng-template #standardItemLabelInput>
-                                            <input class="admin-cell-input" [(ngModel)]="item.label" />
-                                        </ng-template>
-                                    </td>
-                                    <td class="cell-sort">
-                                        <input class="admin-cell-input" type="number" [(ngModel)]="item.sortOrder" />
-                                    </td>
-                                    <td class="cell-active">
-                                        <mat-checkbox [(ngModel)]="item.isActive"></mat-checkbox>
-                                    </td>
-                                    <td class="cell-actions">
-                                        <div class="admin-item-actions">
-                                            <button mat-button type="button" (click)="deleteItem(item)" [disabled]="saveBusy['delete-' + item.uuid]">DELETE</button>
-                                            <button mat-flat-button type="button" (click)="saveItem(item)" [disabled]="saveBusy[item.uuid]">SAVE</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+          </section>
         </div>
+      }
 
-        <div *ngIf="pageWorking" class="loading-panel">
-            <div>Loading project settings...</div>
+      @if (pageWorking) {
+        <div class="loading-panel">
+          <div>Loading project settings...</div>
         </div>
-        </div>
+      }
     </div>
+  </div>
 </div>

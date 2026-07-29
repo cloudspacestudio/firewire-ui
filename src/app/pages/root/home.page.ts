@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject } from "@angular/core"
+import { Component, DestroyRef, OnInit, inject, ChangeDetectionStrategy } from "@angular/core"
 
 import { HttpClient } from "@angular/common/http"
 import { CommonModule } from "@angular/common"
@@ -28,6 +28,7 @@ interface RecentProjectLink {
     imports: [CommonModule, NgStyle, MatButtonModule, MatCardModule, MatIconModule, PageToolbar, RouterLink],
     providers: [HttpClient],
     templateUrl: './home.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./home.page.scss']
 })
 export class HomePage implements OnInit, AfterViewInit {

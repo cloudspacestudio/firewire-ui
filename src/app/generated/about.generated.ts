@@ -27,52 +27,52 @@ export const ABOUT_METADATA: AboutMetadata = {
         "libraries": [
             {
                 "name": "@angular/animations",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/cdk",
-                "version": "19.0.0",
+                "version": "22.0.6",
                 "license": "MIT"
             },
             {
                 "name": "@angular/common",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/compiler",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/core",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/forms",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/material",
-                "version": "19.0.0",
+                "version": "22.0.6",
                 "license": "MIT"
             },
             {
                 "name": "@angular/platform-browser",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/platform-browser-dynamic",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
                 "name": "@angular/router",
-                "version": "19.0.0",
+                "version": "22.0.8",
                 "license": "MIT"
             },
             {
@@ -92,7 +92,7 @@ export const ABOUT_METADATA: AboutMetadata = {
             },
             {
                 "name": "rxjs",
-                "version": "7.8.1",
+                "version": "7.8.2",
                 "license": "Apache-2.0"
             },
             {

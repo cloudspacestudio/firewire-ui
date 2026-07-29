@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, ViewChild, inject } from '@angular/core'
+
+import { AfterViewInit, Component, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import {
@@ -45,166 +45,168 @@ export interface EstimateFaceSheetData {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="estimate-face-sheet__titlebar">
-            <div>
-                <div class="estimate-face-sheet__title-kicker">Bidding Output</div>
-                <div class="estimate-face-sheet__title">Estimate Face Sheet</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="estimate-face-sheet__title-kicker">Bidding Output</div>
+            <div class="estimate-face-sheet__title">Estimate Face Sheet</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="estimate-face-sheet">
-            <div class="estimate-face-sheet__toolbar">
-                <div class="estimate-face-sheet__eyebrow">Estimator Package</div>
-            </div>
+          <div class="estimate-face-sheet__toolbar">
+            <div class="estimate-face-sheet__eyebrow">Estimator Package</div>
+          </div>
 
-            <div class="estimate-face-sheet__paper">
-                <div #printRoot class="estimate-face-sheet__paper-inner">
-                    <div class="estimate-face-sheet__paper-brand-row">
-                        <img class="estimate-face-sheet__paper-logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
-                    </div>
-                    <div class="estimate-face-sheet__paper-title">Estimate Face Sheet</div>
+          <div class="estimate-face-sheet__paper">
+            <div #printRoot class="estimate-face-sheet__paper-inner">
+              <div class="estimate-face-sheet__paper-brand-row">
+                <img class="estimate-face-sheet__paper-logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
+              </div>
+              <div class="estimate-face-sheet__paper-title">Estimate Face Sheet</div>
 
-                    <table class="estimate-face-sheet__table">
-                        <tbody>
-                            <tr>
-                                <th>Date</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.date" /></td>
-                                <th>Job No.</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
-                            </tr>
-                            <tr>
-                                <th>Job Name</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.projectName" /></td>
-                                <th>Estimator</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.estimator" /></td>
-                            </tr>
-                            <tr>
-                                <th>Address</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.projectAddress" /></td>
-                                <th>Contractor</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractor" /></td>
-                            </tr>
-                            <tr>
-                                <th>Billing Address</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.billingAddress" /></td>
-                                <th>Contract Cost</th>
-                                <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractCost" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
+              <table class="estimate-face-sheet__table">
+                <tbody>
+                  <tr>
+                    <th>Date</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.date" /></td>
+                    <th>Job No.</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
+                  </tr>
+                  <tr>
+                    <th>Job Name</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.projectName" /></td>
+                    <th>Estimator</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.estimator" /></td>
+                  </tr>
+                  <tr>
+                    <th>Address</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.projectAddress" /></td>
+                    <th>Contractor</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractor" /></td>
+                  </tr>
+                  <tr>
+                    <th>Billing Address</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.billingAddress" /></td>
+                    <th>Contract Cost</th>
+                    <td><input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractCost" /></td>
+                  </tr>
+                </tbody>
+              </table>
 
-                    <div class="estimate-face-sheet__section">
-                        <div class="estimate-face-sheet__section-title">Description of Work</div>
-                        <textarea
-                            #descriptionOfWorkInput
-                            class="estimate-face-sheet__paper-input estimate-face-sheet__paper-input--multiline"
-                            [(ngModel)]="editable.descriptionOfWork"
-                            (input)="autosizeDescriptionOfWork()"></textarea>
-                    </div>
+              <div class="estimate-face-sheet__section">
+                <div class="estimate-face-sheet__section-title">Description of Work</div>
+                <textarea
+                  #descriptionOfWorkInput
+                  class="estimate-face-sheet__paper-input estimate-face-sheet__paper-input--multiline"
+                  [(ngModel)]="editable.descriptionOfWork"
+                (input)="autosizeDescriptionOfWork()"></textarea>
+              </div>
 
-                    <div class="estimate-face-sheet__cost-grid">
-                        <div class="estimate-face-sheet__cost-card">
-                            <div class="estimate-face-sheet__section-title">Materials / Equipment</div>
-                            <table class="estimate-face-sheet__table estimate-face-sheet__table--compact">
-                                <tbody>
-                                    <tr>
-                                        <td>Materials-Buyout</td>
-                                        <td class="estimate-face-sheet__code-cell">20-80-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.materialBuyout" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Rental</td>
-                                        <td class="estimate-face-sheet__code-cell">30-10-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalTotal" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Permits</td>
-                                        <td class="estimate-face-sheet__code-cell">70-10-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="estimate-face-sheet__cost-card">
-                            <div class="estimate-face-sheet__section-title">Contract Labor / Subs</div>
-                            <table class="estimate-face-sheet__table estimate-face-sheet__table--compact">
-                                <tbody>
-                                    <tr>
-                                        <td>Field Labor Hours</td>
-                                        <td class="estimate-face-sheet__code-cell">10-40-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborHours" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Field Labor Rate</td>
-                                        <td class="estimate-face-sheet__code-cell">10-40-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborRate" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Sub Contract</td>
-                                        <td class="estimate-face-sheet__code-cell">40-10-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Other</td>
-                                        <td class="estimate-face-sheet__code-cell">40-90-00</td>
-                                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="estimate-face-sheet__metrics">
-                        <div class="estimate-face-sheet__metric-card">
-                            <span>Contract Gain</span>
-                            <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractGain" />
-                        </div>
-                        <div class="estimate-face-sheet__metric-card">
-                            <span>Contract Total without Tax</span>
-                            <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractTotalWithoutTax" />
-                        </div>
-                        <div class="estimate-face-sheet__metric-card">
-                            <span>Total Heads</span>
-                            <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.totalHeads" />
-                        </div>
-                    </div>
-
-                    <div class="estimate-face-sheet__section-title">Price Analysis Factors</div>
-                    <div class="estimate-face-sheet__analysis-grid">
-                        <div class="estimate-face-sheet__analysis-row"><span>Square Footage</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.squareFootage" /></div>
-                        <div class="estimate-face-sheet__analysis-row"><span>Inside Hours per Head</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.insideHoursPerHead" /></div>
-                        <div class="estimate-face-sheet__analysis-row"><span>Dollars per Head</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.dollarsPerHead" /></div>
-                        <div class="estimate-face-sheet__analysis-row"><span>Dollars per Square Foot</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.dollarsPerSquareFoot" /></div>
-                    </div>
+              <div class="estimate-face-sheet__cost-grid">
+                <div class="estimate-face-sheet__cost-card">
+                  <div class="estimate-face-sheet__section-title">Materials / Equipment</div>
+                  <table class="estimate-face-sheet__table estimate-face-sheet__table--compact">
+                    <tbody>
+                      <tr>
+                        <td>Materials-Buyout</td>
+                        <td class="estimate-face-sheet__code-cell">20-80-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.materialBuyout" /></td>
+                      </tr>
+                      <tr>
+                        <td>Rental</td>
+                        <td class="estimate-face-sheet__code-cell">30-10-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalTotal" /></td>
+                      </tr>
+                      <tr>
+                        <td>Permits</td>
+                        <td class="estimate-face-sheet__code-cell">70-10-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
+
+                <div class="estimate-face-sheet__cost-card">
+                  <div class="estimate-face-sheet__section-title">Contract Labor / Subs</div>
+                  <table class="estimate-face-sheet__table estimate-face-sheet__table--compact">
+                    <tbody>
+                      <tr>
+                        <td>Field Labor Hours</td>
+                        <td class="estimate-face-sheet__code-cell">10-40-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborHours" /></td>
+                      </tr>
+                      <tr>
+                        <td>Field Labor Rate</td>
+                        <td class="estimate-face-sheet__code-cell">10-40-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborRate" /></td>
+                      </tr>
+                      <tr>
+                        <td>Sub Contract</td>
+                        <td class="estimate-face-sheet__code-cell">40-10-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
+                      </tr>
+                      <tr>
+                        <td>Other</td>
+                        <td class="estimate-face-sheet__code-cell">40-90-00</td>
+                        <td class="estimate-face-sheet__value-cell"><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="estimate-face-sheet__metrics">
+                <div class="estimate-face-sheet__metric-card">
+                  <span>Contract Gain</span>
+                  <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractGain" />
+                </div>
+                <div class="estimate-face-sheet__metric-card">
+                  <span>Contract Total without Tax</span>
+                  <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.contractTotalWithoutTax" />
+                </div>
+                <div class="estimate-face-sheet__metric-card">
+                  <span>Total Heads</span>
+                  <input class="estimate-face-sheet__paper-input" [(ngModel)]="editable.totalHeads" />
+                </div>
+              </div>
+
+              <div class="estimate-face-sheet__section-title">Price Analysis Factors</div>
+              <div class="estimate-face-sheet__analysis-grid">
+                <div class="estimate-face-sheet__analysis-row"><span>Square Footage</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.squareFootage" /></div>
+                <div class="estimate-face-sheet__analysis-row"><span>Inside Hours per Head</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.insideHoursPerHead" /></div>
+                <div class="estimate-face-sheet__analysis-row"><span>Dollars per Head</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.dollarsPerHead" /></div>
+                <div class="estimate-face-sheet__analysis-row"><span>Dollars per Square Foot</span><input class="estimate-face-sheet__paper-input is-right" [(ngModel)]="editable.dollarsPerSquareFoot" /></div>
+              </div>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="estimate-face-sheet__footer">
-            <div class="estimate-face-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button color="primary" type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                {{saveWorking ? 'Saving...' : 'Create Sheet'}}
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="estimate-face-sheet__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button color="primary" type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            {{saveWorking ? 'Saving...' : 'Create Sheet'}}
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .estimate-face-sheet__titlebar {
             display: flex;

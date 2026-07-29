@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core'
+import { Component, ElementRef, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { RouterLink } from '@angular/router'
@@ -19,6 +19,7 @@ import { DeviceIcon, DeviceIconGroup } from '../../schemas/device-icon.schema'
     selector: 'device-icons-page',
     imports: [CommonModule, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, PageToolbar, NavToolbar],
     templateUrl: './device-icons.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./device-icons.page.scss']
 })
 export class DeviceIconsPage implements OnInit {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core'
+import { Component, EventEmitter, HostListener, Input, OnInit, Output, ChangeDetectionStrategy } from '@angular/core'
 import { RouterLink } from '@angular/router'
 
 import { MatButtonModule } from '@angular/material/button'
@@ -30,6 +30,7 @@ interface ExplorerDirectory {
     selector: 'firewire-doc-library-explorer',
     imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule],
     templateUrl: './firewire-doc-library-explorer.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-doc-library-explorer.component.scss']
 })
 export class FirewireDocLibraryExplorerComponent implements OnInit {

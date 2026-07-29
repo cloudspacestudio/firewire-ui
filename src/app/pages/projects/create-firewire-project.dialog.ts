@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core'
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { NgFor, NgIf } from '@angular/common'
+
 import {
     MAT_DIALOG_DATA,
     MatDialogActions,
@@ -92,20 +92,19 @@ interface CreateFirewireProjectDialogData {
             }
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
-        NgIf,
-        NgFor,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule,
-        MatFormFieldModule,
-        MatInputModule,
-        MatSelectModule
-    ]
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule
+]
 })
 export class CreateFirewireProjectDialog {
     private dialogRef = inject(MatDialogRef<CreateFirewireProjectDialog>)

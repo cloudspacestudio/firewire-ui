@@ -17,13 +17,13 @@ html, body { height: 100%; }
     --mat-autocomplete-container-shape: 0px;
     --mat-datepicker-calendar-container-shape: 0px;
     --mat-form-field-container-shape: 0px;
-    --mdc-filled-text-field-container-shape: 0px;
-    --mdc-outlined-text-field-container-shape: 0px;
-    --mdc-protected-button-container-shape: 0px;
-    --mdc-filled-button-container-shape: 0px;
-    --mdc-outlined-button-container-shape: 0px;
-    --mdc-text-button-container-shape: 0px;
-    --mdc-icon-button-state-layer-shape: 0px;
+    --mat-form-field-filled-container-shape: 0px;
+    --mat-form-field-outlined-container-shape: 0px;
+    --mat-button-protected-container-shape: 0px;
+    --mat-button-filled-container-shape: 0px;
+    --mat-button-outlined-container-shape: 0px;
+    --mat-button-text-container-shape: 0px;
+    --mat-icon-button-state-layer-shape: 0px;
 }
 
 html {
@@ -579,8 +579,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-compact-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: min(360px, calc(100vw - 32px));
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: min(360px, calc(100vw - 32px));
     max-width: min(360px, calc(100vw - 32px)) !important;
     min-width: 0 !important;
     width: min(360px, calc(100vw - 32px)) !important;
@@ -600,8 +600,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-fieldwire-import-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: min(1040px, calc(100vw - 48px));
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: min(1040px, calc(100vw - 48px));
     max-width: min(1040px, calc(100vw - 48px)) !important;
     min-width: 0 !important;
     width: min(1040px, calc(100vw - 48px)) !important;
@@ -621,8 +621,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-medium-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: min(520px, calc(100vw - 32px));
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: min(520px, calc(100vw - 32px));
     max-width: min(520px, calc(100vw - 32px)) !important;
     min-width: 0 !important;
     width: min(520px, calc(100vw - 32px)) !important;
@@ -642,8 +642,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-fit-content-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: calc(100vw - 48px);
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: calc(100vw - 48px);
     width: fit-content !important;
     max-width: calc(100vw - 48px) !important;
     min-width: 0 !important;
@@ -658,8 +658,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-create-firewire-project-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: min(980px, calc(100vw - 48px));
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: min(980px, calc(100vw - 48px));
     width: min(980px, calc(100vw - 48px)) !important;
     max-width: min(980px, calc(100vw - 48px)) !important;
     min-width: 0 !important;
@@ -674,8 +674,8 @@ button.success {
 }
 
 :root .cdk-overlay-pane.fw-fullscreen-dialog-pane {
-    --mdc-dialog-container-min-width: 0px;
-    --mdc-dialog-container-max-width: calc(100vw - 24px);
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: calc(100vw - 24px);
     max-width: calc(100vw - 24px) !important;
     min-width: 0 !important;
     width: calc(100vw - 24px) !important;
@@ -750,7 +750,7 @@ button[mat-fab]:hover {
 }
 
 button.fw-control-help-button.mat-mdc-icon-button {
-    --mdc-icon-button-state-layer-size: 32px;
+    --mat-icon-button-state-layer-size: 32px;
     width: 28px;
     height: 32px;
     padding: 4px 2px;
@@ -767,8 +767,8 @@ button.fw-control-help-button.mat-mdc-icon-button:focus-visible {
 }
 
 .fw-control-help-tooltip {
-    --mdc-plain-tooltip-container-color: rgba(9, 14, 24, 0.98);
-    --mdc-plain-tooltip-supporting-text-color: var(--fw-text);
+    --mat-tooltip-container-color: rgba(9, 14, 24, 0.98);
+    --mat-tooltip-supporting-text-color: var(--fw-text);
     max-width: min(360px, calc(100vw - 32px));
     border: 1px solid rgba(72, 221, 255, 0.32);
     border-radius: 0;
@@ -783,15 +783,15 @@ button[mat-button][color="warn"],
 button.mat-mdc-unelevated-button.mat-warn,
 button.fw-danger-button,
 button.fw-delete-button {
-    --mdc-filled-button-container-color: #8f2020;
-    --mdc-filled-button-label-text-color: #fff7f7;
-    --mdc-protected-button-container-color: #8f2020;
-    --mdc-protected-button-label-text-color: #fff7f7;
-    --mdc-outlined-button-label-text-color: #fff7f7;
-    --mdc-text-button-label-text-color: #fff7f7;
-    --mat-filled-button-state-layer-color: #ffffff;
-    --mat-protected-button-state-layer-color: #ffffff;
-    --mat-outlined-button-state-layer-color: #ffffff;
+    --mat-button-filled-container-color: #8f2020;
+    --mat-button-filled-label-text-color: #fff7f7;
+    --mat-button-protected-container-color: #8f2020;
+    --mat-button-protected-label-text-color: #fff7f7;
+    --mat-button-outlined-label-text-color: #fff7f7;
+    --mat-button-text-label-text-color: #fff7f7;
+    --mat-button-filled-state-layer-color: #ffffff;
+    --mat-button-protected-state-layer-color: #ffffff;
+    --mat-button-outlined-state-layer-color: #ffffff;
     border-color: rgba(255, 92, 92, 0.62) !important;
     background-color: #8f2020 !important;
     background:

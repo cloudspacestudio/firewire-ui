@@ -1,13 +1,15 @@
 # MeanUi
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.0.2.
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) and currently targets Angular CLI 22.0.8. The workspace uses Angular's `@angular/build` application builders.
 
 ## Development server
+
+Angular 22 requires Node.js `^22.22.3`, `^24.15.0`, or `>=26.0.0`. The app was verified locally with Node.js `24.15.0`.
 
 To start a local development server, run:
 
 ```bash
-ng serve
+npm start
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.

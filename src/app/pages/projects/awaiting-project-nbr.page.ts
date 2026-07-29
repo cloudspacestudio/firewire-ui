@@ -1,7 +1,7 @@
-import { Component, OnInit, AfterViewInit, ViewChild } from "@angular/core"
+import { Component, OnInit, AfterViewInit, ViewChild, ChangeDetectionStrategy } from "@angular/core"
 import { FormsModule } from "@angular/forms"
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { RouterLink } from "@angular/router"
 
 import { PageToolbar } from "../../common/components/page-toolbar"
@@ -21,21 +21,21 @@ import { MatFormFieldModule } from "@angular/material/form-field"
     standalone: true,
     selector: 'awaiting-project-nbr-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        MatPaginatorModule,
-        MatSortModule,
-        MatTableModule,
-        MatInputModule,
-        MatFormFieldModule,
-        PageToolbar,
-        NavToolbar
-    ],
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatTableModule,
+    MatInputModule,
+    MatFormFieldModule,
+    PageToolbar,
+    NavToolbar
+],
     providers: [HttpClient],
     templateUrl: './awaiting-project-nbr.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./projects.page.scss']
 })
 export class AwaitingProjectNbrPage implements OnInit, AfterViewInit {

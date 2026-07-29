@@ -1,4 +1,4 @@
-import { Component } from "@angular/core"
+import { Component, ChangeDetectionStrategy } from "@angular/core"
 
 import { PageToolbar } from '../../common/components/page-toolbar'
 
@@ -15,6 +15,7 @@ import { PageToolbar } from '../../common/components/page-toolbar'
             </div>
         </div>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .placeholder-page {
             min-height: 100vh;

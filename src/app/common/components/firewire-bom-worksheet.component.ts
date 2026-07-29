@@ -1,5 +1,6 @@
+
 import { CommonModule } from '@angular/common'
-import { Component, Input, inject } from '@angular/core'
+import { Component, Input, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { firstValueFrom } from 'rxjs'
 
@@ -52,15 +53,16 @@ const BOM_CSV_EXPORT_MODE_STORAGE_KEY = 'firewire.bomWorksheet.csvExportMode'
     standalone: true,
     selector: 'firewire-bom-worksheet',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatSelectModule,
-        AutosizeTextareaDirective
-    ],
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatSelectModule,
+    AutosizeTextareaDirective
+],
     templateUrl: './firewire-bom-worksheet.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../../pages/sales/sales-project.page.scss']
 })
 export class FirewireBomWorksheetComponent {
@@ -507,14 +509,14 @@ export class FirewireBomWorksheetComponent {
     standalone: true,
     selector: 'firewire-bom-row-delete-confirm-dialog',
     imports: [
-        CommonModule,
-        MatButtonModule,
-        MatDialogActions,
-        MatDialogClose,
-        MatDialogContent,
-        MatDialogTitle,
-        MatIconModule,
-    ],
+    MatButtonModule,
+    MatDialogActions,
+    MatDialogClose,
+    MatDialogContent,
+    MatDialogTitle,
+    MatIconModule
+],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>Delete BOM Row</h2>
         <mat-dialog-content>
@@ -542,14 +544,13 @@ export class BomRowDeleteConfirmDialog {
     standalone: true,
     selector: 'firewire-bom-csv-export-dialog',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatButtonModule,
-        MatDialogActions,
-        MatDialogContent,
-        MatDialogTitle,
-        MatIconModule,
-    ],
+    FormsModule,
+    MatButtonModule,
+    MatDialogActions,
+    MatDialogContent,
+    MatDialogTitle,
+    MatIconModule
+],
     template: `
         <h2 mat-dialog-title>Export BOM CSV</h2>
         <mat-dialog-content>
@@ -583,6 +584,7 @@ export class BomRowDeleteConfirmDialog {
             <button mat-flat-button color="primary" type="button" (click)="export()">Export CSV</button>
         </mat-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .bom-csv-export-dialog{display:grid;gap:10px;color:var(--fw-text)}
         .bom-csv-export-dialog__option{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;width:100%;padding:12px 14px;border:1px solid rgba(72,221,255,.22);background:rgba(3,12,22,.52);color:inherit;text-align:left;cursor:pointer}
@@ -613,88 +615,95 @@ export class BomCsvExportDialog {
     standalone: true,
     selector: 'firewire-bom-row-source-dialog',
     imports: [
-        CommonModule,
-        MatButtonModule,
-        MatDialogActions,
-        MatDialogClose,
-        MatDialogContent,
-        MatDialogTitle,
-        MatIconModule,
-    ],
+    CommonModule,
+    MatButtonModule,
+    MatDialogActions,
+    MatDialogClose,
+    MatDialogContent,
+    MatDialogTitle,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar bom-source-dialog__titlebar">
-            <span class="fw-dialog-titlebar__text">{{data.kind === 'device' ? 'Device Source' : 'Vendor Part Source'}}</span>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Close source details" mat-dialog-close>
-                <mat-icon fontIcon="close"></mat-icon>
-            </button>
+          <span class="fw-dialog-titlebar__text">{{data.kind === 'device' ? 'Device Source' : 'Vendor Part Source'}}</span>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Close source details" mat-dialog-close>
+            <mat-icon fontIcon="close"></mat-icon>
+          </button>
         </div>
 
         <mat-dialog-content>
-            <section class="bom-source-dialog">
-                <div class="bom-source-dialog__banner" [class.bom-source-dialog__banner--part]="data.kind === 'part'">
-                    <div class="bom-source-dialog__banner-copy">
-                        <div class="bom-source-dialog__eyebrow">{{data.kind === 'device' ? 'Displaying Device' : 'Displaying Vendor Part'}}</div>
-                        <div class="bom-source-dialog__title">{{getTitle()}}</div>
-                        <div class="bom-source-dialog__subtitle">{{getSubtitle()}}</div>
-                    </div>
-                    <span *ngIf="getIconDataUrl()" class="bom-source-dialog__icon-canvas">
-                        <span class="bom-source-dialog__icon" [ngStyle]="getSourceIconStyle()" [attr.aria-label]="getIconLabel()"></span>
-                    </span>
-                </div>
+          <section class="bom-source-dialog">
+            <div class="bom-source-dialog__banner" [class.bom-source-dialog__banner--part]="data.kind === 'part'">
+              <div class="bom-source-dialog__banner-copy">
+                <div class="bom-source-dialog__eyebrow">{{data.kind === 'device' ? 'Displaying Device' : 'Displaying Vendor Part'}}</div>
+                <div class="bom-source-dialog__title">{{getTitle()}}</div>
+                <div class="bom-source-dialog__subtitle">{{getSubtitle()}}</div>
+              </div>
+              @if (getIconDataUrl()) {
+                <span class="bom-source-dialog__icon-canvas">
+                  <span class="bom-source-dialog__icon" [ngStyle]="getSourceIconStyle()" [attr.aria-label]="getIconLabel()"></span>
+                </span>
+              }
+            </div>
 
-                <div class="bom-source-dialog__details">
-                    <div>
-                        <span>Part Number</span>
-                        <strong>{{data.row?.partNbr || data.part?.partNumber || 'N/A'}}</strong>
-                    </div>
-                    <div>
-                        <span>Category</span>
-                        <strong>{{data.row?.type || data.part?.category || 'N/A'}}</strong>
-                    </div>
-                    <div>
-                        <span>Cost</span>
-                        <strong>{{(data.row?.cost || data.part?.cost || 0) | currency:'USD':'symbol':'1.0-0'}}</strong>
-                    </div>
-                    <div>
-                        <span>Vendor</span>
-                        <strong>{{getVendorName()}}</strong>
-                    </div>
-                </div>
+            <div class="bom-source-dialog__details">
+              <div>
+                <span>Part Number</span>
+                <strong>{{data.row?.partNbr || data.part?.partNumber || 'N/A'}}</strong>
+              </div>
+              <div>
+                <span>Category</span>
+                <strong>{{data.row?.type || data.part?.category || 'N/A'}}</strong>
+              </div>
+              <div>
+                <span>Cost</span>
+                <strong>{{(data.row?.cost || data.part?.cost || 0) | currency:'USD':'symbol':'1.0-0'}}</strong>
+              </div>
+              <div>
+                <span>Vendor</span>
+                <strong>{{getVendorName()}}</strong>
+              </div>
+            </div>
 
-                <div class="bom-source-dialog__description">{{getDescription()}}</div>
+            <div class="bom-source-dialog__description">{{getDescription()}}</div>
 
-                <section class="bom-source-dialog__parts" *ngIf="data.kind === 'device'">
-                    <div class="bom-source-dialog__section-title">Device Parts Included</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Part Number</th>
-                                <th>Description</th>
-                                <th>Category</th>
-                                <th class="right-align">Qty / Device</th>
-                                <th class="right-align">Cost</th>
-                                <th class="right-align">MSRP</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let part of data.parts">
-                                <td>{{part.partNumber}}</td>
-                                <td>{{part.description}}</td>
-                                <td>{{part.category || part.parentCategory || 'N/A'}}</td>
-                                <td class="right-align">{{part.quantityPerDevice || 1}}</td>
-                                <td class="right-align">{{(part.cost || 0) | currency:'USD':'symbol':'1.0-0'}}</td>
-                                <td class="right-align">{{(part.msrp || 0) | currency:'USD':'symbol':'1.0-0'}}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </section>
-            </section>
+            @if (data.kind === 'device') {
+              <section class="bom-source-dialog__parts">
+                <div class="bom-source-dialog__section-title">Device Parts Included</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Part Number</th>
+                      <th>Description</th>
+                      <th>Category</th>
+                      <th class="right-align">Qty / Device</th>
+                      <th class="right-align">Cost</th>
+                      <th class="right-align">MSRP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (part of data.parts; track part) {
+                      <tr>
+                        <td>{{part.partNumber}}</td>
+                        <td>{{part.description}}</td>
+                        <td>{{part.category || part.parentCategory || 'N/A'}}</td>
+                        <td class="right-align">{{part.quantityPerDevice || 1}}</td>
+                        <td class="right-align">{{(part.cost || 0) | currency:'USD':'symbol':'1.0-0'}}</td>
+                        <td class="right-align">{{(part.msrp || 0) | currency:'USD':'symbol':'1.0-0'}}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </section>
+            }
+          </section>
         </mat-dialog-content>
 
         <mat-dialog-actions align="end">
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .bom-source-dialog{display:grid;gap:14px;width:min(940px,calc(100vw - 96px));color:var(--fw-text)}
         .bom-source-dialog__titlebar{border-bottom:1px solid rgba(72,221,255,.14)}

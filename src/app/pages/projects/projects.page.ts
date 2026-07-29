@@ -1,9 +1,9 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
+import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectionStrategy } from "@angular/core"
+
 import { FormsModule } from "@angular/forms"
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { RouterLink } from "@angular/router"
 import { Subscription } from "rxjs"
 
@@ -33,14 +33,10 @@ declare const atlas: any
 @Component({
     standalone: true,
     selector: 'projects-page',
-    imports: [CommonModule, FormsModule, RouterLink,
-        MatButtonModule, MatButtonToggleModule, MatIconModule, 
-        MatPaginatorModule, MatSortModule,
-        MatTableModule, MatInputModule,
-        MatFormFieldModule, MatSelectModule,
-        PageToolbar, NavToolbar],
+    imports: [FormsModule, RouterLink, MatButtonModule, MatButtonToggleModule, MatIconModule, MatPaginatorModule, MatSortModule, MatTableModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './projects.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./projects.page.scss']
 })
 export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {

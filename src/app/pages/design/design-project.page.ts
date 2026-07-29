@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common"
-import { Component, ElementRef, OnInit, ViewChild, inject } from "@angular/core"
+
+import { Component, ElementRef, OnInit, ViewChild, inject, ChangeDetectionStrategy } from "@angular/core"
 import { HttpClient } from "@angular/common/http"
 import { ActivatedRoute, RouterLink } from "@angular/router"
 import { firstValueFrom } from "rxjs"
@@ -31,122 +31,139 @@ type DesignProjectTab = 'DETAILS' | 'TAKE_OFF' | 'FLOORPLANS'
     standalone: true,
     selector: 'design-project-page',
     imports: [
-        CommonModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        PageToolbar,
-        FirewireFloorplansComponent,
-        FirewireTakeoffMatrixComponent
-    ],
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    PageToolbar,
+    FirewireFloorplansComponent,
+    FirewireTakeoffMatrixComponent
+],
     providers: [HttpClient],
     template: `
         <page-toolbar title="DESIGN">
-            <div class="button-bar">
-                <button mat-fab class="back" [routerLink]="'/design'">
-                    <mat-icon fontIcon="chevron_left"></mat-icon>
-                </button>
-            </div>
-            <div class="design-project-toolbar-actions" *ngIf="project">
+          <div class="button-bar">
+            <button mat-fab class="back" [routerLink]="'/design'">
+              <mat-icon fontIcon="chevron_left"></mat-icon>
+            </button>
+          </div>
+          @if (project) {
+            <div class="design-project-toolbar-actions">
+              @if (activeTab === 'FLOORPLANS') {
                 <button
-                    *ngIf="activeTab === 'FLOORPLANS'"
-                    mat-stroked-button
-                    type="button"
-                    class="design-project-upload"
-                    [disabled]="floorplanUploadBusy"
-                    (click)="onUploadFloorplansClick()">
-                    <mat-icon fontIcon="add_photo_alternate"></mat-icon>
-                    {{floorplanUploadBusy ? 'UPLOADING...' : 'UPLOAD FLOORPLANS'}}
+                  mat-stroked-button
+                  type="button"
+                  class="design-project-upload"
+                  [disabled]="floorplanUploadBusy"
+                  (click)="onUploadFloorplansClick()">
+                  <mat-icon fontIcon="add_photo_alternate"></mat-icon>
+                  {{floorplanUploadBusy ? 'UPLOADING...' : 'UPLOAD FLOORPLANS'}}
                 </button>
+              }
             </div>
+          }
         </page-toolbar>
 
         <input
-            #floorplanUploadInput
-            type="file"
-            multiple
-            accept="image/*,.pdf,application/pdf"
-            class="design-project-hidden-input"
-            (change)="onFloorplanFileSelected($event)" />
+          #floorplanUploadInput
+          type="file"
+          multiple
+          accept="image/*,.pdf,application/pdf"
+          class="design-project-hidden-input"
+          (change)="onFloorplanFileSelected($event)" />
 
         <div class="page-root">
-            <div class="page-content">
-                <div class="content-root">
-                    <div *ngIf="pageWorking" class="design-project-state">
-                        Loading design workspace...
-                    </div>
-
-                    <div *ngIf="!pageWorking && errText" class="design-project-state design-project-state--error">
-                        {{errText}}
-                    </div>
-
-                    <section *ngIf="!pageWorking && project" class="design-project-shell">
-                        <aside class="design-project-tabs" aria-label="Design project sections">
-                            <button type="button" [class.is-active]="activeTab === 'DETAILS'" (click)="setActiveTab('DETAILS')">Details</button>
-                            <button type="button" [class.is-active]="activeTab === 'TAKE_OFF'" (click)="setActiveTab('TAKE_OFF')">Take Off</button>
-                            <button type="button" [class.is-active]="activeTab === 'FLOORPLANS'" (click)="setActiveTab('FLOORPLANS')">Floorplans</button>
-                        </aside>
-
-                        <main class="design-project-main">
-                            <section *ngIf="activeTab === 'DETAILS'" class="design-project-details">
-                                <div class="design-project-hero">
-                                    <div>
-                                        <div class="design-project-kicker">Project Design Workspace</div>
-                                        <h1>{{project.name}}</h1>
-                                        <p>Use this project-specific Design page for drawing review, takeoff visibility, and floorplan markup tied directly to this Firewire project.</p>
-                                    </div>
-                                    <div class="design-project-badges">
-                                        <span *ngIf="project.projectNbr">#{{project.projectNbr}}</span>
-                                        <span *ngIf="project.projectStatus">{{project.projectStatus}}</span>
-                                        <span *ngIf="project.projectType">{{project.projectType}}</span>
-                                    </div>
-                                </div>
-
-                                <article class="design-project-card design-project-card--snapshot">
-                                    <div class="design-project-card__eyebrow">Project Snapshot</div>
-                                    <div class="design-project-snapshot-grid">
-                                        <div class="design-project-detail"><span>Address</span><strong>{{project.address || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Bid Due</span><strong>{{toLocalDateString(project.bidDueDate) || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Salesman</span><strong>{{project.salesman || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Total Sq Ft</span><strong>{{formatSqFt(project.totalSqFt)}}</strong></div>
-                                        <div class="design-project-detail"><span>Job Type</span><strong>{{project.jobType || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Scope Type</span><strong>{{project.scopeType || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Project Scope</span><strong>{{project.projectScope || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Difficulty</span><strong>{{project.difficulty || 'Unavailable'}}</strong></div>
-                                        <div class="design-project-detail"><span>Floorplans</span><strong>{{getFloorplanFiles().length}}</strong></div>
-                                        <div class="design-project-detail"><span>BOM Quantity</span><strong>{{getBomQuantityTotal()}}</strong></div>
-                                    </div>
-                                </article>
-                            </section>
-
-                            <section *ngIf="activeTab === 'TAKE_OFF'" class="design-project-takeoff">
-                                <div class="design-project-section-kicker">Take Off Totals</div>
-                                <div class="design-project-pill">Matrix 1: {{getTakeoffMatrixTotal()}}</div>
-                                <firewire-takeoff-matrix
-                                    [matrix]="getPrimaryTakeoffMatrix()"
-                                    [columns]="getTakeoffColumnDefinitions()"
-                                    emptyMessage="Upload a floorplan to start takeoff.">
-                                </firewire-takeoff-matrix>
-                            </section>
-
-                            <section *ngIf="activeTab === 'FLOORPLANS'" class="design-project-floorplans">
-                                <firewire-floorplans
-                                    [projectKey]="project.uuid"
-                                    [files]="getFloorplanFiles()"
-                                    [statusMessage]="floorplanStatusMessage"
-                                    [getPreviewContent]="getFloorplanPreviewContent"
-                                    (renameFile)="renameFloorplanFile($event)"
-                                    (designFile)="openFloorplanDesigner($event)"
-                                    (downloadFile)="downloadFloorplanFile($event)"
-                                    (deleteFile)="deleteFloorplanFile($event)">
-                                </firewire-floorplans>
-                            </section>
-                        </main>
-                    </section>
+          <div class="page-content">
+            <div class="content-root">
+              @if (pageWorking) {
+                <div class="design-project-state">
+                  Loading design workspace...
                 </div>
+              }
+
+              @if (!pageWorking && errText) {
+                <div class="design-project-state design-project-state--error">
+                  {{errText}}
+                </div>
+              }
+
+              @if (!pageWorking && project) {
+                <section class="design-project-shell">
+                  <aside class="design-project-tabs" aria-label="Design project sections">
+                    <button type="button" [class.is-active]="activeTab === 'DETAILS'" (click)="setActiveTab('DETAILS')">Details</button>
+                    <button type="button" [class.is-active]="activeTab === 'TAKE_OFF'" (click)="setActiveTab('TAKE_OFF')">Take Off</button>
+                    <button type="button" [class.is-active]="activeTab === 'FLOORPLANS'" (click)="setActiveTab('FLOORPLANS')">Floorplans</button>
+                  </aside>
+                  <main class="design-project-main">
+                    @if (activeTab === 'DETAILS') {
+                      <section class="design-project-details">
+                        <div class="design-project-hero">
+                          <div>
+                            <div class="design-project-kicker">Project Design Workspace</div>
+                            <h1>{{project.name}}</h1>
+                            <p>Use this project-specific Design page for drawing review, takeoff visibility, and floorplan markup tied directly to this Firewire project.</p>
+                          </div>
+                          <div class="design-project-badges">
+                            @if (project.projectNbr) {
+                              <span>#{{project.projectNbr}}</span>
+                            }
+                            @if (project.projectStatus) {
+                              <span>{{project.projectStatus}}</span>
+                            }
+                            @if (project.projectType) {
+                              <span>{{project.projectType}}</span>
+                            }
+                          </div>
+                        </div>
+                        <article class="design-project-card design-project-card--snapshot">
+                          <div class="design-project-card__eyebrow">Project Snapshot</div>
+                          <div class="design-project-snapshot-grid">
+                            <div class="design-project-detail"><span>Address</span><strong>{{project.address || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Bid Due</span><strong>{{toLocalDateString(project.bidDueDate) || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Salesman</span><strong>{{project.salesman || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Total Sq Ft</span><strong>{{formatSqFt(project.totalSqFt)}}</strong></div>
+                            <div class="design-project-detail"><span>Job Type</span><strong>{{project.jobType || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Scope Type</span><strong>{{project.scopeType || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Project Scope</span><strong>{{project.projectScope || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Difficulty</span><strong>{{project.difficulty || 'Unavailable'}}</strong></div>
+                            <div class="design-project-detail"><span>Floorplans</span><strong>{{getFloorplanFiles().length}}</strong></div>
+                            <div class="design-project-detail"><span>BOM Quantity</span><strong>{{getBomQuantityTotal()}}</strong></div>
+                          </div>
+                        </article>
+                      </section>
+                    }
+                    @if (activeTab === 'TAKE_OFF') {
+                      <section class="design-project-takeoff">
+                        <div class="design-project-section-kicker">Take Off Totals</div>
+                        <div class="design-project-pill">Matrix 1: {{getTakeoffMatrixTotal()}}</div>
+                        <firewire-takeoff-matrix
+                          [matrix]="getPrimaryTakeoffMatrix()"
+                          [columns]="getTakeoffColumnDefinitions()"
+                          emptyMessage="Upload a floorplan to start takeoff.">
+                        </firewire-takeoff-matrix>
+                      </section>
+                    }
+                    @if (activeTab === 'FLOORPLANS') {
+                      <section class="design-project-floorplans">
+                        <firewire-floorplans
+                          [projectKey]="project.uuid"
+                          [files]="getFloorplanFiles()"
+                          [statusMessage]="floorplanStatusMessage"
+                          [getPreviewContent]="getFloorplanPreviewContent"
+                          (renameFile)="renameFloorplanFile($event)"
+                          (designFile)="openFloorplanDesigner($event)"
+                          (downloadFile)="downloadFloorplanFile($event)"
+                          (deleteFile)="deleteFloorplanFile($event)">
+                        </firewire-floorplans>
+                      </section>
+                    }
+                  </main>
+                </section>
+              }
             </div>
+          </div>
         </div>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         :host {
             display: block;
@@ -951,7 +968,8 @@ export class DesignProjectPage implements OnInit {
 @Component({
     standalone: true,
     selector: 'design-floorplan-delete-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>Delete Floorplan</h2>
         <mat-dialog-content>

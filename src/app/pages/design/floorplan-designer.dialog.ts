@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, ViewChild, inject } from '@angular/core'
+
+import { Component, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { MatButtonModule } from '@angular/material/button'
 import { MAT_DIALOG_DATA, MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog'
 import { firstValueFrom } from 'rxjs'
@@ -44,6 +44,7 @@ export interface FloorplanSymbolBalanceDialogData {
             (saveDesign)="save($event)">
         </floorplan-designer>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         :host,
         .floorplan-designer-dialog-host {
@@ -158,19 +159,22 @@ export class FloorplanDesignerDialog {
 @Component({
     standalone: true,
     selector: 'floorplan-symbol-balance-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>Floorplan Symbol Counts</h2>
         <mat-dialog-content>
-            <p>The design cannot be saved because some floorplan symbols no longer match BOM rows.</p>
-            <ul>
-                <li *ngFor="let error of data.errors">{{error}}</li>
-            </ul>
+          <p>The design cannot be saved because some floorplan symbols no longer match BOM rows.</p>
+          <ul>
+            @for (error of data.errors; track error) {
+              <li>{{error}}</li>
+            }
+          </ul>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-flat-button mat-dialog-close type="button">Review Symbols</button>
+          <button mat-flat-button mat-dialog-close type="button">Review Symbols</button>
         </mat-dialog-actions>
-    `
+        `
 })
 export class FloorplanSymbolBalanceDialog {
     readonly data = inject<FloorplanSymbolBalanceDialogData>(MAT_DIALOG_DATA)

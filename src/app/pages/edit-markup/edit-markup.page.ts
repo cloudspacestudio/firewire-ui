@@ -1,6 +1,7 @@
+
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
-import { Component, OnInit, inject } from "@angular/core"
+import { Component, OnInit, inject, ChangeDetectionStrategy } from "@angular/core"
 import { FormsModule } from "@angular/forms"
 import { ActivatedRoute, RouterLink } from "@angular/router"
 import { firstValueFrom, from, map, Observable, of, switchMap } from "rxjs"
@@ -42,15 +43,16 @@ type EditMarkupDirtyDialogResult = 'stay' | 'save' | 'leave'
     standalone: true,
     selector: 'edit-markup-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        PageToolbar
-    ],
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    PageToolbar
+],
     providers: [HttpClient],
     templateUrl: './edit-markup.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./edit-markup.page.scss']
 })
 export class EditMarkupPage implements OnInit {
@@ -779,14 +781,13 @@ export class EditMarkupPage implements OnInit {
     standalone: true,
     selector: 'edit-markup-dirty-navigation-dialog',
     imports: [
-        CommonModule,
-        MatButtonModule,
-        MatIconModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose
-    ],
+    MatButtonModule,
+    MatIconModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose
+],
     styles: [`
         :host {
             display: block;
@@ -830,6 +831,7 @@ export class EditMarkupPage implements OnInit {
             gap: 8px;
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <section class="edit-markup-dirty-dialog">
             <div mat-dialog-title class="edit-markup-dirty-dialog__title">

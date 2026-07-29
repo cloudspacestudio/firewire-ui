@@ -1,102 +1,110 @@
 <page-toolbar [hideMenu]="true" [transparent]="true"></page-toolbar>
 <div class="page-root" [ngStyle]="backgroundSurfaceStyle" [class.page-root--static-background]="backgroundMode !== 'video'">
-    <div *ngIf="backgroundMode === 'video'" class="home-video-shell">
-        <div class="home-video-shell__ambient"></div>
-        <video
-            #backgroundVideo
-            class="home-video-shell__video"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="auto"
-            aria-hidden="true">
-            <source [src]="backgroundVideoUrl" type="video/mp4" />
-        </video>
-        <div class="home-video-shell__scanline"></div>
-        <div class="home-video-shell__vignette"></div>
+  @if (backgroundMode === 'video') {
+    <div class="home-video-shell">
+      <div class="home-video-shell__ambient"></div>
+      <video
+        #backgroundVideo
+        class="home-video-shell__video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        aria-hidden="true">
+        <source [src]="backgroundVideoUrl" type="video/mp4" />
+      </video>
+      <div class="home-video-shell__scanline"></div>
+      <div class="home-video-shell__vignette"></div>
     </div>
-    <div *ngIf="backgroundMode !== 'video'" class="home-static-background">
-        <div class="home-static-background__scanline"></div>
-        <div class="home-static-background__vignette"></div>
+  }
+  @if (backgroundMode !== 'video') {
+    <div class="home-static-background">
+      <div class="home-static-background__scanline"></div>
+      <div class="home-static-background__vignette"></div>
     </div>
+  }
 
-    <div class="page-content home-page-content">
-        <div class="content-root">
-            <div class="home-hero" [class.home-hero--compact]="compactHero">
-                <div class="home-hero__eyebrow">Firewire Command</div>
-                <h1>Operational systems for projects, devices, and estimating data.</h1>
-                <div *ngIf="showRecentProjects && recentProjects.length" class="home-hero__recent">
-                    <div class="home-hero__recent-label">Recent Project Detail Views</div>
-                    <div class="home-hero__recent-links">
-                        <div *ngFor="let project of recentProjects" class="home-hero__recent-tile">
-                            <a [routerLink]="project.route" class="home-hero__recent-link">
-                                <span class="home-hero__recent-number">{{project.projectNbr || 'No Project #'}}</span>
-                                <span class="home-hero__recent-name">{{project.name}}</span>
-                            </a>
-                            <button mat-icon-button type="button" class="home-hero__recent-remove" (click)="removeRecentProject(project, $event)" [attr.aria-label]="'Remove ' + project.name + ' from recent projects'">
-                                <mat-icon fontIcon="close"></mat-icon>
-                            </button>
-                        </div>
-                    </div>
+  <div class="page-content home-page-content">
+    <div class="content-root">
+      <div class="home-hero" [class.home-hero--compact]="compactHero">
+        <div class="home-hero__eyebrow">Firewire Command</div>
+        <h1>Operational systems for projects, devices, and estimating data.</h1>
+        @if (showRecentProjects && recentProjects.length) {
+          <div class="home-hero__recent">
+            <div class="home-hero__recent-label">Recent Project Detail Views</div>
+            <div class="home-hero__recent-links">
+              @for (project of recentProjects; track project) {
+                <div class="home-hero__recent-tile">
+                  <a [routerLink]="project.route" class="home-hero__recent-link">
+                    <span class="home-hero__recent-number">{{project.projectNbr || 'No Project #'}}</span>
+                    <span class="home-hero__recent-name">{{project.name}}</span>
+                  </a>
+                  <button mat-icon-button type="button" class="home-hero__recent-remove" (click)="removeRecentProject(project, $event)" [attr.aria-label]="'Remove ' + project.name + ' from recent projects'">
+                    <mat-icon fontIcon="close"></mat-icon>
+                  </button>
                 </div>
+              }
             </div>
+          </div>
+        }
+      </div>
 
-            <div class="simple-card-container home-tile-grid">
-                <div class="nav-tile nav-tile--sales" role="link" tabindex="0" (click)="navigateTo('/sales')" (keydown.enter)="navigateTo('/sales')" (keydown.space)="navigateTo('/sales'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Sales</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div class="nav-tile nav-tile--design" role="link" tabindex="0" (click)="navigateTo('/design')" (keydown.enter)="navigateTo('/design')" (keydown.space)="navigateTo('/design'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Design</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div class="nav-tile nav-tile--install" role="link" tabindex="0" (click)="navigateTo('/install')" (keydown.enter)="navigateTo('/install')" (keydown.space)="navigateTo('/install'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Install</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div class="nav-tile nav-tile--projects" role="link" tabindex="0" (click)="navigateTo('/projects')" (keydown.enter)="navigateTo('/projects')" (keydown.space)="navigateTo('/projects'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Projects</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div class="nav-tile nav-tile--devices" role="link" tabindex="0" (click)="navigateTo('/devices')" (keydown.enter)="navigateTo('/devices')" (keydown.space)="navigateTo('/devices'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Devices</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-
-                <div class="nav-tile nav-tile--settings" role="link" tabindex="0" (click)="navigateTo('/settings')" (keydown.enter)="navigateTo('/settings')" (keydown.space)="navigateTo('/settings'); $event.preventDefault()">
-                    <mat-card appearance="outlined">
-                        <div class="nav-tile__media" aria-hidden="true"></div>
-                        <mat-card-header>
-                            <mat-card-title>Settings</mat-card-title>
-                        </mat-card-header>
-                    </mat-card>
-                </div>
-            </div>
+      <div class="simple-card-container home-tile-grid">
+        <div class="nav-tile nav-tile--sales" role="link" tabindex="0" (click)="navigateTo('/sales')" (keydown.enter)="navigateTo('/sales')" (keydown.space)="navigateTo('/sales'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Sales</mat-card-title>
+            </mat-card-header>
+          </mat-card>
         </div>
+
+        <div class="nav-tile nav-tile--design" role="link" tabindex="0" (click)="navigateTo('/design')" (keydown.enter)="navigateTo('/design')" (keydown.space)="navigateTo('/design'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Design</mat-card-title>
+            </mat-card-header>
+          </mat-card>
+        </div>
+
+        <div class="nav-tile nav-tile--install" role="link" tabindex="0" (click)="navigateTo('/install')" (keydown.enter)="navigateTo('/install')" (keydown.space)="navigateTo('/install'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Install</mat-card-title>
+            </mat-card-header>
+          </mat-card>
+        </div>
+
+        <div class="nav-tile nav-tile--projects" role="link" tabindex="0" (click)="navigateTo('/projects')" (keydown.enter)="navigateTo('/projects')" (keydown.space)="navigateTo('/projects'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Projects</mat-card-title>
+            </mat-card-header>
+          </mat-card>
+        </div>
+
+        <div class="nav-tile nav-tile--devices" role="link" tabindex="0" (click)="navigateTo('/devices')" (keydown.enter)="navigateTo('/devices')" (keydown.space)="navigateTo('/devices'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Devices</mat-card-title>
+            </mat-card-header>
+          </mat-card>
+        </div>
+
+        <div class="nav-tile nav-tile--settings" role="link" tabindex="0" (click)="navigateTo('/settings')" (keydown.enter)="navigateTo('/settings')" (keydown.space)="navigateTo('/settings'); $event.preventDefault()">
+          <mat-card appearance="outlined">
+            <div class="nav-tile__media" aria-hidden="true"></div>
+            <mat-card-header>
+              <mat-card-title>Settings</mat-card-title>
+            </mat-card-header>
+          </mat-card>
+        </div>
+      </div>
     </div>
+  </div>
 </div>

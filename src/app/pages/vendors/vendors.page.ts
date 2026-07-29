@@ -1,10 +1,10 @@
-import { Component, OnInit, AfterViewInit, ViewChild, inject } from "@angular/core"
+import { Component, OnInit, AfterViewInit, ViewChild, inject, ChangeDetectionStrategy } from "@angular/core"
 import { RouterLink } from "@angular/router"
 import { FormsModule } from "@angular/forms"
 import { firstValueFrom } from "rxjs"
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from "@angular/material/dialog"
@@ -23,14 +23,10 @@ import { VendorImportConfig } from "../../schemas/vendor-import-config.schema"
 @Component({
     standalone: true,
     selector: 'vendors-page',
-    imports: [CommonModule, FormsModule, MatButtonModule, 
-        RouterLink, 
-        MatPaginatorModule, MatSortModule,
-        MatTableModule, MatInputModule,
-        MatFormFieldModule,
-        MatIconModule, PageToolbar, NavToolbar],
+    imports: [FormsModule, MatButtonModule, RouterLink, MatPaginatorModule, MatSortModule, MatTableModule, MatInputModule, MatFormFieldModule, MatIconModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './vendors.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./vendors.page.scss']
 })
 export class VendorsPage implements OnInit, AfterViewInit  {
@@ -53,7 +49,7 @@ export class VendorsPage implements OnInit, AfterViewInit  {
     editModel: Vendor = this.createEmptyVendor()
 
     datasource: MatTableDataSource<Vendor> = new MatTableDataSource(this.vendors);
-    
+
     constructor(private http: HttpClient, private dialog: MatDialog) {}
 
     ngOnInit(): void {
@@ -376,64 +372,67 @@ interface VendorImportConfigDialogData {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule],
+    imports: [FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatInputModule],
     template: `
         <div mat-dialog-title>Import Config</div>
         <mat-dialog-content>
-            <div class="vendor-import-config__stack">
-                <p class="vendor-import-config__intro">{{data.vendor.name}} import rules are stored with the vendor so future CSV loads can be verified and normalized consistently.</p>
-                <mat-form-field>
-                    <mat-label>Vendor Key</mat-label>
-                    <input matInput [(ngModel)]="partsVendorKey" />
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Source Label</mat-label>
-                    <input matInput [(ngModel)]="sourceLabel" />
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Target Table</mat-label>
-                    <input matInput [(ngModel)]="targetTable" />
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>File Pattern</mat-label>
-                    <input matInput [(ngModel)]="filePattern" />
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Expected Headers</mat-label>
-                    <textarea matInput rows="6" [(ngModel)]="expectedHeadersText"></textarea>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Header Map JSON</mat-label>
-                    <textarea matInput rows="10" [(ngModel)]="headerMapText"></textarea>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Column Types JSON</mat-label>
-                    <textarea matInput rows="8" [(ngModel)]="columnTypesText"></textarea>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Normalization Steps</mat-label>
-                    <textarea matInput rows="6" [(ngModel)]="normalizationStepsText"></textarea>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Analysis Summary</mat-label>
-                    <textarea matInput rows="6" [(ngModel)]="analysisSummaryText"></textarea>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Verified Sample File</mat-label>
-                    <input matInput [(ngModel)]="verifiedSampleFile" />
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Verified On</mat-label>
-                    <input matInput [(ngModel)]="verifiedOn" />
-                </mat-form-field>
-                <div *ngIf="parseError" class="vendor-import-config__error">{{parseError}}</div>
-            </div>
+          <div class="vendor-import-config__stack">
+            <p class="vendor-import-config__intro">{{data.vendor.name}} import rules are stored with the vendor so future CSV loads can be verified and normalized consistently.</p>
+            <mat-form-field>
+              <mat-label>Vendor Key</mat-label>
+              <input matInput [(ngModel)]="partsVendorKey" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Source Label</mat-label>
+              <input matInput [(ngModel)]="sourceLabel" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Target Table</mat-label>
+              <input matInput [(ngModel)]="targetTable" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>File Pattern</mat-label>
+              <input matInput [(ngModel)]="filePattern" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Expected Headers</mat-label>
+              <textarea matInput rows="6" [(ngModel)]="expectedHeadersText"></textarea>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Header Map JSON</mat-label>
+              <textarea matInput rows="10" [(ngModel)]="headerMapText"></textarea>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Column Types JSON</mat-label>
+              <textarea matInput rows="8" [(ngModel)]="columnTypesText"></textarea>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Normalization Steps</mat-label>
+              <textarea matInput rows="6" [(ngModel)]="normalizationStepsText"></textarea>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Analysis Summary</mat-label>
+              <textarea matInput rows="6" [(ngModel)]="analysisSummaryText"></textarea>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Verified Sample File</mat-label>
+              <input matInput [(ngModel)]="verifiedSampleFile" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Verified On</mat-label>
+              <input matInput [(ngModel)]="verifiedOn" />
+            </mat-form-field>
+            @if (parseError) {
+              <div class="vendor-import-config__error">{{parseError}}</div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!canSave()">Save Config</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!canSave()">Save Config</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .vendor-import-config__stack { display: grid; gap: 12px; min-width: min(720px, 100%); }
         .vendor-import-config__intro { margin: 0; color: var(--fw-muted); }

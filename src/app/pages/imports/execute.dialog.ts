@@ -1,6 +1,6 @@
-import {Component, inject, OnInit} from '@angular/core'
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core'
 import { Resolve, RouterLink } from '@angular/router'
-import { NgIf, NgFor } from '@angular/common'
+
 import {
     MAT_DIALOG_DATA,
     MatDialogTitle,
@@ -27,7 +27,8 @@ import { PreviewResponse } from '../../schemas/previewresponse.schema'
 @Component({
     standalone: true,
     templateUrl: './execute.dialog.html',
-    imports: [MatDialogTitle, MatDialogContent, 
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [MatDialogTitle, MatDialogContent,
         MatDialogActions, MatButtonModule,
         MatDialogClose, MatToolbarModule,
         MatListModule, MatIconModule,
@@ -47,7 +48,7 @@ export class ExecuteDialog implements OnInit {
         setTimeout(async() => {
             try {
                 await this.createTasks()
-                
+
             } catch (err) {
                 console.error(err)
             }

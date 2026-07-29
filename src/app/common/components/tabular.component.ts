@@ -1,24 +1,31 @@
-import { Component, Input } from "@angular/core";
+import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
-import { NgFor } from "@angular/common";
+
 
 @Component({
     selector: 'mission-tabular-component',
     standalone: true,
     template: `
         <table class="raw-table">
-            <thead>
-                <th *ngFor="let head of this.getKeys()">{{head}}</th>
-            </thead>
-            <tbody>
-                <tr *ngFor="let row of datasource">
-                    <td *ngFor="let column of this.getKeys()" [innerHtml]="this.renderValue(row[column])"></td>
-                </tr>
-            </tbody>
+          <thead>
+            @for (head of this.getKeys(); track head) {
+              <th>{{head}}</th>
+            }
+          </thead>
+          <tbody>
+            @for (row of datasource; track row) {
+              <tr>
+                @for (column of this.getKeys(); track column) {
+                  <td [innerHtml]="this.renderValue(row[column])"></td>
+                }
+              </tr>
+            }
+          </tbody>
         </table>
-    `,
-    imports: [NgFor]
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: []
 })
 export class TabularComponent {
     @Input() datasource: any[] = []

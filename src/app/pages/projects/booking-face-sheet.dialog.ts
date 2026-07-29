@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, ViewChild, inject } from '@angular/core'
+
+import { AfterViewInit, Component, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import {
@@ -53,242 +53,244 @@ export interface BookingFaceSheetData {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="booking-face-sheet__titlebar">
-            <div>
-                <div class="booking-face-sheet__title-kicker">Booking Output</div>
-                <div class="booking-face-sheet__title">Face Sheet</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="booking-face-sheet__title-kicker">Booking Output</div>
+            <div class="booking-face-sheet__title">Face Sheet</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="booking-face-sheet">
-            <div class="booking-face-sheet__toolbar">
-                <div class="booking-face-sheet__eyebrow">Operations Package</div>
-            </div>
+          <div class="booking-face-sheet__toolbar">
+            <div class="booking-face-sheet__eyebrow">Operations Package</div>
+          </div>
 
-            <div class="booking-face-sheet__paper">
-                <div #printRoot class="booking-face-sheet__paper-inner">
-                    <div class="booking-face-sheet__sheet-head">
-                        <div>FIRETROL PROTECTION SYSTEMS, INC.</div>
-                        <div>ESTIMATE FACE SHEET</div>
-                    </div>
+          <div class="booking-face-sheet__paper">
+            <div #printRoot class="booking-face-sheet__paper-inner">
+              <div class="booking-face-sheet__sheet-head">
+                <div>FIRETROL PROTECTION SYSTEMS, INC.</div>
+                <div>ESTIMATE FACE SHEET</div>
+              </div>
 
-                    <table class="booking-face-sheet__table booking-face-sheet__table--header">
-                        <tbody>
-                            <tr>
-                                <th>Date</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.date" /></td>
-                                <th>Job No.</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
-                            </tr>
-                            <tr>
-                                <th>Job Name</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectName" /></td>
-                                <th>Estimator</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.estimator" /></td>
-                            </tr>
-                            <tr>
-                                <th>Address</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectStreet" /></td>
-                                <th></th>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <th></th>
-                                <td>
-                                    <div class="booking-face-sheet__address-inline">
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectCity" />
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectState" />
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectZip" />
-                                    </div>
-                                </td>
-                                <th></th>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <th>Contractor</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.contractor" /></td>
-                                <th>Phone #</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.phone" /></td>
-                            </tr>
-                            <tr>
-                                <th>Billing Address</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingStreet" /></td>
-                                <th>Fax #</th>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.fax" /></td>
-                            </tr>
-                            <tr>
-                                <th></th>
-                                <td>
-                                    <div class="booking-face-sheet__address-inline">
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingCity" />
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingState" />
-                                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingZip" />
-                                    </div>
-                                </td>
-                                <th></th>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
+              <table class="booking-face-sheet__table booking-face-sheet__table--header">
+                <tbody>
+                  <tr>
+                    <th>Date</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.date" /></td>
+                    <th>Job No.</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
+                  </tr>
+                  <tr>
+                    <th>Job Name</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectName" /></td>
+                    <th>Estimator</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.estimator" /></td>
+                  </tr>
+                  <tr>
+                    <th>Address</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectStreet" /></td>
+                    <th></th>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <th></th>
+                    <td>
+                      <div class="booking-face-sheet__address-inline">
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectCity" />
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectState" />
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectZip" />
+                      </div>
+                    </td>
+                    <th></th>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <th>Contractor</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.contractor" /></td>
+                    <th>Phone #</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.phone" /></td>
+                  </tr>
+                  <tr>
+                    <th>Billing Address</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingStreet" /></td>
+                    <th>Fax #</th>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.fax" /></td>
+                  </tr>
+                  <tr>
+                    <th></th>
+                    <td>
+                      <div class="booking-face-sheet__address-inline">
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingCity" />
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingState" />
+                        <input class="booking-face-sheet__paper-input" [(ngModel)]="editable.billingZip" />
+                      </div>
+                    </td>
+                    <th></th>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
 
-                    <div class="booking-face-sheet__section">
-                        <div class="booking-face-sheet__section-title">Description of Work</div>
-                        <textarea
-                            #descriptionOfWorkInput
-                            class="booking-face-sheet__paper-input booking-face-sheet__paper-input--multiline"
-                            [(ngModel)]="editable.descriptionOfWork"
-                            (input)="autosizeDescriptionOfWork()"></textarea>
-                    </div>
+              <div class="booking-face-sheet__section">
+                <div class="booking-face-sheet__section-title">Description of Work</div>
+                <textarea
+                  #descriptionOfWorkInput
+                  class="booking-face-sheet__paper-input booking-face-sheet__paper-input--multiline"
+                  [(ngModel)]="editable.descriptionOfWork"
+                (input)="autosizeDescriptionOfWork()"></textarea>
+              </div>
 
-                    <div class="booking-face-sheet__cost-shell">
-                        <table class="booking-face-sheet__table">
-                            <thead>
-                                <tr>
-                                    <th>Description</th>
-                                    <th>Cost Code</th>
-                                    <th>Hours</th>
-                                    <th>Rate</th>
-                                    <th>Cost</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Total Materials</td></tr>
-                                <tr>
-                                    <td>Materials-Buyout</td>
-                                    <td>20-80-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialsBuyout" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialsBuyout" /></td>
-                                </tr>
-                                <tr>
-                                    <td>Material Other</td>
-                                    <td>20-70-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialOther" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialOther" /></td>
-                                </tr>
+              <div class="booking-face-sheet__cost-shell">
+                <table class="booking-face-sheet__table">
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Cost Code</th>
+                      <th>Hours</th>
+                      <th>Rate</th>
+                      <th>Cost</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Total Materials</td></tr>
+                    <tr>
+                      <td>Materials-Buyout</td>
+                      <td>20-80-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialsBuyout" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialsBuyout" /></td>
+                    </tr>
+                    <tr>
+                      <td>Material Other</td>
+                      <td>20-70-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialOther" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.materialOther" /></td>
+                    </tr>
 
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Equipment</td></tr>
-                                <tr>
-                                    <td>Rental - Inside</td>
-                                    <td>30-10-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalInside" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalInside" /></td>
-                                </tr>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Equipment</td></tr>
+                    <tr>
+                      <td>Rental - Inside</td>
+                      <td>30-10-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalInside" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.rentalInside" /></td>
+                    </tr>
 
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Contract Labor</td></tr>
-                                <tr>
-                                    <td>Field Labor</td>
-                                    <td>10-40-00</td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborHours" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborRate" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborCost" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborCost" /></td>
-                                </tr>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Contract Labor</td></tr>
+                    <tr>
+                      <td>Field Labor</td>
+                      <td>10-40-00</td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborHours" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborRate" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborCost" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.fieldLaborCost" /></td>
+                    </tr>
 
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Permits</td></tr>
-                                <tr>
-                                    <td>Engineering Permit</td>
-                                    <td>70-10-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
-                                </tr>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Permits</td></tr>
+                    <tr>
+                      <td>Engineering Permit</td>
+                      <td>70-10-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.permitsTotal" /></td>
+                    </tr>
 
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Sub Contract</td></tr>
-                                <tr>
-                                    <td>Sub Contract</td>
-                                    <td>40-10-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
-                                </tr>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Sub Contract</td></tr>
+                    <tr>
+                      <td>Sub Contract</td>
+                      <td>40-10-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.subcontractTotal" /></td>
+                    </tr>
 
-                                <tr class="booking-face-sheet__section-row"><td colspan="6">Other</td></tr>
-                                <tr>
-                                    <td>Other</td>
-                                    <td>40-90-00</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
-                                    <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <tr class="booking-face-sheet__section-row"><td colspan="6">Other</td></tr>
+                    <tr>
+                      <td>Other</td>
+                      <td>40-90-00</td>
+                      <td></td>
+                      <td></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
+                      <td><input class="booking-face-sheet__paper-input is-right" [(ngModel)]="editable.otherTotal" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                    <div class="booking-face-sheet__summary-grid">
-                        <div class="booking-face-sheet__summary-card">
-                            <div class="booking-face-sheet__summary-row"><span>Contract Cost</span><strong>{{editable.contractCost}}</strong></div>
-                            <div class="booking-face-sheet__summary-row"><span>Contract Gain</span><strong>{{editable.contractGain}}</strong></div>
-                            <div class="booking-face-sheet__summary-row booking-face-sheet__summary-row--grand"><span>Contract Total</span><strong>{{editable.contractTotal}}</strong></div>
-                        </div>
-
-                        <div class="booking-face-sheet__summary-card">
-                            <div class="booking-face-sheet__summary-title">Price Analysis Factors</div>
-                            <div class="booking-face-sheet__summary-row"><span>Total Heads</span><strong>{{editable.totalHeads}}</strong></div>
-                            <div class="booking-face-sheet__summary-row"><span>Square Footage</span><strong>{{editable.squareFootage}}</strong></div>
-                            <div class="booking-face-sheet__summary-row"><span>Inside Hours per Head</span><strong>{{editable.insideHoursPerHead}}</strong></div>
-                            <div class="booking-face-sheet__summary-row"><span>Dollars per Head</span><strong>{{editable.dollarsPerHead}}</strong></div>
-                            <div class="booking-face-sheet__summary-row"><span>Dollars per Square Foot</span><strong>{{editable.dollarsPerSquareFoot}}</strong></div>
-                        </div>
-                    </div>
-
-                    <table class="booking-face-sheet__table booking-face-sheet__table--footer">
-                        <tbody>
-                            <tr>
-                                <th>Job #</th>
-                                <th>Start</th>
-                                <th>End</th>
-                                <th>P.M.</th>
-                                <th>Approval</th>
-                                <th>Date</th>
-                            </tr>
-                            <tr>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.startDate" /></td>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.endDate" /></td>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectManager" /></td>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.approval" /></td>
-                                <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.approvalDate" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
+              <div class="booking-face-sheet__summary-grid">
+                <div class="booking-face-sheet__summary-card">
+                  <div class="booking-face-sheet__summary-row"><span>Contract Cost</span><strong>{{editable.contractCost}}</strong></div>
+                  <div class="booking-face-sheet__summary-row"><span>Contract Gain</span><strong>{{editable.contractGain}}</strong></div>
+                  <div class="booking-face-sheet__summary-row booking-face-sheet__summary-row--grand"><span>Contract Total</span><strong>{{editable.contractTotal}}</strong></div>
                 </div>
+
+                <div class="booking-face-sheet__summary-card">
+                  <div class="booking-face-sheet__summary-title">Price Analysis Factors</div>
+                  <div class="booking-face-sheet__summary-row"><span>Total Heads</span><strong>{{editable.totalHeads}}</strong></div>
+                  <div class="booking-face-sheet__summary-row"><span>Square Footage</span><strong>{{editable.squareFootage}}</strong></div>
+                  <div class="booking-face-sheet__summary-row"><span>Inside Hours per Head</span><strong>{{editable.insideHoursPerHead}}</strong></div>
+                  <div class="booking-face-sheet__summary-row"><span>Dollars per Head</span><strong>{{editable.dollarsPerHead}}</strong></div>
+                  <div class="booking-face-sheet__summary-row"><span>Dollars per Square Foot</span><strong>{{editable.dollarsPerSquareFoot}}</strong></div>
+                </div>
+              </div>
+
+              <table class="booking-face-sheet__table booking-face-sheet__table--footer">
+                <tbody>
+                  <tr>
+                    <th>Job #</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>P.M.</th>
+                    <th>Approval</th>
+                    <th>Date</th>
+                  </tr>
+                  <tr>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.firetrolJobNumber" /></td>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.startDate" /></td>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.endDate" /></td>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.projectManager" /></td>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.approval" /></td>
+                    <td><input class="booking-face-sheet__paper-input" [(ngModel)]="editable.approvalDate" /></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="booking-face-sheet__footer">
-            <div class="booking-face-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="booking-face-sheet__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            Create Sheet
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .booking-face-sheet__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
         .booking-face-sheet__title-kicker,.booking-face-sheet__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}

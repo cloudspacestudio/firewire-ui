@@ -1,11 +1,11 @@
-import { Component, inject, OnChanges, Input } from "@angular/core"
+import { Component, inject, OnChanges, Input, ChangeDetectionStrategy } from "@angular/core"
 import { DomSanitizer, SafeStyle } from '@angular/platform-browser'
-import { NgIf, NgFor } from "@angular/common"
+
 import { FormBuilder, FormGroup } from '@angular/forms'
 import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { ActivatedRoute, RouterLink } from "@angular/router"
 
 import {
@@ -32,15 +32,10 @@ import { PreviewResponse } from "../../schemas/previewresponse.schema"
 @Component({
     standalone: true,
     selector: 'imports-page',
-    imports: [CommonModule, RouterLink, 
-        MatButtonModule, MatIconModule, 
-        MatInputModule, MatFormFieldModule,
-        MatSelectModule, MatCheckboxModule,
-        MatDialogModule,
-        PageToolbar, FormsModule, 
-        ReactiveFormsModule],
+    imports: [RouterLink, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatCheckboxModule, MatDialogModule, PageToolbar, FormsModule, ReactiveFormsModule],
     providers: [HttpClient],
     templateUrl: './imports.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./imports.page.scss']
 })
 export class ImportsPage implements OnChanges {
@@ -56,7 +51,7 @@ export class ImportsPage implements OnChanges {
     form: FormGroup
     pageWorking = true
     project?: AccountProjectSchema
-    
+
     folders?: ReducedResponse
     floorplans?: ReducedResponse
     floorplanTaskCount = 0

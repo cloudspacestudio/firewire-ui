@@ -1,5 +1,5 @@
-import { Component, OnInit } from "@angular/core"
-import { CommonModule } from "@angular/common"
+import { Component, OnInit, ChangeDetectionStrategy } from "@angular/core"
+
 import { FormsModule } from "@angular/forms"
 import { HttpClient } from "@angular/common/http"
 import { RouterLink } from "@angular/router"
@@ -31,20 +31,20 @@ interface ListMeta {
     standalone: true,
     selector: 'projects-admin-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatCheckboxModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        MatSelectModule,
-        PageToolbar,
-        NavToolbar
-    ],
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatSelectModule,
+    PageToolbar,
+    NavToolbar
+],
     providers: [HttpClient],
     templateUrl: './projects-admin.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./projects-admin.page.scss']
 })
 export class ProjectsAdminPage implements OnInit {

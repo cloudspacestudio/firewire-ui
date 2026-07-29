@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, ViewChild, inject } from '@angular/core'
+
+import { AfterViewInit, Component, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog'
@@ -39,133 +39,144 @@ interface OptionRow {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatButtonModule, MatIconModule],
+    imports: [FormsModule, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatButtonModule, MatIconModule],
     template: `
         <div mat-dialog-title class="sheet-titlebar">
-            <div>
-                <div class="sheet-kicker">Proposal Output</div>
-                <div class="sheet-title">Job Cost Project Set Up Sheet</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="sheet-kicker">Proposal Output</div>
+            <div class="sheet-title">Job Cost Project Set Up Sheet</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="sheet-shell">
-            <div class="sheet-kicker">Proposal Package</div>
-            <div class="sheet-paper">
-                <div #printRoot class="sheet-paper__inner">
-                    <div class="sheet-paper__brand-row">
-                        <img class="sheet-paper__logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
-                        <div class="sheet-paper__rev">Rev 1.0.A</div>
-                    </div>
-                    <div class="sheet-paper__title">Job Cost Project Set Up Sheet</div>
+          <div class="sheet-kicker">Proposal Package</div>
+          <div class="sheet-paper">
+            <div #printRoot class="sheet-paper__inner">
+              <div class="sheet-paper__brand-row">
+                <img class="sheet-paper__logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
+                <div class="sheet-paper__rev">Rev 1.0.A</div>
+              </div>
+              <div class="sheet-paper__title">Job Cost Project Set Up Sheet</div>
 
-                    <div class="sheet-grid">
-                        <div class="sheet-panel">
-                            <div class="sheet-section">Billing</div>
-                            <div class="field-grid">
-                                <label class="field"><span>Customer</span><input class="paper-input" [(ngModel)]="editable.customer" /></label>
-                                <label class="field field--full"><span>Address</span><input class="paper-input" [(ngModel)]="editable.billingAddress1" /></label>
-                                <label class="field field--full"><span>Address 2</span><input class="paper-input" [(ngModel)]="editable.billingAddress2" /></label>
-                                <label class="field"><span>City</span><input class="paper-input" [(ngModel)]="editable.billingCity" /></label>
-                                <label class="field"><span>State</span><input class="paper-input" [(ngModel)]="editable.billingState" /></label>
-                                <label class="field"><span>Zip</span><input class="paper-input" [(ngModel)]="editable.billingZip" /></label>
-                                <label class="field"><span>Phone</span><input class="paper-input" [(ngModel)]="editable.phone" /></label>
-                                <label class="field"><span>Fax</span><input class="paper-input" [(ngModel)]="editable.fax" /></label>
-                                <label class="field"><span>Date</span><input class="paper-input" [(ngModel)]="editable.date" /></label>
-                                <label class="field"><span>Salesperson</span><input class="paper-input" [(ngModel)]="editable.salesperson" /></label>
-                                <label class="field field--full"><span>Contract / PO #</span><input class="paper-input" [(ngModel)]="editable.contractPoNumber" /></label>
-                                <label class="field field--full"><span>Contract Amount</span><input class="paper-input" [(ngModel)]="editable.contractAmount" /></label>
-                            </div>
-                        </div>
-
-                        <div class="sheet-panel">
-                            <div class="field-grid">
-                                <label class="field"><span>Firetrol Job Number</span><input class="paper-input" [(ngModel)]="editable.firetrolJobNumber" /></label>
-                                <label class="field"><span>Project Name</span><input class="paper-input" [(ngModel)]="editable.projectName" /></label>
-                                <label class="field field--full"><span>Address</span><input class="paper-input" [(ngModel)]="editable.projectAddress" /></label>
-                                <label class="field"><span>City</span><input class="paper-input" [(ngModel)]="editable.projectCity" /></label>
-                                <label class="field"><span>State</span><input class="paper-input" [(ngModel)]="editable.projectState" /></label>
-                                <label class="field"><span>ZIP CODE</span><input class="paper-input" [(ngModel)]="editable.projectZip" /></label>
-                                <label class="field"><span>Supt Name</span><input class="paper-input" [(ngModel)]="editable.suptName" /></label>
-                                <label class="field"><span>Mobile #</span><input class="paper-input" [(ngModel)]="editable.mobilePhone" /></label>
-                                <label class="field"><span>Site Phone</span><input class="paper-input" [(ngModel)]="editable.sitePhone" /></label>
-                                <label class="field"><span>Start Date</span><input class="paper-input" [(ngModel)]="editable.startDate" /></label>
-                                <label class="field"><span>Completion Date</span><input class="paper-input" [(ngModel)]="editable.completionDate" /></label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sheet-grid sheet-grid--checks">
-                        <div class="sheet-panel">
-                            <div class="check-head"><span></span><strong>YES</strong><strong>NO</strong></div>
-                            <div *ngFor="let row of leftChecks" class="check-row">
-                                <span>{{row.label}}</span>
-                                <input type="checkbox" [(ngModel)]="row.yes" />
-                                <input type="checkbox" [(ngModel)]="row.no" />
-                            </div>
-                            <div class="field-grid field-grid--compact">
-                                <label class="field"><span>Liquidated Damages</span><input class="paper-input" [(ngModel)]="editable.liquidatedDamages" /></label>
-                                <label class="field"><span>Invoicing Portal</span><input class="paper-input" [(ngModel)]="editable.invoicingPortal" /></label>
-                                <label class="field"><span>Est Device count</span><input class="paper-input" [(ngModel)]="editable.estDeviceCount" /></label>
-                                <label class="field"><span>Est Sq Footage</span><input class="paper-input" [(ngModel)]="editable.estSqFootage" /></label>
-                                <label class="field"><span>HUB Participation</span><input class="paper-input" [(ngModel)]="editable.hubParticipation" /></label>
-                                <label class="field"><span>Sprinkler</span><input class="paper-input" [(ngModel)]="editable.sprinkler" /></label>
-                                <label class="field"><span>A & D</span><input class="paper-input" [(ngModel)]="editable.ad" /></label>
-                                <label class="field"><span>SVC / LFPS / CON</span><input class="paper-input" [(ngModel)]="editable.sprinklerServiceType" /></label>
-                            </div>
-                        </div>
-                        <div class="sheet-panel">
-                            <div class="check-head"><span></span><strong>YES</strong><strong>NO</strong></div>
-                            <div *ngFor="let row of rightChecks" class="check-row">
-                                <span>{{row.label}}</span>
-                                <input type="checkbox" [(ngModel)]="row.yes" />
-                                <input type="checkbox" [(ngModel)]="row.no" />
-                            </div>
-                            <div class="field-grid field-grid--compact">
-                                <label class="field"><span>Retention</span><input class="paper-input" [(ngModel)]="editable.retention" /></label>
-                                <label class="field"><span>Reason</span><input class="paper-input" [(ngModel)]="editable.reason" /></label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sheet-section">Scope of Work</div>
-                    <textarea
-                        #scopeOfWorkInput
-                        class="paper-input paper-input--multiline"
-                        [(ngModel)]="editable.scopeOfWork"
-                        (input)="autosizeScopeOfWork()"></textarea>
-
-                    <div class="sheet-section">System Type (check all that apply)</div>
-                    <div class="option-grid">
-                        <label *ngFor="let row of systemTypes" class="option-row"><input type="checkbox" [(ngModel)]="row.checked" /><span>{{row.label}}</span></label>
-                    </div>
-
-                    <div class="sheet-section">Job Type (check all that apply)</div>
-                    <div class="option-grid">
-                        <label *ngFor="let row of jobTypes" class="option-row"><input type="checkbox" [(ngModel)]="row.checked" /><span>{{row.label}}</span></label>
-                    </div>
-
-                    <div class="approval-grid">
-                        <label class="field"><span>DGM Approval</span><input class="paper-input" [(ngModel)]="editable.dgmApproval" /></label>
-                        <label class="field"><span>Date</span><input class="paper-input" [(ngModel)]="editable.dgmApprovalDate" /></label>
-                    </div>
+              <div class="sheet-grid">
+                <div class="sheet-panel">
+                  <div class="sheet-section">Billing</div>
+                  <div class="field-grid">
+                    <label class="field"><span>Customer</span><input class="paper-input" [(ngModel)]="editable.customer" /></label>
+                    <label class="field field--full"><span>Address</span><input class="paper-input" [(ngModel)]="editable.billingAddress1" /></label>
+                    <label class="field field--full"><span>Address 2</span><input class="paper-input" [(ngModel)]="editable.billingAddress2" /></label>
+                    <label class="field"><span>City</span><input class="paper-input" [(ngModel)]="editable.billingCity" /></label>
+                    <label class="field"><span>State</span><input class="paper-input" [(ngModel)]="editable.billingState" /></label>
+                    <label class="field"><span>Zip</span><input class="paper-input" [(ngModel)]="editable.billingZip" /></label>
+                    <label class="field"><span>Phone</span><input class="paper-input" [(ngModel)]="editable.phone" /></label>
+                    <label class="field"><span>Fax</span><input class="paper-input" [(ngModel)]="editable.fax" /></label>
+                    <label class="field"><span>Date</span><input class="paper-input" [(ngModel)]="editable.date" /></label>
+                    <label class="field"><span>Salesperson</span><input class="paper-input" [(ngModel)]="editable.salesperson" /></label>
+                    <label class="field field--full"><span>Contract / PO #</span><input class="paper-input" [(ngModel)]="editable.contractPoNumber" /></label>
+                    <label class="field field--full"><span>Contract Amount</span><input class="paper-input" [(ngModel)]="editable.contractAmount" /></label>
+                  </div>
                 </div>
+
+                <div class="sheet-panel">
+                  <div class="field-grid">
+                    <label class="field"><span>Firetrol Job Number</span><input class="paper-input" [(ngModel)]="editable.firetrolJobNumber" /></label>
+                    <label class="field"><span>Project Name</span><input class="paper-input" [(ngModel)]="editable.projectName" /></label>
+                    <label class="field field--full"><span>Address</span><input class="paper-input" [(ngModel)]="editable.projectAddress" /></label>
+                    <label class="field"><span>City</span><input class="paper-input" [(ngModel)]="editable.projectCity" /></label>
+                    <label class="field"><span>State</span><input class="paper-input" [(ngModel)]="editable.projectState" /></label>
+                    <label class="field"><span>ZIP CODE</span><input class="paper-input" [(ngModel)]="editable.projectZip" /></label>
+                    <label class="field"><span>Supt Name</span><input class="paper-input" [(ngModel)]="editable.suptName" /></label>
+                    <label class="field"><span>Mobile #</span><input class="paper-input" [(ngModel)]="editable.mobilePhone" /></label>
+                    <label class="field"><span>Site Phone</span><input class="paper-input" [(ngModel)]="editable.sitePhone" /></label>
+                    <label class="field"><span>Start Date</span><input class="paper-input" [(ngModel)]="editable.startDate" /></label>
+                    <label class="field"><span>Completion Date</span><input class="paper-input" [(ngModel)]="editable.completionDate" /></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sheet-grid sheet-grid--checks">
+                <div class="sheet-panel">
+                  <div class="check-head"><span></span><strong>YES</strong><strong>NO</strong></div>
+                  @for (row of leftChecks; track row) {
+                    <div class="check-row">
+                      <span>{{row.label}}</span>
+                      <input type="checkbox" [(ngModel)]="row.yes" />
+                      <input type="checkbox" [(ngModel)]="row.no" />
+                    </div>
+                  }
+                  <div class="field-grid field-grid--compact">
+                    <label class="field"><span>Liquidated Damages</span><input class="paper-input" [(ngModel)]="editable.liquidatedDamages" /></label>
+                    <label class="field"><span>Invoicing Portal</span><input class="paper-input" [(ngModel)]="editable.invoicingPortal" /></label>
+                    <label class="field"><span>Est Device count</span><input class="paper-input" [(ngModel)]="editable.estDeviceCount" /></label>
+                    <label class="field"><span>Est Sq Footage</span><input class="paper-input" [(ngModel)]="editable.estSqFootage" /></label>
+                    <label class="field"><span>HUB Participation</span><input class="paper-input" [(ngModel)]="editable.hubParticipation" /></label>
+                    <label class="field"><span>Sprinkler</span><input class="paper-input" [(ngModel)]="editable.sprinkler" /></label>
+                    <label class="field"><span>A & D</span><input class="paper-input" [(ngModel)]="editable.ad" /></label>
+                    <label class="field"><span>SVC / LFPS / CON</span><input class="paper-input" [(ngModel)]="editable.sprinklerServiceType" /></label>
+                  </div>
+                </div>
+                <div class="sheet-panel">
+                  <div class="check-head"><span></span><strong>YES</strong><strong>NO</strong></div>
+                  @for (row of rightChecks; track row) {
+                    <div class="check-row">
+                      <span>{{row.label}}</span>
+                      <input type="checkbox" [(ngModel)]="row.yes" />
+                      <input type="checkbox" [(ngModel)]="row.no" />
+                    </div>
+                  }
+                  <div class="field-grid field-grid--compact">
+                    <label class="field"><span>Retention</span><input class="paper-input" [(ngModel)]="editable.retention" /></label>
+                    <label class="field"><span>Reason</span><input class="paper-input" [(ngModel)]="editable.reason" /></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sheet-section">Scope of Work</div>
+              <textarea
+                #scopeOfWorkInput
+                class="paper-input paper-input--multiline"
+                [(ngModel)]="editable.scopeOfWork"
+              (input)="autosizeScopeOfWork()"></textarea>
+
+              <div class="sheet-section">System Type (check all that apply)</div>
+              <div class="option-grid">
+                @for (row of systemTypes; track row) {
+                  <label class="option-row"><input type="checkbox" [(ngModel)]="row.checked" /><span>{{row.label}}</span></label>
+                }
+              </div>
+
+              <div class="sheet-section">Job Type (check all that apply)</div>
+              <div class="option-grid">
+                @for (row of jobTypes; track row) {
+                  <label class="option-row"><input type="checkbox" [(ngModel)]="row.checked" /><span>{{row.label}}</span></label>
+                }
+              </div>
+
+              <div class="approval-grid">
+                <label class="field"><span>DGM Approval</span><input class="paper-input" [(ngModel)]="editable.dgmApproval" /></label>
+                <label class="field"><span>Date</span><input class="paper-input" [(ngModel)]="editable.dgmApprovalDate" /></label>
+              </div>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="sheet-footer">
-            <div class="sheet-footer__status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="sheet-footer__status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            Create Sheet
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .sheet-titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),#0a1019}
         .sheet-kicker{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}

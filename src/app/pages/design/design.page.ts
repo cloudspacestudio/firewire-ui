@@ -1,5 +1,5 @@
-import { Component, OnInit, ViewChild } from "@angular/core"
-import { CommonModule } from "@angular/common"
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from "@angular/core"
+
 import { HttpClient } from "@angular/common/http"
 import { RouterLink } from "@angular/router"
 
@@ -19,20 +19,20 @@ import { ProjectListItemSchema } from "../../schemas/project-list-item.schema"
     standalone: true,
     selector: 'design-page',
     imports: [
-        CommonModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        MatPaginatorModule,
-        MatSortModule,
-        MatTableModule,
-        MatInputModule,
-        MatFormFieldModule,
-        PageToolbar,
-        NavToolbar
-    ],
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatTableModule,
+    MatInputModule,
+    MatFormFieldModule,
+    PageToolbar,
+    NavToolbar
+],
     providers: [HttpClient],
     templateUrl: './design.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./design.page.scss']
 })
 export class DesignPage implements OnInit {

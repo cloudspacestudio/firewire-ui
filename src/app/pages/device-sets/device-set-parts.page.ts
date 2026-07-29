@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
-import { Component, OnInit } from "@angular/core"
+import { Component, OnInit, ChangeDetectionStrategy } from "@angular/core"
 import { FormsModule } from "@angular/forms"
 import { ActivatedRoute, RouterLink } from "@angular/router"
 import { firstValueFrom } from "rxjs"
@@ -40,6 +40,7 @@ interface DeviceSetLinkedPartRow extends VwDeviceMaterial {
     ],
     providers: [HttpClient],
     templateUrl: './device-set-parts.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./device-set-parts.page.scss']
 })
 export class DeviceSetPartsPage implements OnInit {

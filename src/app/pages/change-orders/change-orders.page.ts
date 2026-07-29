@@ -1,5 +1,6 @@
-import { Component, ElementRef, Input, ViewChild, OnChanges, AfterViewInit, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
+import { Component, ElementRef, Input, ViewChild, OnChanges, AfterViewInit, inject, ChangeDetectionStrategy } from "@angular/core"
+
 import { HttpClient } from "@angular/common/http"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { FormsModule } from "@angular/forms"
@@ -21,7 +22,6 @@ import {
 import { PageToolbar } from "../../common/components/page-toolbar"
 import { AuthService } from "../../auth/auth.service"
 import { AccountProjectSchema } from "../../schemas/account.project.schema"
-import { ProjectListItemSchema } from "../../schemas/project-list-item.schema"
 import {
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryWorkspaceState,
@@ -59,16 +59,17 @@ interface ChangeOrderDialogData {
     standalone: true,
     selector: 'change-orders-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        MatCardModule,
-        PageToolbar
-    ],
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatCardModule,
+    PageToolbar
+],
     providers: [HttpClient],
     templateUrl: './change-orders.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./change-orders.page.scss']
 })
 export class ChangeOrdersPage implements OnChanges {
@@ -106,23 +107,17 @@ export class ChangeOrdersPage implements OnChanges {
             return
         }
 
-        this.http.get(`/api/fieldwire/projects/${this.projectId}`).subscribe({
-            next: async(response: any) => {
-                this.project = response?.data ? { ...response.data } : undefined
-                await this.loadLinkedFirewireProjectNumber()
-                await this.loadChangeOrders()
-                this.pageWorking = false
-            },
-            error: async() => {
-                try {
-                    await this.loadChangeOrders()
-                    this.pageWorking = false
-                } catch (err: any) {
-                    this.pageMessage = err?.error?.message || err?.message || 'Unable to load project.'
-                    this.pageWorking = false
-                }
-            }
-        })
+        void this.loadPage()
+    }
+
+    private async loadPage(): Promise<void> {
+        try {
+            await this.loadChangeOrders()
+        } catch (err: any) {
+            this.pageMessage = err?.error?.message || err?.message || 'Unable to load project.'
+        } finally {
+            this.pageWorking = false
+        }
     }
 
     async createChangeOrder(): Promise<void> {
@@ -304,21 +299,6 @@ export class ChangeOrdersPage implements OnChanges {
         return `${projectKey} - Change Order.html`
     }
 
-    private async loadLinkedFirewireProjectNumber(): Promise<void> {
-        if (!this.projectId) {
-            this.firewireProjectNbr = ''
-            return
-        }
-
-        try {
-            const response = await firstValueFrom(this.http.get<{ rows?: ProjectListItemSchema[] }>('/api/firewire/projects'))
-            const match = (response?.rows || []).find((row) => String(row.fieldwireProjectId || '') === String(this.projectId || ''))
-            this.firewireProjectNbr = String(match?.projectNbr || '').trim()
-        } catch {
-            this.firewireProjectNbr = ''
-        }
-    }
-
     private formatToday(): string {
         return new Date().toLocaleDateString()
     }
@@ -378,119 +358,121 @@ export class ChangeOrdersPage implements OnChanges {
     standalone: true,
     selector: 'change-order-dialog',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="change-order-dialog__titlebar">
-            <div>
-                <div class="change-order-dialog__kicker">Project Forms</div>
-                <div class="change-order-dialog__title">Change Order</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="change-order-dialog__kicker">Project Forms</div>
+            <div class="change-order-dialog__title">Change Order</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="change-order-dialog">
-            <div class="change-order-dialog__toolbar">
-                <div class="change-order-dialog__eyebrow">Change Order Preview</div>
-            </div>
+          <div class="change-order-dialog__toolbar">
+            <div class="change-order-dialog__eyebrow">Change Order Preview</div>
+          </div>
 
-            <div class="change-order-paper">
-                <div #printRoot class="change-order-paper__inner">
-                    <div class="change-order-paper__brand">
-                        <div class="change-order-paper__heading">Change Order</div>
-                        <div>FireTrol Protection Systems</div>
-                        <div>11111 Landmark 35 Drive</div>
-                        <div>San Antonio, Texas 78233</div>
-                    </div>
+          <div class="change-order-paper">
+            <div #printRoot class="change-order-paper__inner">
+              <div class="change-order-paper__brand">
+                <div class="change-order-paper__heading">Change Order</div>
+                <div>FireTrol Protection Systems</div>
+                <div>11111 Landmark 35 Drive</div>
+                <div>San Antonio, Texas 78233</div>
+              </div>
 
-                    <div class="change-order-paper__top-grid">
-                        <div class="change-order-paper__panel">
-                            <label class="change-order-paper__field change-order-paper__field--full"><span>Project Name</span><input [(ngModel)]="editable.projectName" /></label>
-                            <label class="change-order-paper__field"><span>County</span><input [(ngModel)]="editable.county" /></label>
-                            <label class="change-order-paper__field"><span>Contractor Name</span><input [(ngModel)]="editable.contractorName" /></label>
-                        </div>
-                        <div class="change-order-paper__panel">
-                            <div class="change-order-paper__field-grid">
-                                <label class="change-order-paper__field"><span>Contract No.</span><input [(ngModel)]="editable.contractNumber" /></label>
-                                <label class="change-order-paper__field"><span>Project No.</span><input [(ngModel)]="editable.projectNumber" /></label>
-                                <label class="change-order-paper__field"><span>Change Order No.</span><input [(ngModel)]="editable.changeOrderNumber" /></label>
-                                <label class="change-order-paper__field"><span>Phase</span><input [(ngModel)]="editable.phase" /></label>
-                                <label class="change-order-paper__field"><span>I.D. No.</span><input [(ngModel)]="editable.idNumber" /></label>
-                                <label class="change-order-paper__field"><span>Firetrol Job#</span><input [(ngModel)]="editable.firetrolJobNumber" /></label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="change-order-paper__section">
-                        <div class="change-order-paper__section-title">Basis Of Change Order</div>
-                        <div class="change-order-paper__checkbox-grid">
-                            <label><input type="checkbox" [(ngModel)]="editable.errorOmission" /> Error/Omission</label>
-                            <label><input type="checkbox" [(ngModel)]="editable.differingCondition" /> Differing Condition</label>
-                            <label><input type="checkbox" [(ngModel)]="editable.ownerRequest" /> Owner Request</label>
-                            <label><input type="checkbox" [(ngModel)]="editable.fieldResolution" /> Field Resolution</label>
-                            <label><input type="checkbox" [(ngModel)]="editable.valueEngineering" /> Value Engineering</label>
-                            <label><input type="checkbox" [(ngModel)]="editable.otherSelected" /> Other</label>
-                        </div>
-                    </div>
-
-                    <div class="change-order-paper__mid-grid">
-                        <div class="change-order-paper__panel">
-                            <label class="change-order-paper__field"><span>Current Completion Date</span><input [(ngModel)]="editable.currentCompletionDate" /></label>
-                            <label class="change-order-paper__field"><span>Contract Days Changed</span><input [(ngModel)]="editable.contractDaysChanged" /></label>
-                            <label class="change-order-paper__field"><span>Revised Completion Date</span><input [(ngModel)]="editable.revisedCompletionDate" /></label>
-                        </div>
-                        <div class="change-order-paper__panel">
-                            <label class="change-order-paper__field"><span>Type of Contract</span><input [(ngModel)]="editable.contractType" /></label>
-                            <label class="change-order-paper__field"><span>Encumbrance Number</span><input [(ngModel)]="editable.encumbranceNumber" /></label>
-                            <label class="change-order-paper__field"><span>Change Order Total</span><input [(ngModel)]="editable.changeOrderTotal" /></label>
-                        </div>
-                    </div>
-
-                    <div class="change-order-paper__section">
-                        <div class="change-order-paper__section-title">Description / Justification</div>
-                        <textarea class="change-order-paper__textarea" [(ngModel)]="editable.description"></textarea>
-                    </div>
-
-                    <div class="change-order-paper__acceptance">
-                        <div class="change-order-paper__acceptance-panel">
-                            <div class="change-order-paper__section-title">Contractor Acceptance</div>
-                            <label class="change-order-paper__field"><span>Name</span><input [(ngModel)]="editable.contractorAcceptanceName" /></label>
-                            <label class="change-order-paper__field"><span>Address</span><input [(ngModel)]="editable.contractorAcceptanceAddress" /></label>
-                            <label class="change-order-paper__field"><span>Signature</span><input [(ngModel)]="editable.contractorAcceptanceSignature" /></label>
-                            <label class="change-order-paper__field"><span>Date</span><input [(ngModel)]="editable.contractorAcceptanceDate" /></label>
-                        </div>
-                        <div class="change-order-paper__acceptance-panel">
-                            <div class="change-order-paper__section-title">Firetrol Protection Systems</div>
-                            <label class="change-order-paper__field"><span>Name</span><input [(ngModel)]="editable.firetrolAcceptanceName" /></label>
-                            <label class="change-order-paper__field"><span>Address</span><input [(ngModel)]="editable.firetrolAcceptanceAddress" /></label>
-                            <label class="change-order-paper__field"><span>Signature</span><input [(ngModel)]="editable.firetrolAcceptanceSignature" /></label>
-                            <label class="change-order-paper__field"><span>Date</span><input [(ngModel)]="editable.firetrolAcceptanceDate" /></label>
-                        </div>
-                    </div>
+              <div class="change-order-paper__top-grid">
+                <div class="change-order-paper__panel">
+                  <label class="change-order-paper__field change-order-paper__field--full"><span>Project Name</span><input [(ngModel)]="editable.projectName" /></label>
+                  <label class="change-order-paper__field"><span>County</span><input [(ngModel)]="editable.county" /></label>
+                  <label class="change-order-paper__field"><span>Contractor Name</span><input [(ngModel)]="editable.contractorName" /></label>
                 </div>
+                <div class="change-order-paper__panel">
+                  <div class="change-order-paper__field-grid">
+                    <label class="change-order-paper__field"><span>Contract No.</span><input [(ngModel)]="editable.contractNumber" /></label>
+                    <label class="change-order-paper__field"><span>Project No.</span><input [(ngModel)]="editable.projectNumber" /></label>
+                    <label class="change-order-paper__field"><span>Change Order No.</span><input [(ngModel)]="editable.changeOrderNumber" /></label>
+                    <label class="change-order-paper__field"><span>Phase</span><input [(ngModel)]="editable.phase" /></label>
+                    <label class="change-order-paper__field"><span>I.D. No.</span><input [(ngModel)]="editable.idNumber" /></label>
+                    <label class="change-order-paper__field"><span>Firetrol Job#</span><input [(ngModel)]="editable.firetrolJobNumber" /></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="change-order-paper__section">
+                <div class="change-order-paper__section-title">Basis Of Change Order</div>
+                <div class="change-order-paper__checkbox-grid">
+                  <label><input type="checkbox" [(ngModel)]="editable.errorOmission" /> Error/Omission</label>
+                  <label><input type="checkbox" [(ngModel)]="editable.differingCondition" /> Differing Condition</label>
+                  <label><input type="checkbox" [(ngModel)]="editable.ownerRequest" /> Owner Request</label>
+                  <label><input type="checkbox" [(ngModel)]="editable.fieldResolution" /> Field Resolution</label>
+                  <label><input type="checkbox" [(ngModel)]="editable.valueEngineering" /> Value Engineering</label>
+                  <label><input type="checkbox" [(ngModel)]="editable.otherSelected" /> Other</label>
+                </div>
+              </div>
+
+              <div class="change-order-paper__mid-grid">
+                <div class="change-order-paper__panel">
+                  <label class="change-order-paper__field"><span>Current Completion Date</span><input [(ngModel)]="editable.currentCompletionDate" /></label>
+                  <label class="change-order-paper__field"><span>Contract Days Changed</span><input [(ngModel)]="editable.contractDaysChanged" /></label>
+                  <label class="change-order-paper__field"><span>Revised Completion Date</span><input [(ngModel)]="editable.revisedCompletionDate" /></label>
+                </div>
+                <div class="change-order-paper__panel">
+                  <label class="change-order-paper__field"><span>Type of Contract</span><input [(ngModel)]="editable.contractType" /></label>
+                  <label class="change-order-paper__field"><span>Encumbrance Number</span><input [(ngModel)]="editable.encumbranceNumber" /></label>
+                  <label class="change-order-paper__field"><span>Change Order Total</span><input [(ngModel)]="editable.changeOrderTotal" /></label>
+                </div>
+              </div>
+
+              <div class="change-order-paper__section">
+                <div class="change-order-paper__section-title">Description / Justification</div>
+                <textarea class="change-order-paper__textarea" [(ngModel)]="editable.description"></textarea>
+              </div>
+
+              <div class="change-order-paper__acceptance">
+                <div class="change-order-paper__acceptance-panel">
+                  <div class="change-order-paper__section-title">Contractor Acceptance</div>
+                  <label class="change-order-paper__field"><span>Name</span><input [(ngModel)]="editable.contractorAcceptanceName" /></label>
+                  <label class="change-order-paper__field"><span>Address</span><input [(ngModel)]="editable.contractorAcceptanceAddress" /></label>
+                  <label class="change-order-paper__field"><span>Signature</span><input [(ngModel)]="editable.contractorAcceptanceSignature" /></label>
+                  <label class="change-order-paper__field"><span>Date</span><input [(ngModel)]="editable.contractorAcceptanceDate" /></label>
+                </div>
+                <div class="change-order-paper__acceptance-panel">
+                  <div class="change-order-paper__section-title">Firetrol Protection Systems</div>
+                  <label class="change-order-paper__field"><span>Name</span><input [(ngModel)]="editable.firetrolAcceptanceName" /></label>
+                  <label class="change-order-paper__field"><span>Address</span><input [(ngModel)]="editable.firetrolAcceptanceAddress" /></label>
+                  <label class="change-order-paper__field"><span>Signature</span><input [(ngModel)]="editable.firetrolAcceptanceSignature" /></label>
+                  <label class="change-order-paper__field"><span>Date</span><input [(ngModel)]="editable.firetrolAcceptanceDate" /></label>
+                </div>
+              </div>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="change-order-dialog__footer">
-            <div class="change-order-dialog__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                {{saveWorking ? 'Saving...' : 'Create Change Order'}}
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="change-order-dialog__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            {{saveWorking ? 'Saving...' : 'Create Change Order'}}
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .change-order-dialog__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),#0a1019}
         .change-order-dialog__kicker,.change-order-dialog__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}

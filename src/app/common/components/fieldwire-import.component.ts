@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, OnInit, inject } from '@angular/core'
+
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
 import { MatButtonModule } from '@angular/material/button'
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog'
@@ -94,125 +94,159 @@ interface FieldwireImportExecuteResult {
 @Component({
     standalone: true,
     selector: 'fieldwire-import',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule, MatProgressBarModule],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule, MatProgressBarModule],
     template: `
         <h2 mat-dialog-title>Fieldwire Import</h2>
         <mat-dialog-content class="fieldwire-import">
-            <mat-progress-bar *ngIf="loading || executing" mode="indeterminate"></mat-progress-bar>
+          @if (loading || executing) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          }
 
-            <div *ngIf="errorMessage" class="fieldwire-import__notice fieldwire-import__notice--error">
-                <mat-icon fontIcon="error"></mat-icon>
-                <span>{{errorMessage}}</span>
+          @if (errorMessage) {
+            <div class="fieldwire-import__notice fieldwire-import__notice--error">
+              <mat-icon fontIcon="error"></mat-icon>
+              <span>{{errorMessage}}</span>
             </div>
+          }
 
-            <div *ngIf="executeMessage" class="fieldwire-import__notice" [class.fieldwire-import__notice--error]="executeResult && !executeResult.success">
-                <mat-icon [fontIcon]="executeResult?.success === false ? 'error' : 'check_circle'"></mat-icon>
-                <span>{{executeMessage}}</span>
+          @if (executeMessage) {
+            <div class="fieldwire-import__notice" [class.fieldwire-import__notice--error]="executeResult && !executeResult.success">
+              <mat-icon [fontIcon]="executeResult?.success === false ? 'error' : 'check_circle'"></mat-icon>
+              <span>{{executeMessage}}</span>
             </div>
+          }
 
-            <ng-container *ngIf="plan">
-                <section class="fieldwire-import__status" [class.is-ready]="plan.status === 'project-exists'">
-                    <mat-icon [fontIcon]="plan.status === 'project-exists' ? 'cloud_done' : 'cloud_off'"></mat-icon>
-                    <div>
-                        <strong *ngIf="plan.status === 'project-exists'">Fieldwire project exists</strong>
-                        <strong *ngIf="plan.status === 'project-missing'">No Fieldwire project exists yet</strong>
-                        <span *ngIf="plan.status === 'project-exists'">
-                            {{plan.fieldwireProject?.name}} <ng-container *ngIf="plan.fieldwireProject?.code">#{{plan.fieldwireProject?.code}}</ng-container>
-                            <ng-container *ngIf="plan.fieldwireProject?.createdAt"> · created {{formatDate(plan.fieldwireProject?.createdAt)}}</ng-container>
-                        </span>
-                        <span *ngIf="plan.status === 'project-missing'">
-                            Import will begin by creating {{plan.project.name}} in Fieldwire.
-                        </span>
-                    </div>
-                    <a *ngIf="plan.fieldwireProject?.url" mat-stroked-button [href]="plan.fieldwireProject?.url" target="_blank" rel="noopener">
-                        OPEN FIELDWIRE
-                    </a>
-                </section>
-
-                <section class="fieldwire-import__summary">
-                    <div>
-                        <span>Actions</span>
-                        <strong>{{plan.summary.actionsRequired}}</strong>
-                    </div>
-                    <div>
-                        <span>Floorplans</span>
-                        <strong>{{plan.summary.floorplansToCreate}} / {{plan.summary.floorplans}}</strong>
-                    </div>
-                    <div>
-                        <span>Tasks</span>
-                        <strong>{{plan.summary.tasksToCreate}}</strong>
-                    </div>
-                </section>
-
-                <section *ngIf="executing" class="fieldwire-import__panel fieldwire-import__live">
-                    <div class="fieldwire-import__panel-title">Execution Status</div>
-                    <div class="fieldwire-import__live-row">
-                        <mat-icon fontIcon="sync"></mat-icon>
-                        <div>
-                            <strong>Import is running</strong>
-                            <span>
-                                Creating Fieldwire project data, uploading floorplans, and waiting for Fieldwire to finish preparing new floorplans before task placement.
-                                This can take up to {{executionWaitSeconds}} seconds per new floorplan.
-                            </span>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="fieldwire-import__panel">
-                    <div class="fieldwire-import__panel-title">Action List</div>
-                    <div *ngIf="plan.actionItems.length <= 0" class="fieldwire-import__empty">
-                        Fieldwire already appears current for this project.
-                    </div>
-                    <div *ngFor="let action of plan.actionItems" class="fieldwire-import__action">
-                        <mat-icon [fontIcon]="getActionIcon(action.type)"></mat-icon>
-                        <div>
-                            <strong>{{action.label}}</strong>
-                            <span>{{action.detail}}</span>
-                        </div>
-                    </div>
-                </section>
-
-                <section *ngIf="executeResult?.results?.length" class="fieldwire-import__panel">
-                    <div class="fieldwire-import__panel-title">Execution Results</div>
-                    <div *ngFor="let result of executeResult?.results" class="fieldwire-import__action" [class.is-failed]="result.status === 'failed'" [class.is-pending]="result.status === 'pending'" [class.is-skipped]="result.status === 'skipped'">
-                        <mat-icon [fontIcon]="getResultIcon(result.status, result.type)"></mat-icon>
-                        <div>
-                            <strong>{{result.label}}</strong>
-                            <span>{{result.detail}}</span>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="fieldwire-import__panel">
-                    <div class="fieldwire-import__panel-title">Floorplans</div>
-                    <div *ngIf="plan.floorplans.length <= 0" class="fieldwire-import__empty">
-                        No Firewire floorplans are available to import.
-                    </div>
-                    <div *ngFor="let floorplan of plan.floorplans" class="fieldwire-import__floorplan">
-                        <div>
-                            <strong>{{floorplan.fileName}}</strong>
-                            <span>{{getFloorplanStatusText(floorplan)}} · {{floorplan.symbolCount}} symbol{{floorplan.symbolCount === 1 ? '' : 's'}}</span>
-                        </div>
-                        <span class="fieldwire-import__badge" [class.is-required]="floorplan.status === 'required'" [class.is-pending]="floorplan.status === 'processing'">
-                            {{floorplan.status === 'exists' ? 'EXISTS' : floorplan.status === 'processing' ? 'PROCESSING' : 'CREATE'}}
-                        </span>
-                        <div *ngIf="floorplan.tasks.length > 0" class="fieldwire-import__tasks">
-                            <div *ngFor="let task of floorplan.tasks">
-                                <span>{{task.taskName}}</span>
-                                <small>{{task.status === 'exists' ? 'task exists' : task.status === 'blocked' ? 'waiting on floorplan' : 'create task'}} at {{formatPercent(task.xRatio)}}, {{formatPercent(task.yRatio)}}</small>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </ng-container>
+          @if (plan) {
+            <section class="fieldwire-import__status" [class.is-ready]="plan.status === 'project-exists'">
+              <mat-icon [fontIcon]="plan.status === 'project-exists' ? 'cloud_done' : 'cloud_off'"></mat-icon>
+              <div>
+                @if (plan.status === 'project-exists') {
+                  <strong>Fieldwire project exists</strong>
+                }
+                @if (plan.status === 'project-missing') {
+                  <strong>No Fieldwire project exists yet</strong>
+                }
+                @if (plan.status === 'project-exists') {
+                  <span>
+                    {{plan.fieldwireProject?.name}} @if (plan.fieldwireProject?.code) {
+                    #{{plan.fieldwireProject?.code}}
+                  }
+                  @if (plan.fieldwireProject?.createdAt) {
+                    · created {{formatDate($safeNavigationMigration(plan.fieldwireProject?.createdAt))}}
+                  }
+                </span>
+              }
+              @if (plan.status === 'project-missing') {
+                <span>
+                  Import will begin by creating {{plan.project.name}} in Fieldwire.
+                </span>
+              }
+            </div>
+            @if (plan.fieldwireProject?.url) {
+              <a mat-stroked-button [href]="$safeNavigationMigration(plan.fieldwireProject?.url)" target="_blank" rel="noopener">
+                OPEN FIELDWIRE
+              </a>
+            }
+          </section>
+          <section class="fieldwire-import__summary">
+            <div>
+              <span>Actions</span>
+              <strong>{{plan.summary.actionsRequired}}</strong>
+            </div>
+            <div>
+              <span>Floorplans</span>
+              <strong>{{plan.summary.floorplansToCreate}} / {{plan.summary.floorplans}}</strong>
+            </div>
+            <div>
+              <span>Tasks</span>
+              <strong>{{plan.summary.tasksToCreate}}</strong>
+            </div>
+          </section>
+          @if (executing) {
+            <section class="fieldwire-import__panel fieldwire-import__live">
+              <div class="fieldwire-import__panel-title">Execution Status</div>
+              <div class="fieldwire-import__live-row">
+                <mat-icon fontIcon="sync"></mat-icon>
+                <div>
+                  <strong>Import is running</strong>
+                  <span>
+                    Creating Fieldwire project data, uploading floorplans, and waiting for Fieldwire to finish preparing new floorplans before task placement.
+                    This can take up to {{executionWaitSeconds}} seconds per new floorplan.
+                  </span>
+                </div>
+              </div>
+            </section>
+          }
+          <section class="fieldwire-import__panel">
+            <div class="fieldwire-import__panel-title">Action List</div>
+            @if (plan.actionItems.length <= 0) {
+              <div class="fieldwire-import__empty">
+                Fieldwire already appears current for this project.
+              </div>
+            }
+            @for (action of plan.actionItems; track action) {
+              <div class="fieldwire-import__action">
+                <mat-icon [fontIcon]="getActionIcon(action.type)"></mat-icon>
+                <div>
+                  <strong>{{action.label}}</strong>
+                  <span>{{action.detail}}</span>
+                </div>
+              </div>
+            }
+          </section>
+          @if (executeResult?.results?.length) {
+            <section class="fieldwire-import__panel">
+              <div class="fieldwire-import__panel-title">Execution Results</div>
+              @for (result of executeResult?.results; track result) {
+                <div class="fieldwire-import__action" [class.is-failed]="result.status === 'failed'" [class.is-pending]="result.status === 'pending'" [class.is-skipped]="result.status === 'skipped'">
+                  <mat-icon [fontIcon]="getResultIcon(result.status, result.type)"></mat-icon>
+                  <div>
+                    <strong>{{result.label}}</strong>
+                    <span>{{result.detail}}</span>
+                  </div>
+                </div>
+              }
+            </section>
+          }
+          <section class="fieldwire-import__panel">
+            <div class="fieldwire-import__panel-title">Floorplans</div>
+            @if (plan.floorplans.length <= 0) {
+              <div class="fieldwire-import__empty">
+                No Firewire floorplans are available to import.
+              </div>
+            }
+            @for (floorplan of plan.floorplans; track floorplan) {
+              <div class="fieldwire-import__floorplan">
+                <div>
+                  <strong>{{floorplan.fileName}}</strong>
+                  <span>{{getFloorplanStatusText(floorplan)}} · {{floorplan.symbolCount}} symbol{{floorplan.symbolCount === 1 ? '' : 's'}}</span>
+                </div>
+                <span class="fieldwire-import__badge" [class.is-required]="floorplan.status === 'required'" [class.is-pending]="floorplan.status === 'processing'">
+                  {{floorplan.status === 'exists' ? 'EXISTS' : floorplan.status === 'processing' ? 'PROCESSING' : 'CREATE'}}
+                </span>
+                @if (floorplan.tasks.length > 0) {
+                  <div class="fieldwire-import__tasks">
+                    @for (task of floorplan.tasks; track task) {
+                      <div>
+                        <span>{{task.taskName}}</span>
+                        <small>{{task.status === 'exists' ? 'task exists' : task.status === 'blocked' ? 'waiting on floorplan' : 'create task'}} at {{formatPercent(task.xRatio)}}, {{formatPercent(task.yRatio)}}</small>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button mat-dialog-close type="button">Close</button>
-            <button mat-flat-button type="button" class="fieldwire-import__perform" [disabled]="loading || executing || !plan?.canImport" (click)="executeImport()">
-                {{executing ? 'EXECUTING...' : 'EXECUTE'}}
-            </button>
+          <button mat-stroked-button mat-dialog-close type="button">Close</button>
+          <button mat-flat-button type="button" class="fieldwire-import__perform" [disabled]="loading || executing || !plan?.canImport" (click)="executeImport()">
+            {{executing ? 'EXECUTING...' : 'EXECUTE'}}
+          </button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .fieldwire-import {
             width: 100%;

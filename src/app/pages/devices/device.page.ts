@@ -1,9 +1,9 @@
-import { Component, OnChanges, Input, ViewChild } from "@angular/core"
+import { Component, OnChanges, Input, ViewChild, ChangeDetectionStrategy } from "@angular/core"
 import { Observable } from "rxjs"
 import { Router, RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -20,12 +20,9 @@ import { VwDevice } from "../../schemas/vwdevice.schema"
 @Component({
     standalone: true,
     selector: 'project-page',
-    imports: [CommonModule, RouterLink, 
-        MatButtonModule, MatFormFieldModule, 
-        MatSelectModule, MatButtonToggleModule,
-        MatChipsModule, MatIconModule, 
-        PageToolbar, NavToolbar, DeviceDetailComponent],
+    imports: [RouterLink, MatButtonModule, MatFormFieldModule, MatSelectModule, MatButtonToggleModule, MatChipsModule, MatIconModule, PageToolbar, NavToolbar, DeviceDetailComponent],
     providers: [HttpClient],
+    changeDetection: ChangeDetectionStrategy.Eager,
     templateUrl: './device.page.html'
 })
 export class DevicePage implements OnChanges {

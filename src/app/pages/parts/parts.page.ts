@@ -1,10 +1,11 @@
-import { Component, OnInit, AfterViewInit, ViewChild, inject } from "@angular/core"
+import { Component, OnInit, AfterViewInit, ViewChild, inject, ChangeDetectionStrategy } from "@angular/core"
+import { CommonModule } from "@angular/common"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { FormsModule } from "@angular/forms"
 import { firstValueFrom } from "rxjs"
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
@@ -57,15 +58,10 @@ const PARTS_VENDOR_VIEWS: PartsVendorView[] = [
 @Component({
     standalone: true,
     selector: 'prices-page',
-    imports: [CommonModule, FormsModule, MatButtonModule, 
-        RouterLink, MatMenuModule,
-        MatDividerModule,
-        MatPaginatorModule, MatSortModule,
-        MatTableModule, MatInputModule,
-        MatFormFieldModule, MatSelectModule,
-        MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
+    imports: [CommonModule, FormsModule, MatButtonModule, RouterLink, MatMenuModule, MatDividerModule, MatPaginatorModule, MatSortModule, MatTableModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './parts.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./parts.page.scss']
 })
 export class PartsPage implements OnInit, AfterViewInit  {
@@ -113,7 +109,7 @@ export class PartsPage implements OnInit, AfterViewInit  {
     pageSize = 25
 
     datasource: MatTableDataSource<VwPart> = new MatTableDataSource(this.parts);
-    
+
     constructor(
         private http: HttpClient,
         private dialog: MatDialog,
@@ -739,6 +735,7 @@ interface CreateDeviceFromPartDialogData {
             <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!canSave()">Create Device</button>
         </mat-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`.fw-dialog-stack{display:grid;gap:12px;width:100%;max-width:100%}.fw-dialog-stack p{margin:0}.fw-dialog-hint{margin-top:4px;color:rgba(214,238,255,.72);font-size:12px;line-height:1.35}`]
 })
 export class CreateDeviceFromPartDialog {
@@ -784,23 +781,26 @@ interface AddPartToExistingDeviceDialogData {
     template: `
         <div mat-dialog-title>Add Part To Existing Device</div>
         <mat-dialog-content>
-            <div class="fw-dialog-stack">
-                <p><strong>{{data.part.PartNumber}}</strong> will be linked into an existing device’s part list.</p>
-                <mat-form-field>
-                    <mat-label>Device</mat-label>
-                    <mat-select [(ngModel)]="deviceId">
-                        <mat-option *ngFor="let device of data.devices" [value]="device.deviceId">
-                            {{device.name}} · {{device.partNumber}} · {{device.vendorName}}
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
-            </div>
+          <div class="fw-dialog-stack">
+            <p><strong>{{data.part.PartNumber}}</strong> will be linked into an existing device’s part list.</p>
+            <mat-form-field>
+              <mat-label>Device</mat-label>
+              <mat-select [(ngModel)]="deviceId">
+                @for (device of data.devices; track device) {
+                  <mat-option [value]="device.deviceId">
+                    {{device.name}} · {{device.partNumber}} · {{device.vendorName}}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!deviceId">Add Part</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!deviceId">Add Part</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`.fw-dialog-stack{display:grid;gap:12px;min-width:min(460px,100%)}`]
 })
 export class AddPartToExistingDeviceDialog {
@@ -821,6 +821,7 @@ interface DeletePartDialogData {
     standalone: true,
     selector: 'fw-delete-part-dialog',
     imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
             <span class="fw-dialog-titlebar__text">Delete Part</span>
@@ -877,55 +878,68 @@ interface BulkPartsWorkbookResult {
     imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
-            <span class="fw-dialog-titlebar__text">Import All Vendor Parts</span>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <span class="fw-dialog-titlebar__text">Import All Vendor Parts</span>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content>
-            <div class="fw-dialog-stack">
-                <p>Import an Excel workbook with one vendor per worksheet. Worksheet names must match existing vendor names.</p>
-                <input type="file" accept=".xlsx,.xls" (change)="onFileSelected($event)" />
-                <div
-                    class="parts-dialog-status"
-                    [class.parts-dialog-status--error]="preview && !preview.valid"
-                    [class.parts-dialog-status--success]="preview?.valid"
-                    *ngIf="statusText">
-                    {{statusText}}
-                </div>
-                <div *ngIf="preview && !preview.valid" class="parts-dialog-blocker">
-                    <strong>Workbook cannot be imported yet.</strong>
-                    <span>Fix the worksheet issues listed below, then verify the workbook again.</span>
-                </div>
-                <div *ngIf="preview" class="parts-dialog-preview" [class.parts-dialog-preview--invalid]="!preview.valid">
-                    <div><strong>Sheets:</strong> {{preview.sheetCount}}</div>
-                    <div><strong>Matched Vendors:</strong> {{preview.matchedVendorCount}}</div>
-                    <div><strong>Skipped Sheets:</strong> {{preview.skippedSheetCount}}</div>
-                    <div><strong>Status:</strong> {{preview.valid ? 'Ready to import' : 'Needs attention'}}</div>
-                    <div *ngFor="let row of preview.results" [class.parts-dialog-preview__row--invalid]="row.matched && (!row.valid || row.sampleErrors.length > 0 || row.issues.length > 0)">
-                        <strong>{{row.sheetName}}</strong>:
-                        {{row.matched ? (row.vendorName + ' · ' + row.rowCount + ' rows') : 'Skipped'}}
-                        <span *ngIf="row.issues.length > 0"> · {{row.issues.join(' | ')}}</span>
-                        <span *ngIf="row.sampleErrors.length > 0"> · {{row.sampleErrors.join(' | ')}}</span>
-                    </div>
-                </div>
-            </div>
+          <div class="fw-dialog-stack">
+            <p>Import an Excel workbook with one vendor per worksheet. Worksheet names must match existing vendor names.</p>
+            <input type="file" accept=".xlsx,.xls" (change)="onFileSelected($event)" />
+            @if (statusText) {
+              <div
+                class="parts-dialog-status"
+                [class.parts-dialog-status--error]="preview && !preview.valid"
+                [class.parts-dialog-status--success]="preview?.valid"
+                >
+                {{statusText}}
+              </div>
+            }
+            @if (preview && !preview.valid) {
+              <div class="parts-dialog-blocker">
+                <strong>Workbook cannot be imported yet.</strong>
+                <span>Fix the worksheet issues listed below, then verify the workbook again.</span>
+              </div>
+            }
+            @if (preview) {
+              <div class="parts-dialog-preview" [class.parts-dialog-preview--invalid]="!preview.valid">
+                <div><strong>Sheets:</strong> {{preview.sheetCount}}</div>
+                <div><strong>Matched Vendors:</strong> {{preview.matchedVendorCount}}</div>
+                <div><strong>Skipped Sheets:</strong> {{preview.skippedSheetCount}}</div>
+                <div><strong>Status:</strong> {{preview.valid ? 'Ready to import' : 'Needs attention'}}</div>
+                @for (row of preview.results; track row) {
+                  <div [class.parts-dialog-preview__row--invalid]="row.matched && (!row.valid || row.sampleErrors.length > 0 || row.issues.length > 0)">
+                    <strong>{{row.sheetName}}</strong>:
+                    {{row.matched ? (row.vendorName + ' · ' + row.rowCount + ' rows') : 'Skipped'}}
+                    @if (row.issues.length > 0) {
+                      <span> · {{row.issues.join(' | ')}}</span>
+                    }
+                    @if (row.sampleErrors.length > 0) {
+                      <span> · {{row.sampleErrors.join(' | ')}}</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify Workbook</button>
-            <button
-                mat-flat-button
-                type="button"
-                class="parts-dialog-import-button"
-                [class.parts-dialog-import-button--disabled]="isImportDisabled()"
-                [attr.title]="getImportDisabledReason()"
-                [disabled]="isImportDisabled()"
-                (click)="importFile()">
-                Import Workbook
-            </button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify Workbook</button>
+          <button
+            mat-flat-button
+            type="button"
+            class="parts-dialog-import-button"
+            [class.parts-dialog-import-button--disabled]="isImportDisabled()"
+            [attr.title]="getImportDisabledReason()"
+            [disabled]="isImportDisabled()"
+            (click)="importFile()">
+            Import Workbook
+          </button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .parts-dialog-status { color: var(--fw-muted); font-size: 0.84rem; }
         .parts-dialog-status--error { color: #ffb4ab; font-weight: 600; }
@@ -1034,33 +1048,42 @@ export class AllPartsWorkbookImportDialog {
     imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
-            <span class="fw-dialog-titlebar__text">Import Parts</span>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <span class="fw-dialog-titlebar__text">Import Parts</span>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content>
-            <div class="fw-dialog-stack">
-                <p><strong>{{data.vendor.name}}</strong> will import into <strong>{{data.config.targetTable}}</strong> using the stored normalization rules.</p>
-                <input type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" />
-                <div class="parts-dialog-status" *ngIf="statusText">{{statusText}}</div>
-                <div *ngIf="preview" class="parts-dialog-preview">
-                    <div><strong>Rows:</strong> {{preview.rowCount}}</div>
-                    <div><strong>Valid:</strong> {{preview.valid ? 'Yes' : 'No'}}</div>
-                    <div><strong>Missing Headers:</strong> {{preview.missingHeaders.length > 0 ? preview.missingHeaders.join(', ') : 'None'}}</div>
-                    <div><strong>Unexpected Headers:</strong> {{preview.unexpectedHeaders.length > 0 ? preview.unexpectedHeaders.join(', ') : 'None'}}</div>
-                    <div><strong>Backup:</strong> {{preview.snapshotStrategy}}</div>
-                    <div *ngIf="preview.issues.length > 0"><strong>Issues:</strong> {{preview.issues.join(' | ')}}</div>
-                    <div *ngIf="preview.sampleErrors.length > 0"><strong>Sample Errors:</strong> {{preview.sampleErrors.join(' | ')}}</div>
-                </div>
-            </div>
+          <div class="fw-dialog-stack">
+            <p><strong>{{data.vendor.name}}</strong> will import into <strong>{{data.config.targetTable}}</strong> using the stored normalization rules.</p>
+            <input type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" />
+            @if (statusText) {
+              <div class="parts-dialog-status">{{statusText}}</div>
+            }
+            @if (preview) {
+              <div class="parts-dialog-preview">
+                <div><strong>Rows:</strong> {{preview.rowCount}}</div>
+                <div><strong>Valid:</strong> {{preview.valid ? 'Yes' : 'No'}}</div>
+                <div><strong>Missing Headers:</strong> {{preview.missingHeaders.length > 0 ? preview.missingHeaders.join(', ') : 'None'}}</div>
+                <div><strong>Unexpected Headers:</strong> {{preview.unexpectedHeaders.length > 0 ? preview.unexpectedHeaders.join(', ') : 'None'}}</div>
+                <div><strong>Backup:</strong> {{preview.snapshotStrategy}}</div>
+                @if (preview.issues.length > 0) {
+                  <div><strong>Issues:</strong> {{preview.issues.join(' | ')}}</div>
+                }
+                @if (preview.sampleErrors.length > 0) {
+                  <div><strong>Sample Errors:</strong> {{preview.sampleErrors.join(' | ')}}</div>
+                }
+              </div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify File</button>
-            <button mat-flat-button type="button" [disabled]="!selectedFile || !preview?.valid || working" (click)="importFile()">Import</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-stroked-button type="button" [disabled]="!selectedFile || working" (click)="verify()">Verify File</button>
+          <button mat-flat-button type="button" [disabled]="!selectedFile || !preview?.valid || working" (click)="importFile()">Import</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .parts-dialog-status { color: var(--fw-muted); font-size: 0.84rem; }
         .parts-dialog-preview { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 0; }
@@ -1145,41 +1168,54 @@ interface PartsImportProcessDialogData {
     imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
-            <span class="fw-dialog-titlebar__text">Import Process</span>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import process" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <span class="fw-dialog-titlebar__text">Import Process</span>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel import process" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content>
-            <div class="fw-dialog-stack">
-                <div><strong>Vendor:</strong> {{data.vendor.name}}</div>
-                <div><strong>Source:</strong> {{data.config.sourceLabel}}</div>
-                <div><strong>Target:</strong> {{data.config.targetTable}}</div>
-                <div><strong>Verified Sample:</strong> {{data.config.verifiedSampleFile || 'N/A'}}<span *ngIf="data.config.verifiedOn"> on {{data.config.verifiedOn}}</span></div>
-                <div><strong>Expected Headers:</strong> {{data.config.expectedHeaders.join(', ')}}</div>
-                <div><strong>Normalization Steps:</strong></div>
-                <ul class="parts-process-list">
-                    <li *ngFor="let step of data.config.normalizationSteps">{{step}}</li>
-                </ul>
-                <div><strong>Analysis Notes:</strong></div>
-                <ul class="parts-process-list">
-                    <li *ngFor="let note of data.config.analysisSummary">{{note}}</li>
-                </ul>
-                <div class="parts-process-snapshots">
-                    <div class="parts-process-snapshots__title">Snapshots</div>
-                    <div *ngIf="statusText" class="parts-dialog-status">{{statusText}}</div>
-                    <div *ngIf="snapshots.length <= 0" class="parts-dialog-status">No snapshots found yet.</div>
-                    <div *ngFor="let snapshot of snapshots" class="parts-process-snapshot">
-                        <div>{{snapshot.createdAt | date:'medium'}} · {{snapshot.fileName}} · {{snapshot.rowCount}} rows</div>
-                        <button mat-stroked-button type="button" [disabled]="working" (click)="restoreSnapshot(snapshot)">Restore</button>
-                    </div>
-                </div>
-            </div>
+          <div class="fw-dialog-stack">
+            <div><strong>Vendor:</strong> {{data.vendor.name}}</div>
+            <div><strong>Source:</strong> {{data.config.sourceLabel}}</div>
+            <div><strong>Target:</strong> {{data.config.targetTable}}</div>
+            <div><strong>Verified Sample:</strong> {{data.config.verifiedSampleFile || 'N/A'}}@if (data.config.verifiedOn) {
+            <span> on {{data.config.verifiedOn}}</span>
+          }</div>
+          <div><strong>Expected Headers:</strong> {{data.config.expectedHeaders.join(', ')}}</div>
+          <div><strong>Normalization Steps:</strong></div>
+          <ul class="parts-process-list">
+            @for (step of data.config.normalizationSteps; track step) {
+              <li>{{step}}</li>
+            }
+          </ul>
+          <div><strong>Analysis Notes:</strong></div>
+          <ul class="parts-process-list">
+            @for (note of data.config.analysisSummary; track note) {
+              <li>{{note}}</li>
+            }
+          </ul>
+          <div class="parts-process-snapshots">
+            <div class="parts-process-snapshots__title">Snapshots</div>
+            @if (statusText) {
+              <div class="parts-dialog-status">{{statusText}}</div>
+            }
+            @if (snapshots.length <= 0) {
+              <div class="parts-dialog-status">No snapshots found yet.</div>
+            }
+            @for (snapshot of snapshots; track snapshot) {
+              <div class="parts-process-snapshot">
+                <div>{{snapshot.createdAt | date:'medium'}} · {{snapshot.fileName}} · {{snapshot.rowCount}} rows</div>
+                <button mat-stroked-button type="button" [disabled]="working" (click)="restoreSnapshot(snapshot)">Restore</button>
+              </div>
+            }
+          </div>
+        </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .fw-dialog-stack { display: grid; gap: 10px; }
         .parts-process-list { margin: 0; padding-left: 18px; }

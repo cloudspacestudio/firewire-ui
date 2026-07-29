@@ -1,9 +1,10 @@
-import { Component, OnInit, AfterViewInit, ViewChild, inject } from "@angular/core"
-import { NgIf, NgFor } from "@angular/common"
+import { Component, OnInit, AfterViewInit, ViewChild, inject, ChangeDetectionStrategy } from "@angular/core"
+
+import { CommonModule } from "@angular/common"
 import { RouterLink } from "@angular/router"
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatDialog, MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from "@angular/material/dialog"
@@ -40,14 +41,10 @@ interface DeviceSetMembershipSummary {
 @Component({
     standalone: true,
     selector: 'devices-page',
-    imports: [CommonModule, MatButtonModule, 
-        RouterLink, 
-        MatPaginatorModule, MatSortModule,
-        MatTableModule, MatInputModule,
-        MatFormFieldModule,
-        MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
+    imports: [CommonModule, MatButtonModule, RouterLink, MatPaginatorModule, MatSortModule, MatTableModule, MatInputModule, MatFormFieldModule, MatIconModule, MatTooltipModule, PageToolbar, NavToolbar],
     providers: [HttpClient],
     templateUrl: './devices.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./devices.page.scss']
 })
 export class DevicesPage implements OnInit, AfterViewInit  {
@@ -72,7 +69,7 @@ export class DevicesPage implements OnInit, AfterViewInit  {
     deviceSetCounts = new Map<string, number>()
 
     datasource: MatTableDataSource<VwDevice> = new MatTableDataSource(this.devices);
-    
+
     constructor(
         private http: HttpClient,
         private dialog: MatDialog,
@@ -384,43 +381,52 @@ interface DeviceVendorLinkIssuesDialogData {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogContent, MatDialogTitle],
+    imports: [MatButtonModule, MatDialogActions, MatDialogContent, MatDialogTitle],
     template: `
         <div mat-dialog-title>{{data.mode === 'ignored' ? 'Ignored Vendor Link Issues' : 'Vendor Link Issues'}}</div>
         <mat-dialog-content>
-            <div class="device-link-issues__stack">
-                <div *ngIf="statusText" class="device-link-issues__status">{{statusText}}</div>
-                <div *ngIf="issues.length <= 0" class="device-link-issues__empty">
-                    {{data.mode === 'ignored' ? 'No ignored issues.' : 'No active issues.'}}
+          <div class="device-link-issues__stack">
+            @if (statusText) {
+              <div class="device-link-issues__status">{{statusText}}</div>
+            }
+            @if (issues.length <= 0) {
+              <div class="device-link-issues__empty">
+                {{data.mode === 'ignored' ? 'No ignored issues.' : 'No active issues.'}}
+              </div>
+            }
+            @for (issue of issues; track issue) {
+              <div class="device-link-issues__row">
+                <div class="device-link-issues__summary">
+                  <div><strong>{{issue.deviceName}}</strong></div>
+                  <div>{{issue.vendorName}} · {{issue.partNumber}} · {{issue.sourceLabel}}</div>
                 </div>
-                <div *ngFor="let issue of issues" class="device-link-issues__row">
-                    <div class="device-link-issues__summary">
-                        <div><strong>{{issue.deviceName}}</strong></div>
-                        <div>{{issue.vendorName}} · {{issue.partNumber}} · {{issue.sourceLabel}}</div>
-                    </div>
-                    <button
-                        *ngIf="data.mode !== 'ignored'"
-                        mat-stroked-button
-                        type="button"
-                        [disabled]="working"
-                        (click)="ignoreIssue(issue)">
-                        Ignore
-                    </button>
-                    <button
-                        *ngIf="data.mode === 'ignored'"
-                        mat-stroked-button
-                        type="button"
-                        [disabled]="working"
-                        (click)="reattemptIssue(issue)">
-                        Reattempt
-                    </button>
-                </div>
-            </div>
+                @if (data.mode !== 'ignored') {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="working"
+                    (click)="ignoreIssue(issue)">
+                    Ignore
+                  </button>
+                }
+                @if (data.mode === 'ignored') {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="working"
+                    (click)="reattemptIssue(issue)">
+                    Reattempt
+                  </button>
+                }
+              </div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button type="button" (click)="close()">Close</button>
+          <button mat-button type="button" (click)="close()">Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .device-link-issues__stack { display: grid; gap: 12px; min-width: min(760px, 100%); }
         .device-link-issues__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid rgba(72, 221, 255, 0.18); border-radius: 12px; }

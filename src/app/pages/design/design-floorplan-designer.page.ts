@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, OnInit, inject } from '@angular/core'
+
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 
@@ -20,8 +20,9 @@ type DesignerFileRecord = TrainAiFileRecord & {
 @Component({
     standalone: true,
     selector: 'design-floorplan-designer-page',
-    imports: [CommonModule, MatButtonModule, MatIconModule, PageToolbar, NavToolbar, FloorplanDesignerComponent],
+    imports: [MatButtonModule, MatIconModule, PageToolbar, NavToolbar, FloorplanDesignerComponent],
     templateUrl: './design-floorplan-designer.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./design-floorplan-designer.page.scss']
 })
 export class DesignFloorplanDesignerPage implements OnInit {

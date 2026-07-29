@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, inject } from "@angular/core"
+import { Component, Inject, OnInit, inject, ChangeDetectionStrategy } from "@angular/core"
 import { CommonModule } from "@angular/common"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
 import { HttpClient } from "@angular/common/http"
@@ -75,6 +75,7 @@ interface DeviceSetLinkedPartRow extends VwDeviceMaterial {
     ],
     providers: [HttpClient],
     templateUrl: './device-set.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./device-set.page.scss']
 })
 export class DeviceSetPage implements OnInit {
@@ -278,69 +279,88 @@ export class DeviceSetPage implements OnInit {
     imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule],
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
-            <div class="fw-dialog-titlebar__text">Add Devices</div>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel add devices" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div class="fw-dialog-titlebar__text">Add Devices</div>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel add devices" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="device-set-add-dialog">
-            <div class="device-set-add-dialog__grid">
-                <section class="device-set-add-dialog__column">
-                    <mat-form-field appearance="outline" class="device-set-add-dialog__filter">
-                        <mat-label>Find Devices</mat-label>
-                        <input matInput [(ngModel)]="filterText" placeholder="Name, part number, vendor, category" />
-                    </mat-form-field>
-                    <div class="device-set-add-dialog__hint">Showing up to 100 devices that are not already in this set.</div>
-                    <div *ngIf="availableDevices.length <= 0" class="device-set-add-dialog__empty">No matching devices available.</div>
-                    <div class="device-set-add-dialog__list" *ngIf="availableDevices.length > 0">
-                        <div class="device-set-add-dialog__row" *ngFor="let row of availableDevices">
-                            <div class="device-set-add-dialog__copy">
-                                <div class="device-set-add-dialog__title">{{row.name}}</div>
-                                <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}} · {{row.cost | currency}}</div>
-                            </div>
-                            <button mat-flat-button type="button" (click)="addDevice(row.deviceId)">Add</button>
-                        </div>
+          <div class="device-set-add-dialog__grid">
+            <section class="device-set-add-dialog__column">
+              <mat-form-field appearance="outline" class="device-set-add-dialog__filter">
+                <mat-label>Find Devices</mat-label>
+                <input matInput [(ngModel)]="filterText" placeholder="Name, part number, vendor, category" />
+              </mat-form-field>
+              <div class="device-set-add-dialog__hint">Showing up to 100 devices that are not already in this set.</div>
+              @if (availableDevices.length <= 0) {
+                <div class="device-set-add-dialog__empty">No matching devices available.</div>
+              }
+              @if (availableDevices.length > 0) {
+                <div class="device-set-add-dialog__list">
+                  @for (row of availableDevices; track row) {
+                    <div class="device-set-add-dialog__row">
+                      <div class="device-set-add-dialog__copy">
+                        <div class="device-set-add-dialog__title">{{row.name}}</div>
+                        <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}} · {{row.cost | currency}}</div>
+                      </div>
+                      <button mat-flat-button type="button" (click)="addDevice(row.deviceId)">Add</button>
                     </div>
-                </section>
+                  }
+                </div>
+              }
+            </section>
 
-                <section class="device-set-add-dialog__column device-set-add-dialog__column--selection">
-                    <div class="device-set-add-dialog__selection-group">
-                        <div class="device-set-add-dialog__selection-heading">Pending Devices</div>
-                        <div *ngIf="pendingDevices.length <= 0" class="device-set-add-dialog__empty">No pending devices selected yet.</div>
-                        <div class="device-set-add-dialog__list device-set-add-dialog__list--compact" *ngIf="pendingDevices.length > 0">
-                            <div class="device-set-add-dialog__row device-set-add-dialog__row--pending" *ngFor="let row of pendingDevices">
-                                <div class="device-set-add-dialog__copy">
-                                    <div class="device-set-add-dialog__title">{{row.name}}</div>
-                                    <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
-                                </div>
-                                <button mat-icon-button type="button" [attr.aria-label]="'Remove pending ' + row.name" (click)="removePendingDevice(row.deviceId)">
-                                    <mat-icon>close</mat-icon>
-                                </button>
-                            </div>
+            <section class="device-set-add-dialog__column device-set-add-dialog__column--selection">
+              <div class="device-set-add-dialog__selection-group">
+                <div class="device-set-add-dialog__selection-heading">Pending Devices</div>
+                @if (pendingDevices.length <= 0) {
+                  <div class="device-set-add-dialog__empty">No pending devices selected yet.</div>
+                }
+                @if (pendingDevices.length > 0) {
+                  <div class="device-set-add-dialog__list device-set-add-dialog__list--compact">
+                    @for (row of pendingDevices; track row) {
+                      <div class="device-set-add-dialog__row device-set-add-dialog__row--pending">
+                        <div class="device-set-add-dialog__copy">
+                          <div class="device-set-add-dialog__title">{{row.name}}</div>
+                          <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
                         </div>
-                    </div>
+                        <button mat-icon-button type="button" [attr.aria-label]="'Remove pending ' + row.name" (click)="removePendingDevice(row.deviceId)">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
 
-                    <div class="device-set-add-dialog__selection-group">
-                        <div class="device-set-add-dialog__selection-heading">Existing Devices</div>
-                        <div *ngIf="existingDevices.length <= 0" class="device-set-add-dialog__empty">No devices are saved in this set yet.</div>
-                        <div class="device-set-add-dialog__list device-set-add-dialog__list--compact" *ngIf="existingDevices.length > 0">
-                            <div class="device-set-add-dialog__row device-set-add-dialog__row--existing" *ngFor="let row of existingDevices">
-                                <div class="device-set-add-dialog__copy">
-                                    <div class="device-set-add-dialog__title">{{row.name}}</div>
-                                    <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
-                                </div>
-                                <span class="device-set-add-dialog__badge">In Set</span>
-                            </div>
+              <div class="device-set-add-dialog__selection-group">
+                <div class="device-set-add-dialog__selection-heading">Existing Devices</div>
+                @if (existingDevices.length <= 0) {
+                  <div class="device-set-add-dialog__empty">No devices are saved in this set yet.</div>
+                }
+                @if (existingDevices.length > 0) {
+                  <div class="device-set-add-dialog__list device-set-add-dialog__list--compact">
+                    @for (row of existingDevices; track row) {
+                      <div class="device-set-add-dialog__row device-set-add-dialog__row--existing">
+                        <div class="device-set-add-dialog__copy">
+                          <div class="device-set-add-dialog__title">{{row.name}}</div>
+                          <div class="device-set-add-dialog__meta">{{row.partNumber}} · {{row.vendorName}} · {{row.categoryName}}</div>
                         </div>
-                    </div>
-                </section>
-            </div>
+                        <span class="device-set-add-dialog__badge">In Set</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" [disabled]="addedDeviceIds.length <= 0" (click)="apply()">Add Pending</button>
+          <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" [disabled]="addedDeviceIds.length <= 0" (click)="apply()">Add Pending</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .device-set-add-dialog {
             width: min(1120px, 94vw);
@@ -532,93 +552,104 @@ class DeviceSetAddDevicesDialog {
     imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule],
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
-            <div class="fw-dialog-titlebar__text">Linked Parts</div>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Close linked parts" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div class="fw-dialog-titlebar__text">Linked Parts</div>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Close linked parts" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="device-set-linked-parts-dialog">
-            <div class="device-set-linked-parts-dialog__topline">
-                <div>
-                    <div class="device-set-linked-parts-dialog__title">{{detail?.name || 'Device Set'}}</div>
-                    <div class="device-set-linked-parts-dialog__subtitle">Underlying linked parts for every device in this set.</div>
-                </div>
-                <button mat-stroked-button type="button" [disabled]="syncWorking || pageWorking" (click)="syncDeviceSetPartPrices()">
-                    <mat-icon>sync</mat-icon>
-                    <span>{{syncWorking ? 'Refreshing...' : 'Refresh Prices'}}</span>
-                </button>
+          <div class="device-set-linked-parts-dialog__topline">
+            <div>
+              <div class="device-set-linked-parts-dialog__title">{{detail?.name || 'Device Set'}}</div>
+              <div class="device-set-linked-parts-dialog__subtitle">Underlying linked parts for every device in this set.</div>
+            </div>
+            <button mat-stroked-button type="button" [disabled]="syncWorking || pageWorking" (click)="syncDeviceSetPartPrices()">
+              <mat-icon>sync</mat-icon>
+              <span>{{syncWorking ? 'Refreshing...' : 'Refresh Prices'}}</span>
+            </button>
+          </div>
+
+          @if (errText) {
+            <div class="device-set-linked-parts-dialog__status">{{errText}}</div>
+          }
+          @if (statusText) {
+            <div class="device-set-linked-parts-dialog__status">{{statusText}}</div>
+          }
+
+          <div class="device-set-linked-parts-dialog__summary">
+            <div class="device-set-linked-parts-dialog__stat">
+              <span>Devices</span>
+              <strong>{{deviceCount}}</strong>
+            </div>
+            <div class="device-set-linked-parts-dialog__stat">
+              <span>Linked Parts</span>
+              <strong>{{partRows.length}}</strong>
+            </div>
+            <div class="device-set-linked-parts-dialog__stat">
+              <span>Material Cost</span>
+              <strong>{{totalMaterialCost | currency}}</strong>
+            </div>
+            <div class="device-set-linked-parts-dialog__stat">
+              <span>Vendor Cost</span>
+              <strong>{{totalVendorCost | currency}}</strong>
+            </div>
+            <div class="device-set-linked-parts-dialog__stat">
+              <span>Out Of Sync</span>
+              <strong>{{outOfSyncCount}}</strong>
+            </div>
+          </div>
+
+          <mat-form-field appearance="outline" class="device-set-linked-parts-dialog__filter">
+            <mat-label>Filter linked parts</mat-label>
+            <input matInput [(ngModel)]="filterText" placeholder="Device, part number, vendor, category" />
+          </mat-form-field>
+
+          <div class="device-set-linked-parts-dialog__table">
+            <div class="device-set-linked-parts-dialog__row device-set-linked-parts-dialog__row--header">
+              <span>Device</span>
+              <span>Device Part</span>
+              <span>Linked Part</span>
+              <span>Description</span>
+              <span>Stored Cost</span>
+              <span>Vendor Price</span>
+              <span>Labor</span>
+              <span>Category</span>
             </div>
 
-            <div *ngIf="errText" class="device-set-linked-parts-dialog__status">{{errText}}</div>
-            <div *ngIf="statusText" class="device-set-linked-parts-dialog__status">{{statusText}}</div>
+            @if (pageWorking) {
+              <div class="device-set-linked-parts-dialog__empty">Loading linked part details...</div>
+            }
+            @if (!pageWorking && filteredPartRows.length <= 0) {
+              <div class="device-set-linked-parts-dialog__empty">
+                No linked parts match the current filter.
+              </div>
+            }
 
-            <div class="device-set-linked-parts-dialog__summary">
-                <div class="device-set-linked-parts-dialog__stat">
-                    <span>Devices</span>
-                    <strong>{{deviceCount}}</strong>
-                </div>
-                <div class="device-set-linked-parts-dialog__stat">
-                    <span>Linked Parts</span>
-                    <strong>{{partRows.length}}</strong>
-                </div>
-                <div class="device-set-linked-parts-dialog__stat">
-                    <span>Material Cost</span>
-                    <strong>{{totalMaterialCost | currency}}</strong>
-                </div>
-                <div class="device-set-linked-parts-dialog__stat">
-                    <span>Vendor Cost</span>
-                    <strong>{{totalVendorCost | currency}}</strong>
-                </div>
-                <div class="device-set-linked-parts-dialog__stat">
-                    <span>Out Of Sync</span>
-                    <strong>{{outOfSyncCount}}</strong>
-                </div>
-            </div>
-
-            <mat-form-field appearance="outline" class="device-set-linked-parts-dialog__filter">
-                <mat-label>Filter linked parts</mat-label>
-                <input matInput [(ngModel)]="filterText" placeholder="Device, part number, vendor, category" />
-            </mat-form-field>
-
-            <div class="device-set-linked-parts-dialog__table">
-                <div class="device-set-linked-parts-dialog__row device-set-linked-parts-dialog__row--header">
-                    <span>Device</span>
-                    <span>Device Part</span>
-                    <span>Linked Part</span>
-                    <span>Description</span>
-                    <span>Stored Cost</span>
-                    <span>Vendor Price</span>
-                    <span>Labor</span>
-                    <span>Category</span>
-                </div>
-
-                <div *ngIf="pageWorking" class="device-set-linked-parts-dialog__empty">Loading linked part details...</div>
-                <div *ngIf="!pageWorking && filteredPartRows.length <= 0" class="device-set-linked-parts-dialog__empty">
-                    No linked parts match the current filter.
-                </div>
-
-                <div class="device-set-linked-parts-dialog__row" *ngFor="let row of filteredPartRows">
-                    <span>
-                        <strong>{{row.sourceDeviceName}}</strong>
-                        <small>{{row.sourceDeviceVendorName}}</small>
-                    </span>
-                    <span>{{row.sourceDevicePartNumber}}</span>
-                    <span>{{row.materialPartNumber}}</span>
-                    <span>
-                        <strong>{{row.materialName}}</strong>
-                        <small>{{row.materialShortName || row.org}}</small>
-                    </span>
-                    <span [class.is-out-of-sync]="isPriceOutOfSync(row)">{{row.materialCost | currency}}</span>
-                    <span>{{row.currentVendorPrice === null ? 'No match' : (row.currentVendorPrice | currency)}}</span>
-                    <span>{{row.materialDefaultLabor || 0}}</span>
-                    <span>{{row.deviceCategoryName || row.deviceCategoryShortName}}</span>
-                </div>
-            </div>
+            @for (row of filteredPartRows; track row) {
+              <div class="device-set-linked-parts-dialog__row">
+                <span>
+                  <strong>{{row.sourceDeviceName}}</strong>
+                  <small>{{row.sourceDeviceVendorName}}</small>
+                </span>
+                <span>{{row.sourceDevicePartNumber}}</span>
+                <span>{{row.materialPartNumber}}</span>
+                <span>
+                  <strong>{{row.materialName}}</strong>
+                  <small>{{row.materialShortName || row.org}}</small>
+                </span>
+                <span [class.is-out-of-sync]="isPriceOutOfSync(row)">{{row.materialCost | currency}}</span>
+                <span>{{row.currentVendorPrice === null ? 'No match' : (row.currentVendorPrice | currency)}}</span>
+                <span>{{row.materialDefaultLabor || 0}}</span>
+                <span>{{row.deviceCategoryName || row.deviceCategoryShortName}}</span>
+              </div>
+            }
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
+          <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .device-set-linked-parts-dialog {
             width: min(1120px, 94vw);
@@ -896,74 +927,84 @@ class DeviceSetLinkedPartsDialog implements OnInit {
     ],
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
-            <div class="fw-dialog-titlebar__text">Paste Device Names</div>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel paste device names" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div class="fw-dialog-titlebar__text">Paste Device Names</div>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel paste device names" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="device-set-import-dialog">
-            <div class="device-set-import-form">
-                <mat-form-field appearance="outline">
-                    <mat-label>Vendor</mat-label>
-                    <mat-select [(ngModel)]="selectedVendorId">
-                        <mat-option *ngFor="let vendor of data.vendors" [value]="vendor.vendorId">{{vendor.name}}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-
-                <div class="device-set-import-file">
-                    <label class="device-set-import-file__label">Excel / Clipboard Paste</label>
-                    <div class="device-set-import-file__hint">Paste a single Excel column or newline-separated list of device names.</div>
-                </div>
-            </div>
-
-            <mat-form-field appearance="outline" class="device-set-import-textarea">
-                <mat-label>Pasted Device Names</mat-label>
-                <textarea matInput rows="8" [(ngModel)]="pastedContents" placeholder="Paste Excel cells here"></textarea>
+          <div class="device-set-import-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Vendor</mat-label>
+              <mat-select [(ngModel)]="selectedVendorId">
+                @for (vendor of data.vendors; track vendor) {
+                  <mat-option [value]="vendor.vendorId">{{vendor.name}}</mat-option>
+                }
+              </mat-select>
             </mat-form-field>
 
-            <div class="device-set-import-actions-row">
-                <button mat-flat-button type="button" [disabled]="working || !selectedVendorId || !pastedContents.trim()" (click)="processImport()">
-                    <mat-icon>content_paste_search</mat-icon>
-                    <span>Process Paste</span>
-                </button>
-                <div *ngIf="statusText" class="device-set-import-status">{{statusText}}</div>
+            <div class="device-set-import-file">
+              <label class="device-set-import-file__label">Excel / Clipboard Paste</label>
+              <div class="device-set-import-file__hint">Paste a single Excel column or newline-separated list of device names.</div>
             </div>
+          </div>
 
-            <div *ngIf="results.length > 0" class="device-set-import-results">
-                <div class="device-set-import-results__summary">
-                    {{countCreatedLike()}} added · {{countByDisposition('already-linked')}} already linked · {{countByDisposition('duplicate')}} duplicate · {{countByDisposition('part-found')}} part found · {{countByDisposition('not-found')}} not found
+          <mat-form-field appearance="outline" class="device-set-import-textarea">
+            <mat-label>Pasted Device Names</mat-label>
+            <textarea matInput rows="8" [(ngModel)]="pastedContents" placeholder="Paste Excel cells here"></textarea>
+          </mat-form-field>
+
+          <div class="device-set-import-actions-row">
+            <button mat-flat-button type="button" [disabled]="working || !selectedVendorId || !pastedContents.trim()" (click)="processImport()">
+              <mat-icon>content_paste_search</mat-icon>
+              <span>Process Paste</span>
+            </button>
+            @if (statusText) {
+              <div class="device-set-import-status">{{statusText}}</div>
+            }
+          </div>
+
+          @if (results.length > 0) {
+            <div class="device-set-import-results">
+              <div class="device-set-import-results__summary">
+                {{countCreatedLike()}} added · {{countByDisposition('already-linked')}} already linked · {{countByDisposition('duplicate')}} duplicate · {{countByDisposition('part-found')}} part found · {{countByDisposition('not-found')}} not found
+              </div>
+              <div class="device-set-import-results__table">
+                <div class="device-set-import-results__header">
+                  <div>CSV Row</div>
+                  <div>Disposition</div>
+                  <div>Matched Device</div>
+                  <div></div>
                 </div>
-                <div class="device-set-import-results__table">
-                    <div class="device-set-import-results__header">
-                        <div>CSV Row</div>
-                        <div>Disposition</div>
-                        <div>Matched Device</div>
-                        <div></div>
+                @for (row of results; track row) {
+                  <div class="device-set-import-results__row">
+                    <div>{{row.sourceName || ' '}}</div>
+                    <div>{{formatDisposition(row.disposition)}}</div>
+                    <div>{{getMatchedSummary(row)}}</div>
+                    <div class="device-set-import-results__action">
+                      @if (row.disposition === 'part-found' && row.vendorPart) {
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          [disabled]="!!row.createWorking"
+                          (click)="createDeviceFromPart(row)"
+                          >
+                          Create Device
+                        </button>
+                      }
                     </div>
-                    <div class="device-set-import-results__row" *ngFor="let row of results">
-                        <div>{{row.sourceName || ' '}}</div>
-                        <div>{{formatDisposition(row.disposition)}}</div>
-                        <div>{{getMatchedSummary(row)}}</div>
-                        <div class="device-set-import-results__action">
-                            <button
-                                *ngIf="row.disposition === 'part-found' && row.vendorPart"
-                                mat-stroked-button
-                                type="button"
-                                [disabled]="!!row.createWorking"
-                                (click)="createDeviceFromPart(row)"
-                            >
-                                Create Device
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                  </div>
+                }
+              </div>
             </div>
+          }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" [disabled]="addedDeviceIds.length <= 0" (click)="applyImport()">Apply Added Devices</button>
+          <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" [disabled]="addedDeviceIds.length <= 0" (click)="applyImport()">Apply Added Devices</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .device-set-import-dialog {
             display: flex;
@@ -1392,6 +1433,7 @@ interface DeviceSetCreateDeviceFromPartDialogData {
             <button mat-flat-button type="button" [mat-dialog-close]="getResult()" [disabled]="!canSave()">Create Device</button>
         </mat-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`.fw-dialog-stack{display:grid;gap:12px;min-width:min(460px,100%)}.fw-dialog-hint{margin-top:4px;color:rgba(214,238,255,.72);font-size:12px;line-height:1.35}`]
 })
 class DeviceSetCreateDeviceFromPartDialog {

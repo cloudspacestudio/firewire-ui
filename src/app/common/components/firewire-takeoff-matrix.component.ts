@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, Input } from '@angular/core'
+
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core'
 
 export type FirewireTakeoffValue = number | null
 
@@ -19,8 +19,9 @@ export interface FirewireTakeoffColumnDefinition {
 @Component({
     standalone: true,
     selector: 'firewire-takeoff-matrix',
-    imports: [CommonModule],
+    imports: [],
     templateUrl: './firewire-takeoff-matrix.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-takeoff-matrix.component.scss']
 })
 export class FirewireTakeoffMatrixComponent {

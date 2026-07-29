@@ -1,6 +1,6 @@
-import {Component, inject, OnInit} from '@angular/core'
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core'
 import { Resolve, RouterLink } from '@angular/router'
-import { NgIf, NgFor } from '@angular/common'
+
 import {
     MatDialog,
     MAT_DIALOG_DATA,
@@ -28,12 +28,8 @@ import { DeviceDialog } from './device.dialog'
 @Component({
     standalone: true,
     templateUrl: './preview.dialog.html',
-    imports: [NgIf, NgFor, MatDialogTitle, MatDialogContent, 
-        MatDialogActions, MatButtonModule,
-        MatDialogClose, MatToolbarModule,
-        MatListModule, MatIconModule,
-        MatBadgeModule, MatMenuModule,
-        MatCardModule],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [MatDialogTitle, MatDialogContent, MatDialogActions, MatButtonModule, MatDialogClose, MatToolbarModule, MatListModule, MatIconModule, MatBadgeModule, MatMenuModule, MatCardModule],
 })
 export class PreviewDialog implements OnInit {
     previewResponse: PreviewDialogSchema = inject(MAT_DIALOG_DATA)

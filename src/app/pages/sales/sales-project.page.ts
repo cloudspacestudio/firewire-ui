@@ -1,6 +1,6 @@
-import { CommonModule } from '@angular/common'
+
 import { HttpClient } from '@angular/common/http'
-import { Component, ElementRef, HostListener, Input, ViewChild, inject } from '@angular/core'
+import { Component, ElementRef, HostListener, Input, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { RouterLink } from '@angular/router'
 import { firstValueFrom } from 'rxjs'
@@ -136,24 +136,24 @@ interface SalesFloorplanDeleteDialogData {
     standalone: true,
     selector: 'sales-project-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatCardModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        MatSelectModule,
-        PageToolbar,
-        FirewireBomWorksheetComponent,
-        FirewireCustomerInfoCardComponent,
-        FirewireDocLibraryExplorerComponent,
-        FirewireEstimateSummaryComponent,
-        FirewireFloorplansComponent,
-    ],
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatSelectModule,
+    PageToolbar,
+    FirewireBomWorksheetComponent,
+    FirewireCustomerInfoCardComponent,
+    FirewireDocLibraryExplorerComponent,
+    FirewireEstimateSummaryComponent,
+    FirewireFloorplansComponent
+],
     providers: [HttpClient],
     templateUrl: './sales-project.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./sales-project.page.scss']
 })
 export class SalesProjectPage {
@@ -2723,32 +2723,34 @@ export class SalesProjectPage {
     standalone: true,
     selector: 'sales-doc-library-category-dialog',
     imports: [
-        CommonModule,
-        FormsModule,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatSelectModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose
-    ],
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose
+],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>{{data.title}}</h2>
         <mat-dialog-content class="project-doc-library-category-dialog">
-            <div class="project-doc-library-category-dialog__hint">Choose the document category for this upload.</div>
-            <mat-form-field>
-                <mat-label>Category</mat-label>
-                <mat-select [(ngModel)]="selectedFolderId">
-                    <mat-option *ngFor="let folder of data.folders" [value]="folder.id">{{folder.label}}</mat-option>
-                </mat-select>
-            </mat-form-field>
+          <div class="project-doc-library-category-dialog__hint">Choose the document category for this upload.</div>
+          <mat-form-field>
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="selectedFolderId">
+              @for (folder of data.folders; track folder) {
+                <mat-option [value]="folder.id">{{folder.label}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
+          <button mat-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button type="button" (click)="confirmSelection()">{{data.confirmLabel}}</button>
         </mat-dialog-actions>
-    `
+        `
 })
 export class SalesDocLibraryCategoryDialog {
     readonly data = inject<SalesDocLibraryCategoryDialogData>(MAT_DIALOG_DATA)
@@ -2763,7 +2765,8 @@ export class SalesDocLibraryCategoryDialog {
 @Component({
     standalone: true,
     selector: 'sales-floorplan-delete-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 mat-dialog-title>Delete Floorplan</h2>
         <mat-dialog-content>

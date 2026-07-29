@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, OnChanges, Output, inject } from "@angular/core"
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, inject, ChangeDetectionStrategy } from "@angular/core"
 import { CommonModule } from "@angular/common"
 import { FormsModule } from "@angular/forms"
 import { firstValueFrom, from, map, Observable, of, switchMap } from "rxjs"
@@ -103,6 +103,7 @@ interface DeviceTagRecord {
     imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatIconModule, MatInputModule, MatListModule, MatSlideToggleModule, MatTooltipModule],
     providers: [HttpClient],
     templateUrl: './devicedetail.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./devicedetail.component.scss']
 })
 export class DeviceDetailComponent implements OnChanges {
@@ -1570,91 +1571,105 @@ interface DeviceVendorPartsDialogResult {
             }
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div mat-dialog-title class="vendor-parts-dialog__titlebar">
-            <span>Edit Vendor Parts</span>
-            <button mat-icon-button type="button" aria-label="Cancel vendor part edits" (click)="discard()">
-                <mat-icon>close</mat-icon>
-            </button>
+          <span>Edit Vendor Parts</span>
+          <button mat-icon-button type="button" aria-label="Cancel vendor part edits" (click)="discard()">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="vendor-parts-dialog__content">
-            <div *ngIf="linkedParts.length > 0; else noLinkedParts" class="vendor-parts-dialog__table">
-                <div class="vendor-parts-dialog__header">
-                    <span>Part Number</span>
-                    <span>Description</span>
-                    <span>Category</span>
-                    <span>Qty</span>
-                    <span>Cost</span>
-                    <span>MSRP</span>
-                    <span></span>
+          @if (linkedParts.length > 0) {
+            <div class="vendor-parts-dialog__table">
+              <div class="vendor-parts-dialog__header">
+                <span>Part Number</span>
+                <span>Description</span>
+                <span>Category</span>
+                <span>Qty</span>
+                <span>Cost</span>
+                <span>MSRP</span>
+                <span></span>
+              </div>
+              @for (part of linkedParts; track part; let index = $index) {
+                <div class="vendor-parts-dialog__row">
+                  <span class="vendor-parts-dialog__part">{{part.partNumber}}</span>
+                  <span class="vendor-parts-dialog__description">{{part.description || 'None'}}</span>
+                  <span>{{part.category || part.parentCategory || 'None'}}</span>
+                  <input class="vendor-parts-dialog__quantity" type="number" min="1" step="1" [(ngModel)]="part.quantityPerDevice" (blur)="normalizeLinkedPartQuantity(part)" aria-label="Quantity per device" />
+                  <span class="vendor-parts-dialog__money">{{part.cost !== null && part.cost !== undefined ? (part.cost | currency) : 'None'}}</span>
+                  <span class="vendor-parts-dialog__money">{{part.msrp !== null && part.msrp !== undefined ? (part.msrp | currency) : 'None'}}</span>
+                  <button mat-icon-button type="button" aria-label="Remove linked part" (click)="removeLinkedPart(index)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
                 </div>
-                <div *ngFor="let part of linkedParts; let index = index" class="vendor-parts-dialog__row">
-                    <span class="vendor-parts-dialog__part">{{part.partNumber}}</span>
-                    <span class="vendor-parts-dialog__description">{{part.description || 'None'}}</span>
-                    <span>{{part.category || part.parentCategory || 'None'}}</span>
-                    <input class="vendor-parts-dialog__quantity" type="number" min="1" step="1" [(ngModel)]="part.quantityPerDevice" (blur)="normalizeLinkedPartQuantity(part)" aria-label="Quantity per device" />
-                    <span class="vendor-parts-dialog__money">{{part.cost !== null && part.cost !== undefined ? (part.cost | currency) : 'None'}}</span>
-                    <span class="vendor-parts-dialog__money">{{part.msrp !== null && part.msrp !== undefined ? (part.msrp | currency) : 'None'}}</span>
-                    <button mat-icon-button type="button" aria-label="Remove linked part" (click)="removeLinkedPart(index)">
-                        <mat-icon>delete</mat-icon>
-                    </button>
-                </div>
+              }
             </div>
-            <ng-template #noLinkedParts>
-                <div class="vendor-parts-dialog__empty">No vendor parts linked yet.</div>
-            </ng-template>
+          } @else {
+            <div class="vendor-parts-dialog__empty">No vendor parts linked yet.</div>
+          }
 
-            <div class="vendor-parts-dialog__toolbar">
-                <mat-form-field>
-                    <mat-label>Vendor</mat-label>
-                    <mat-select [(ngModel)]="selectedVendorId" (selectionChange)="onVendorChanged()">
-                        <mat-option *ngFor="let vendor of vendors" [value]="vendor.vendorId">{{vendor.name}}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-                <mat-form-field>
-                    <mat-label>Find Vendor Part</mat-label>
-                    <input matInput [(ngModel)]="filter" (ngModelChange)="onFilterChanged()" placeholder="Type part number, description, or category" />
-                </mat-form-field>
-                <button *ngIf="selectedCategories.length > 0" mat-icon-button type="button" aria-label="Clear category filter" (click)="clearCategoryFilter()">
-                    <mat-icon>filter_alt_off</mat-icon>
-                </button>
-                <mat-form-field>
-                    <mat-label>Category</mat-label>
-                    <mat-select [(ngModel)]="selectedCategories" multiple (openedChange)="onCategoryOpened($event)" (selectionChange)="onCategoryChanged()">
-                        <mat-option *ngFor="let option of getCategoryOptions()" [value]="option">{{option}}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-            </div>
-            <div class="vendor-parts-dialog__hint">{{getSearchHint()}}</div>
+          <div class="vendor-parts-dialog__toolbar">
+            <mat-form-field>
+              <mat-label>Vendor</mat-label>
+              <mat-select [(ngModel)]="selectedVendorId" (selectionChange)="onVendorChanged()">
+                @for (vendor of vendors; track vendor) {
+                  <mat-option [value]="vendor.vendorId">{{vendor.name}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Find Vendor Part</mat-label>
+              <input matInput [(ngModel)]="filter" (ngModelChange)="onFilterChanged()" placeholder="Type part number, description, or category" />
+            </mat-form-field>
+            @if (selectedCategories.length > 0) {
+              <button mat-icon-button type="button" aria-label="Clear category filter" (click)="clearCategoryFilter()">
+                <mat-icon>filter_alt_off</mat-icon>
+              </button>
+            }
+            <mat-form-field>
+              <mat-label>Category</mat-label>
+              <mat-select [(ngModel)]="selectedCategories" multiple (openedChange)="onCategoryOpened($event)" (selectionChange)="onCategoryChanged()">
+                @for (option of getCategoryOptions(); track option) {
+                  <mat-option [value]="option">{{option}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="vendor-parts-dialog__hint">{{getSearchHint()}}</div>
 
-            <div *ngIf="results.length > 0" class="vendor-parts-dialog__table">
-                <div class="vendor-parts-dialog__header">
-                    <span>Part Number</span>
-                    <span>Description</span>
-                    <span>Category</span>
-                    <span>Qty</span>
-                    <span>Cost</span>
-                    <span>MSRP</span>
-                    <span></span>
+          @if (results.length > 0) {
+            <div class="vendor-parts-dialog__table">
+              <div class="vendor-parts-dialog__header">
+                <span>Part Number</span>
+                <span>Description</span>
+                <span>Category</span>
+                <span>Qty</span>
+                <span>Cost</span>
+                <span>MSRP</span>
+                <span></span>
+              </div>
+              @for (row of results; track row) {
+                <div class="vendor-parts-dialog__row">
+                  <span class="vendor-parts-dialog__part">{{row.PartNumber}}</span>
+                  <span class="vendor-parts-dialog__description">{{row.LongDescription}}</span>
+                  <span>{{row.Category || row.ParentCategory || 'None'}}</span>
+                  <span class="vendor-parts-dialog__money">1</span>
+                  <span class="vendor-parts-dialog__money">{{(row.SalesPrice || 0) | currency}}</span>
+                  <span class="vendor-parts-dialog__money">{{(row.MSRPPrice || 0) | currency}}</span>
+                  <button mat-stroked-button type="button" [disabled]="isLinkedPartSelected(row)" (click)="addLinkedPart(row)">
+                    {{isLinkedPartSelected(row) ? 'Selected' : 'Select'}}
+                  </button>
                 </div>
-                <div *ngFor="let row of results" class="vendor-parts-dialog__row">
-                    <span class="vendor-parts-dialog__part">{{row.PartNumber}}</span>
-                    <span class="vendor-parts-dialog__description">{{row.LongDescription}}</span>
-                    <span>{{row.Category || row.ParentCategory || 'None'}}</span>
-                    <span class="vendor-parts-dialog__money">1</span>
-                    <span class="vendor-parts-dialog__money">{{(row.SalesPrice || 0) | currency}}</span>
-                    <span class="vendor-parts-dialog__money">{{(row.MSRPPrice || 0) | currency}}</span>
-                    <button mat-stroked-button type="button" [disabled]="isLinkedPartSelected(row)" (click)="addLinkedPart(row)">
-                        {{isLinkedPartSelected(row) ? 'Selected' : 'Select'}}
-                    </button>
-                </div>
+              }
             </div>
+          }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button type="button" (click)="discard()">Cancel</button>
-            <button mat-flat-button type="button" (click)="save()">Save Vendor Parts</button>
+          <button mat-button type="button" (click)="discard()">Cancel</button>
+          <button mat-flat-button type="button" (click)="save()">Save Vendor Parts</button>
         </mat-dialog-actions>
-    `
+        `
 })
 export class DeviceVendorPartsDialog {
     private readonly minChars = 3
@@ -2000,6 +2015,7 @@ export class DeviceVendorPartsDialog {
             overflow-wrap: anywhere;
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div mat-dialog-title class="vendor-part-dialog__titlebar">
             <span>Vendor Part Detail</span>
@@ -2058,6 +2074,7 @@ export class VendorPartDetailDialog {
             line-height: 1.5;
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div mat-dialog-title style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <span>Delete Device?</span>

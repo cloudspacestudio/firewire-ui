@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { Component, ElementRef, ViewChild, inject } from '@angular/core'
+
+import { Component, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import {
@@ -35,124 +35,130 @@ export interface ScheduleOfValuesDialogData {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="sov__titlebar">
-            <div>
-                <div class="sov__title-kicker">Booking Output</div>
-                <div class="sov__title">Schedule Of Values</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="sov__title-kicker">Booking Output</div>
+            <div class="sov__title">Schedule Of Values</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="sov">
-            <div class="sov__eyebrow">Application And Certificate For Payment</div>
-            <div class="sov__paper">
-                <div #printRoot class="sov__paper-inner">
-                    <div class="sov__header-band">
-                        <div class="sov__doc-title">AIA DOCUMENT G703</div>
-                        <div class="sov__doc-page">PAGE 1</div>
-                    </div>
+          <div class="sov__eyebrow">Application And Certificate For Payment</div>
+          <div class="sov__paper">
+            <div #printRoot class="sov__paper-inner">
+              <div class="sov__header-band">
+                <div class="sov__doc-title">AIA DOCUMENT G703</div>
+                <div class="sov__doc-page">PAGE 1</div>
+              </div>
 
-                    <div class="sov__meta-grid">
-                        <div class="sov__meta-copy">
-                            <div>AIA Document G702, APPLICATION AND CERTIFICATE FOR PAYMENT,</div>
-                            <div>containing Contractor's signed Certification, is attached.</div>
-                            <div>In tabulations below, amounts are stated to the nearest dollar.</div>
-                            <div>Use Column I on Contracts where variable retainage for line items may apply.</div>
-                        </div>
-                        <div class="sov__meta-fields">
-                            <label><span>Application Number:</span><input class="sov__input" [(ngModel)]="editable.applicationNumber" /></label>
-                            <label><span>Application Date:</span><input class="sov__input" [(ngModel)]="editable.applicationDate" /></label>
-                            <label><span>Period To:</span><input class="sov__input" [(ngModel)]="editable.periodTo" /></label>
-                            <label><span>Firetrol Contract No.:</span><input class="sov__input" [(ngModel)]="editable.firetrolContractNo" /></label>
-                            <label><span>Project Name:</span><input class="sov__input" [(ngModel)]="editable.projectName" /></label>
-                        </div>
-                    </div>
-
-                    <table class="sov__table">
-                        <thead>
-                            <tr>
-                                <th>A<br />Item No.</th>
-                                <th>B<br />Description of Work</th>
-                                <th>C<br />Scheduled Value</th>
-                                <th>D<br />From Previous Application</th>
-                                <th>E<br />This Period</th>
-                                <th>F<br />Materials Presently Stored</th>
-                                <th>G<br />Total Completed And Stored To Date</th>
-                                <th>% (GC)</th>
-                                <th>H<br />Balance To Finish</th>
-                                <th>I<br />Retainage</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let row of editable.rows">
-                                <td><input class="sov__input" [(ngModel)]="row.itemNo" /></td>
-                                <td><input class="sov__input" [(ngModel)]="row.description" /></td>
-                                <td><input class="sov__input is-right" [(ngModel)]="row.scheduledValueDisplay" /></td>
-                                <td><input class="sov__input is-right" [(ngModel)]="row.previousApplicationDisplay" /></td>
-                                <td><input class="sov__input is-right" [(ngModel)]="row.thisPeriodDisplay" /></td>
-                                <td><input class="sov__input is-right" [(ngModel)]="row.materialsPresentlyStoredDisplay" /></td>
-                                <td class="is-right">{{row.totalCompletedAndStoredDisplay}}</td>
-                                <td><input class="sov__input is-right" [(ngModel)]="row.percentGcDisplay" /></td>
-                                <td class="is-right">{{row.balanceToFinishDisplay}}</td>
-                                <td class="is-right">{{row.retainageDisplay}}</td>
-                            </tr>
-                            <tr *ngFor="let row of fillerRows">
-                                <td>{{row}}</td>
-                                <td></td>
-                                <td class="is-right"></td>
-                                <td class="is-right">0.00</td>
-                                <td class="is-right">0.00</td>
-                                <td class="is-right">0.00</td>
-                                <td class="is-right">0.00</td>
-                                <td class="is-right">0%</td>
-                                <td class="is-right">0.00</td>
-                                <td class="is-right">0.00</td>
-                            </tr>
-                            <tr class="sov__total-row">
-                                <td colspan="2">Page Total</td>
-                                <td class="is-right">{{pageTotalDisplay}}</td>
-                                <td class="is-right">{{previousApplicationTotalDisplay}}</td>
-                                <td class="is-right">{{thisPeriodTotalDisplay}}</td>
-                                <td class="is-right">{{materialsStoredTotalDisplay}}</td>
-                                <td class="is-right">{{completedAndStoredTotalDisplay}}</td>
-                                <td class="is-right"></td>
-                                <td class="is-right">{{balanceToFinishTotalDisplay}}</td>
-                                <td class="is-right">{{retainageTotalDisplay}}</td>
-                            </tr>
-                            <tr class="sov__total-row">
-                                <td colspan="2">Schedule Total</td>
-                                <td class="is-right">{{pageTotalDisplay}}</td>
-                                <td colspan="7"></td>
-                            </tr>
-                        </tbody>
-                    </table>
+              <div class="sov__meta-grid">
+                <div class="sov__meta-copy">
+                  <div>AIA Document G702, APPLICATION AND CERTIFICATE FOR PAYMENT,</div>
+                  <div>containing Contractor's signed Certification, is attached.</div>
+                  <div>In tabulations below, amounts are stated to the nearest dollar.</div>
+                  <div>Use Column I on Contracts where variable retainage for line items may apply.</div>
                 </div>
+                <div class="sov__meta-fields">
+                  <label><span>Application Number:</span><input class="sov__input" [(ngModel)]="editable.applicationNumber" /></label>
+                  <label><span>Application Date:</span><input class="sov__input" [(ngModel)]="editable.applicationDate" /></label>
+                  <label><span>Period To:</span><input class="sov__input" [(ngModel)]="editable.periodTo" /></label>
+                  <label><span>Firetrol Contract No.:</span><input class="sov__input" [(ngModel)]="editable.firetrolContractNo" /></label>
+                  <label><span>Project Name:</span><input class="sov__input" [(ngModel)]="editable.projectName" /></label>
+                </div>
+              </div>
+
+              <table class="sov__table">
+                <thead>
+                  <tr>
+                    <th>A<br />Item No.</th>
+                    <th>B<br />Description of Work</th>
+                    <th>C<br />Scheduled Value</th>
+                    <th>D<br />From Previous Application</th>
+                    <th>E<br />This Period</th>
+                    <th>F<br />Materials Presently Stored</th>
+                    <th>G<br />Total Completed And Stored To Date</th>
+                    <th>% (GC)</th>
+                    <th>H<br />Balance To Finish</th>
+                    <th>I<br />Retainage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of editable.rows; track row) {
+                    <tr>
+                      <td><input class="sov__input" [(ngModel)]="row.itemNo" /></td>
+                      <td><input class="sov__input" [(ngModel)]="row.description" /></td>
+                      <td><input class="sov__input is-right" [(ngModel)]="row.scheduledValueDisplay" /></td>
+                      <td><input class="sov__input is-right" [(ngModel)]="row.previousApplicationDisplay" /></td>
+                      <td><input class="sov__input is-right" [(ngModel)]="row.thisPeriodDisplay" /></td>
+                      <td><input class="sov__input is-right" [(ngModel)]="row.materialsPresentlyStoredDisplay" /></td>
+                      <td class="is-right">{{row.totalCompletedAndStoredDisplay}}</td>
+                      <td><input class="sov__input is-right" [(ngModel)]="row.percentGcDisplay" /></td>
+                      <td class="is-right">{{row.balanceToFinishDisplay}}</td>
+                      <td class="is-right">{{row.retainageDisplay}}</td>
+                    </tr>
+                  }
+                  @for (row of fillerRows; track row) {
+                    <tr>
+                      <td>{{row}}</td>
+                      <td></td>
+                      <td class="is-right"></td>
+                      <td class="is-right">0.00</td>
+                      <td class="is-right">0.00</td>
+                      <td class="is-right">0.00</td>
+                      <td class="is-right">0.00</td>
+                      <td class="is-right">0%</td>
+                      <td class="is-right">0.00</td>
+                      <td class="is-right">0.00</td>
+                    </tr>
+                  }
+                  <tr class="sov__total-row">
+                    <td colspan="2">Page Total</td>
+                    <td class="is-right">{{pageTotalDisplay}}</td>
+                    <td class="is-right">{{previousApplicationTotalDisplay}}</td>
+                    <td class="is-right">{{thisPeriodTotalDisplay}}</td>
+                    <td class="is-right">{{materialsStoredTotalDisplay}}</td>
+                    <td class="is-right">{{completedAndStoredTotalDisplay}}</td>
+                    <td class="is-right"></td>
+                    <td class="is-right">{{balanceToFinishTotalDisplay}}</td>
+                    <td class="is-right">{{retainageTotalDisplay}}</td>
+                  </tr>
+                  <tr class="sov__total-row">
+                    <td colspan="2">Schedule Total</td>
+                    <td class="is-right">{{pageTotalDisplay}}</td>
+                    <td colspan="7"></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="sov__footer">
-            <div class="sov__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="sov__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            Create Sheet
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .sov__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
         .sov__title-kicker,.sov__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}

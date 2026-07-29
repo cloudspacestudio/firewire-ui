@@ -1,11 +1,11 @@
-import { Component, inject, OnChanges, Input, AfterViewInit } from "@angular/core"
+import { Component, inject, OnChanges, Input, AfterViewInit, ChangeDetectionStrategy } from "@angular/core"
 import { DomSanitizer, SafeStyle, SafeHtml } from '@angular/platform-browser'
-import { NgIf, NgFor } from "@angular/common"
+
 import { FormBuilder, FormGroup } from '@angular/forms'
 import { FormsModule, ReactiveFormsModule } from '@angular/forms'
 
 import { HttpClient } from "@angular/common/http"
-import { CommonModule } from "@angular/common"
+
 import { ActivatedRoute, RouterLink } from "@angular/router"
 
 import {
@@ -44,16 +44,10 @@ import { ProjectStatusSchema } from "../../schemas/projectstatus.schema"
 @Component({
     standalone: true,
     selector: 'dailyreport-page',
-    imports: [CommonModule, RouterLink, 
-        MatButtonModule, MatIconModule, 
-        MatInputModule, MatFormFieldModule,
-        MatSelectModule, MatCheckboxModule,
-        MatDialogModule,MatDatepickerModule,
-        MatListModule, MatTabsModule,
-        PageToolbar, FormsModule, 
-        ReactiveFormsModule],
+    imports: [RouterLink, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatCheckboxModule, MatDialogModule, MatDatepickerModule, MatListModule, MatTabsModule, PageToolbar, FormsModule, ReactiveFormsModule],
     providers: [HttpClient],
     templateUrl: './dailyreport.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./dailyreport.page.scss']
 })
 export class DailyReportPage implements OnChanges, AfterViewInit {
@@ -97,7 +91,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         this.pageMessage = ''
         this.backLink = '/projects'
         this.detailsLink = this.route.snapshot.queryParamMap.get('returnTo') || (this.projectId ? `/projects/fieldwire/${this.projectId}/project-details` : '/projects')
-        
+
         if (!this.projectId) {
             console.error(`Invalid Project Id`)
             this.pageMessage = 'Invalid project id.'
@@ -309,7 +303,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 return reject(err)
             }
         })
-    } 
+    }
     getProjectTeamDetail(teamId: string): TeamSchema|null {
         const test = this.teams.find(s => s.id===teamId)
         if (!test) {
@@ -382,15 +376,15 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
     getTaskListForStatus (statusId: string): Promise<string[]> {
         return new Promise(async(resolve, reject) => {
             try {
-                
+
                 const startDateValue = this.form.get('picker')?.value
-                
+
                 if (!startDateValue) {
                     return
                 }
                 const startDate = new Date(startDateValue)
                 const range = Utils.getDateDayTimeRange(startDate)
-                
+
                 this.tasks = []
                 this.http.post(`/api/fieldwire/projects/${this.projectId}/taskfilterbystatus`, {
                     statusId,
@@ -619,7 +613,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
         try {
             this.generatedFormId = null
             const formResponse = await this.createFormPost(test)
-            // We have the form along with the id 
+            // We have the form along with the id
             // wait for form generation to complete
             this.generatedFormId = formResponse.id
             // setTimeout(async() => {
@@ -807,7 +801,7 @@ export class DailyReportPage implements OnChanges, AfterViewInit {
                 const taskId = ids[i]
                 const taskDetail = await this.getTaskDetail(taskId)
                 const testTaskDetail = this.tasks.find(s => s.id===taskId)
-                
+
                 if (!testTaskDetail) {
                     this.tasks.push(taskDetail)
                 }

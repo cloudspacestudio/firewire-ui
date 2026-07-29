@@ -1,637 +1,748 @@
 <div #designerRoot class="floorplan-designer-root" [class.is-circuit-mode]="tool === 'circuit' || circuitEditActive">
-    <div *ngIf="showHeader" class="floorplan-designer__titlebar">
-        <div>
-            <div class="floorplan-designer__kicker">Floorplan Designer</div>
-            <div class="floorplan-designer__title">{{title}}</div>
-        </div>
-        <div class="floorplan-designer__header-tools" aria-label="Floorplan designer tools">
-            <div class="floorplan-designer__split-tool">
-                <button type="button" class="floorplan-designer__tool floorplan-designer__tool--split-main" [class.is-active]="tool === 'sticky'" (click)="setTool('sticky')">
-                    <mat-icon fontIcon="sticky_note_2"></mat-icon>
-                    Sticky
-                    <span class="floorplan-designer__sticky-color-chip" [style.background]="selectedStickyColor"></span>
-                </button>
+  @if (showHeader) {
+    <div class="floorplan-designer__titlebar">
+      <div>
+        <div class="floorplan-designer__kicker">Floorplan Designer</div>
+        <div class="floorplan-designer__title">{{title}}</div>
+      </div>
+      <div class="floorplan-designer__header-tools" aria-label="Floorplan designer tools">
+        <div class="floorplan-designer__split-tool">
+          <button type="button" class="floorplan-designer__tool floorplan-designer__tool--split-main" [class.is-active]="tool === 'sticky'" (click)="setTool('sticky')">
+            <mat-icon fontIcon="sticky_note_2"></mat-icon>
+            Sticky
+            <span class="floorplan-designer__sticky-color-chip" [style.background]="selectedStickyColor"></span>
+          </button>
+          <button
+            type="button"
+            class="floorplan-designer__tool floorplan-designer__tool--split-toggle"
+            aria-label="Choose sticky color"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="showStickyColorMenu"
+            (click)="toggleStickyColorMenu($event)">
+            <mat-icon fontIcon="expand_more"></mat-icon>
+          </button>
+          @if (showStickyColorMenu) {
+            <div class="floorplan-designer__sticky-color-menu" role="menu">
+              @for (color of stickyColors; track color) {
                 <button
-                    type="button"
-                    class="floorplan-designer__tool floorplan-designer__tool--split-toggle"
-                    aria-label="Choose sticky color"
-                    aria-haspopup="menu"
-                    [attr.aria-expanded]="showStickyColorMenu"
-                    (click)="toggleStickyColorMenu($event)">
-                    <mat-icon fontIcon="expand_more"></mat-icon>
+                  type="button"
+                  role="menuitemradio"
+                  [attr.aria-checked]="selectedStickyColor === color.value"
+                  [class.is-active]="selectedStickyColor === color.value"
+                  (click)="selectStickyColor(color.value)">
+                  <span [style.background]="color.value"></span>
+                  {{color.label}}
                 </button>
-                <div *ngIf="showStickyColorMenu" class="floorplan-designer__sticky-color-menu" role="menu">
-                    <button
-                        *ngFor="let color of stickyColors"
-                        type="button"
-                        role="menuitemradio"
-                        [attr.aria-checked]="selectedStickyColor === color.value"
-                        [class.is-active]="selectedStickyColor === color.value"
-                        (click)="selectStickyColor(color.value)">
-                        <span [style.background]="color.value"></span>
-                        {{color.label}}
-                    </button>
-                </div>
+              }
             </div>
+          }
         </div>
-        <div class="floorplan-designer__header-actions">
-            <button
+      </div>
+      <div class="floorplan-designer__header-actions">
+        <button
+          type="button"
+          class="floorplan-designer__scale-badge"
+          [class.is-set]="calibration"
+          [class.is-active]="isCalibrationModeActive()"
+          [title]="getScaleBadgeTitle()"
+          [attr.aria-label]="getScaleBadgeTitle()"
+          (click)="startCalibrationMode()">
+          <span>{{calibration ? 'Scale Set' : 'Scale'}}</span>
+          <strong>{{getCalibrationSummary()}}</strong>
+        </button>
+        @if (isCalibrationModeActive() && !calibrationDialogOpen) {
+          <button
+            type="button"
+            class="floorplan-designer__cancel-calibration"
+            (click)="cancelCalibrationMode()">
+            <mat-icon fontIcon="close"></mat-icon>
+            Cancel Calibration
+          </button>
+        }
+        <div class="floorplan-designer__context">
+          <button type="button" class="floorplan-designer__reset-action" (click)="toggleLayerMenu()" aria-haspopup="menu" [attr.aria-expanded]="showLayerMenu">
+            <mat-icon fontIcon="layers"></mat-icon>
+            Layers
+          </button>
+          @if (showLayerMenu) {
+            <div class="floorplan-designer__layer-menu" role="menu">
+              <button
                 type="button"
-                class="floorplan-designer__scale-badge"
-                [class.is-set]="calibration"
-                [class.is-active]="isCalibrationModeActive()"
-                [title]="getScaleBadgeTitle()"
-                [attr.aria-label]="getScaleBadgeTitle()"
-                (click)="startCalibrationMode()">
-                <span>{{calibration ? 'Scale Set' : 'Scale'}}</span>
-                <strong>{{getCalibrationSummary()}}</strong>
-            </button>
-            <button
-                *ngIf="isCalibrationModeActive() && !calibrationDialogOpen"
-                type="button"
-                class="floorplan-designer__cancel-calibration"
-                (click)="cancelCalibrationMode()">
-                <mat-icon fontIcon="close"></mat-icon>
-                Cancel Calibration
-            </button>
-            <div class="floorplan-designer__context">
-                <button type="button" class="floorplan-designer__reset-action" (click)="toggleLayerMenu()" aria-haspopup="menu" [attr.aria-expanded]="showLayerMenu">
-                    <mat-icon fontIcon="layers"></mat-icon>
-                    Layers
+                class="floorplan-designer__layer-menu-fixed"
+                role="menuitem"
+                aria-disabled="true"
+                title="Base image is always visible">
+                <mat-icon fontIcon="lock"></mat-icon>
+                Base Image
+              </button>
+              @if (hasBaselineReference()) {
+                <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showBaselineLayer" (click)="toggleBaselineLayer()">
+                  <mat-icon [fontIcon]="showBaselineLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                  Original Scope
+                  <span class="floorplan-designer__layer-lock">Locked</span>
                 </button>
-                <div *ngIf="showLayerMenu" class="floorplan-designer__layer-menu" role="menu">
-                    <button
-                        type="button"
-                        class="floorplan-designer__layer-menu-fixed"
-                        role="menuitem"
-                        aria-disabled="true"
-                        title="Base image is always visible">
-                        <mat-icon fontIcon="lock"></mat-icon>
-                        Base Image
-                    </button>
-                    <button *ngIf="hasBaselineReference()" type="button" role="menuitemcheckbox" [attr.aria-checked]="showBaselineLayer" (click)="toggleBaselineLayer()">
-                        <mat-icon [fontIcon]="showBaselineLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
-                        Original Scope
-                        <span class="floorplan-designer__layer-lock">Locked</span>
-                    </button>
-                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showSymbolLayer" (click)="setLayerVisibility('symbols', !showSymbolLayer)">
-                        <mat-icon [fontIcon]="showSymbolLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
-                        Symbols
-                    </button>
-                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showNoteLayer" (click)="setLayerVisibility('notes', !showNoteLayer)">
-                        <mat-icon [fontIcon]="showNoteLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
-                        Notes
-                    </button>
-                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showCircuitLayer" (click)="setLayerVisibility('circuits', !showCircuitLayer)">
-                        <mat-icon [fontIcon]="showCircuitLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
-                        Circuits
-                    </button>
-                    <div class="floorplan-designer__layer-divider"></div>
-                    <button type="button" role="menuitem" (click)="openVersionDialog()">
-                        <mat-icon fontIcon="drive_folder_upload"></mat-icon>
-                        Version Control
-                    </button>
-                </div>
+              }
+              <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showSymbolLayer" (click)="setLayerVisibility('symbols', !showSymbolLayer)">
+                <mat-icon [fontIcon]="showSymbolLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                Symbols
+              </button>
+              <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showNoteLayer" (click)="setLayerVisibility('notes', !showNoteLayer)">
+                <mat-icon [fontIcon]="showNoteLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                Notes
+              </button>
+              <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showCircuitLayer" (click)="setLayerVisibility('circuits', !showCircuitLayer)">
+                <mat-icon [fontIcon]="showCircuitLayer ? 'check_box' : 'check_box_outline_blank'"></mat-icon>
+                Circuits
+              </button>
+              <div class="floorplan-designer__layer-divider"></div>
+              <button type="button" role="menuitem" (click)="openVersionDialog()">
+                <mat-icon fontIcon="drive_folder_upload"></mat-icon>
+                Version Control
+              </button>
             </div>
-            <button type="button" class="floorplan-designer__reset-action" (click)="resetView()">
-                <mat-icon fontIcon="center_focus_strong"></mat-icon>
-                Reset View
-            </button>
-            <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
-                <mat-icon fontIcon="close"></mat-icon>
-            </button>
+          }
         </div>
+        <button type="button" class="floorplan-designer__reset-action" (click)="resetView()">
+          <mat-icon fontIcon="center_focus_strong"></mat-icon>
+          Reset View
+        </button>
+        <button mat-icon-button type="button" aria-label="Close designer" (click)="close()">
+          <mat-icon fontIcon="close"></mat-icon>
+        </button>
+      </div>
     </div>
+  }
 
-    <div class="floorplan-designer">
-        <aside class="floorplan-designer__sidebar">
-            <div class="floorplan-designer__section" *ngIf="tool === 'symbol'">
-                <div class="floorplan-designer__label">Symbol</div>
-                <div *ngIf="!showSymbolLayer" class="floorplan-designer__empty-panel floorplan-designer__empty-panel--warning">
-                    Symbol layer is hidden. Open Layers and show Symbols before placing or editing symbols.
-                </div>
-                <div *ngIf="showSymbolLayer && symbols.length <= 0" class="floorplan-designer__empty-panel">
-                    Add BOM rows with FP enabled to place symbols.
-                </div>
+  <div class="floorplan-designer">
+    <aside class="floorplan-designer__sidebar">
+      @if (tool === 'symbol') {
+        <div class="floorplan-designer__section">
+          <div class="floorplan-designer__label">Symbol</div>
+          @if (!showSymbolLayer) {
+            <div class="floorplan-designer__empty-panel floorplan-designer__empty-panel--warning">
+              Symbol layer is hidden. Open Layers and show Symbols before placing or editing symbols.
+            </div>
+          }
+          @if (showSymbolLayer && symbols.length <= 0) {
+            <div class="floorplan-designer__empty-panel">
+              Add BOM rows with FP enabled to place symbols.
+            </div>
+          }
+          @for (symbol of (showSymbolLayer ? symbols : []); track symbol) {
+            <button
+              type="button"
+              class="floorplan-designer__symbol-option"
+              [class.is-active]="selectedSymbol?.id === symbol.id"
+              [attr.title]="getSymbolTooltipText(symbol) || getSymbolPartDescriptionText(symbol) || null"
+              (click)="selectSymbol(symbol)">
+              @if (!symbol.iconDataUrl) {
+                <span
+                  class="floorplan-designer__symbol-option-bubble"
+                [style.background]="symbol.color">{{symbol.code}}</span>
+              }
+              @if (symbol.iconDataUrl) {
+                <span
+                  class="floorplan-designer__symbol-option-canvas"
+                  [attr.title]="symbol.iconLabel || getSymbolPrimaryText(symbol)">
+                  <span
+                    class="floorplan-designer__symbol-option-icon"
+                    [ngStyle]="getSymbolOptionIconStyle(symbol)"
+                  [attr.aria-label]="symbol.iconLabel || getSymbolPrimaryText(symbol)"></span>
+                </span>
+              }
+              <strong>{{getSymbolPrimaryText(symbol)}}</strong>
+              <small class="floorplan-designer__symbol-description">{{getSymbolDescriptionText(symbol)}}</small>
+              <small class="floorplan-designer__symbol-count">{{getSymbolPlacedText(symbol)}}</small>
+            </button>
+          }
+        </div>
+      }
+
+      @if (tool === 'circuit') {
+        <div class="floorplan-designer__section">
+          <div class="floorplan-designer__label">Circuits</div>
+          @if (!calibration) {
+            <div class="floorplan-designer__empty-panel floorplan-designer__empty-panel--warning">
+              Set floorplan scale calibration before creating circuits.
+            </div>
+          }
+          @if (calibration) {
+            <div class="floorplan-designer__circuit-actions">
+              <button type="button" (click)="createCircuit()">Create Circuit</button>
+              <button type="button" [disabled]="!selectedCircuit" title="Add branches or extend the selected circuit path" (click)="editSelectedCircuit()">Edit Path</button>
+              <button type="button" [disabled]="!selectedCircuit" (click)="deleteSelectedCircuit()">Delete Selected</button>
+            </div>
+          }
+          @if (circuits.length > 0) {
+            <div class="floorplan-designer__circuit-list">
+              @for (circuit of circuits; track circuit) {
                 <button
-                    *ngFor="let symbol of (showSymbolLayer ? symbols : [])"
-                    type="button"
-                    class="floorplan-designer__symbol-option"
-                    [class.is-active]="selectedSymbol?.id === symbol.id"
-                    [attr.title]="getSymbolTooltipText(symbol) || getSymbolPartDescriptionText(symbol) || null"
-                    (click)="selectSymbol(symbol)">
-                    <span
-                        *ngIf="!symbol.iconDataUrl"
-                        class="floorplan-designer__symbol-option-bubble"
-                        [style.background]="symbol.color">{{symbol.code}}</span>
-                    <span
-                        *ngIf="symbol.iconDataUrl"
-                        class="floorplan-designer__symbol-option-canvas"
-                        [attr.title]="symbol.iconLabel || getSymbolPrimaryText(symbol)">
-                        <span
-                            class="floorplan-designer__symbol-option-icon"
-                            [ngStyle]="getSymbolOptionIconStyle(symbol)"
-                            [attr.aria-label]="symbol.iconLabel || getSymbolPrimaryText(symbol)"></span>
-                    </span>
-                    <strong>{{getSymbolPrimaryText(symbol)}}</strong>
-                    <small class="floorplan-designer__symbol-description">{{getSymbolDescriptionText(symbol)}}</small>
-                    <small class="floorplan-designer__symbol-count">{{getSymbolPlacedText(symbol)}}</small>
+                  type="button"
+                  [class.is-active]="selectedCircuitId === circuit.id"
+                  (click)="selectCircuit(circuit, $event)">
+                  <span [style.background]="circuit.color"></span>
+                  <strong>{{circuit.name}}</strong>
+                  <small>{{getCircuitStatusText(circuit)}}</small>
                 </button>
+              }
             </div>
-
-            <div class="floorplan-designer__section" *ngIf="tool === 'circuit'">
-                <div class="floorplan-designer__label">Circuits</div>
-                <div *ngIf="!calibration" class="floorplan-designer__empty-panel floorplan-designer__empty-panel--warning">
-                    Set floorplan scale calibration before creating circuits.
-                </div>
-                <div class="floorplan-designer__circuit-actions" *ngIf="calibration">
-                    <button type="button" (click)="createCircuit()">Create Circuit</button>
-                    <button type="button" [disabled]="!selectedCircuit" title="Add branches or extend the selected circuit path" (click)="editSelectedCircuit()">Edit Path</button>
-                    <button type="button" [disabled]="!selectedCircuit" (click)="deleteSelectedCircuit()">Delete Selected</button>
-                </div>
-                <div class="floorplan-designer__circuit-list" *ngIf="circuits.length > 0">
-                    <button
-                        *ngFor="let circuit of circuits"
-                        type="button"
-                        [class.is-active]="selectedCircuitId === circuit.id"
-                        (click)="selectCircuit(circuit, $event)">
-                        <span [style.background]="circuit.color"></span>
-                        <strong>{{circuit.name}}</strong>
-                        <small>{{getCircuitStatusText(circuit)}}</small>
-                    </button>
-                </div>
-                <div *ngIf="circuits.length <= 0 && calibration" class="floorplan-designer__empty-panel">
-                    Create a circuit, then select symbols or joints to connect.
-                </div>
+          }
+          @if (circuits.length <= 0 && calibration) {
+            <div class="floorplan-designer__empty-panel">
+              Create a circuit, then select symbols or joints to connect.
             </div>
+          }
+        </div>
+      }
 
-            <div class="floorplan-designer__section" *ngIf="selectedCircuitSegment && selectedCircuit as segmentCircuit">
-                <div class="floorplan-designer__label">Line Segment</div>
-                <div class="floorplan-designer__selected-meta">
-                    <span>{{segmentCircuit.name}}</span>
-                    <strong>{{getCircuitSegmentLengthFeet(segmentCircuit, selectedCircuitSegment).toFixed(1)}} ft</strong>
-                    <small>Color, style, and weight can be changed from the circuit toolbar.</small>
-                </div>
+      @if (selectedCircuitSegment && selectedCircuit; as segmentCircuit) {
+        <div class="floorplan-designer__section">
+          <div class="floorplan-designer__label">Line Segment</div>
+          <div class="floorplan-designer__selected-meta">
+            <span>{{segmentCircuit.name}}</span>
+            <strong>{{getCircuitSegmentLengthFeet(segmentCircuit, selectedCircuitSegment).toFixed(1)}} ft</strong>
+            <small>Color, style, and weight can be changed from the circuit toolbar.</small>
+          </div>
+        </div>
+      }
+
+      @if (selectedAnnotation) {
+        <div class="floorplan-designer__section">
+          <div class="floorplan-designer__label">Selected</div>
+          @if (selectedAnnotation.kind !== 'sticky') {
+            <input
+              class="floorplan-designer__input"
+              [(ngModel)]="selectedAnnotation.label"
+              placeholder="Label" />
+          }
+          @if (selectedAnnotation.kind === 'symbol') {
+            <div class="floorplan-designer__selected-meta">
+              <span>{{selectedAnnotation.categoryName || 'BOM Symbol'}}</span>
+              <strong>{{selectedAnnotation.partNumber || selectedAnnotation.deviceName || selectedAnnotation.label}}</strong>
             </div>
-
-            <div class="floorplan-designer__section" *ngIf="selectedAnnotation">
-                <div class="floorplan-designer__label">Selected</div>
+          }
+          @if (selectedAnnotation.kind === 'symbol' && selectedSymbolHasAreaOfInfluence()) {
+            <div class="floorplan-designer__selected-detail-block">
+              <div class="floorplan-designer__selected-subtitle">Area of Influence</div>
+              <label class="floorplan-designer__selected-toggle">
                 <input
-                    *ngIf="selectedAnnotation.kind !== 'sticky'"
+                  type="checkbox"
+                  [checked]="!!selectedAnnotation.showAreaOfInfluence"
+                  (change)="toggleSelectedAreaOfInfluence($event)" />
+                <span>Show Area of Influence</span>
+              </label>
+              <small class="floorplan-designer__field-note">{{getSelectedAreaOfInfluenceSummary()}}</small>
+            </div>
+          }
+          @if (selectedAnnotation.kind === 'symbol' && getSelectedSymbolAttributes().length > 0) {
+            <div class="floorplan-designer__selected-detail-block">
+              <div class="floorplan-designer__selected-subtitle">Attributes</div>
+              @for (attribute of getSelectedSymbolAttributes(); track attribute) {
+                <label class="floorplan-designer__selected-field">
+                  <span>{{attribute.name}}</span>
+                  <input
                     class="floorplan-designer__input"
-                    [(ngModel)]="selectedAnnotation.label"
-                    placeholder="Label" />
-                <div *ngIf="selectedAnnotation.kind === 'symbol'" class="floorplan-designer__selected-meta">
-                    <span>{{selectedAnnotation.categoryName || 'BOM Symbol'}}</span>
-                    <strong>{{selectedAnnotation.partNumber || selectedAnnotation.deviceName || selectedAnnotation.label}}</strong>
-                </div>
-                <div *ngIf="selectedAnnotation.kind === 'symbol' && selectedSymbolHasAreaOfInfluence()" class="floorplan-designer__selected-detail-block">
-                    <div class="floorplan-designer__selected-subtitle">Area of Influence</div>
-                    <label class="floorplan-designer__selected-toggle">
-                        <input
-                            type="checkbox"
-                            [checked]="!!selectedAnnotation.showAreaOfInfluence"
-                            (change)="toggleSelectedAreaOfInfluence($event)" />
-                        <span>Show Area of Influence</span>
-                    </label>
-                    <small class="floorplan-designer__field-note">{{getSelectedAreaOfInfluenceSummary()}}</small>
-                </div>
-                <div *ngIf="selectedAnnotation.kind === 'symbol' && getSelectedSymbolAttributes().length > 0" class="floorplan-designer__selected-detail-block">
-                    <div class="floorplan-designer__selected-subtitle">Attributes</div>
-                    <label *ngFor="let attribute of getSelectedSymbolAttributes()" class="floorplan-designer__selected-field">
-                        <span>{{attribute.name}}</span>
-                        <input
-                            class="floorplan-designer__input"
-                            [class.is-invalid]="isSymbolAttributeMissingRequiredValue(attribute)"
-                            [(ngModel)]="attribute.value"
-                            [readOnly]="isSymbolAttributeReadOnly(attribute)"
-                            [placeholder]="attribute.defaultValue || ''" />
-                        <small *ngIf="isSymbolAttributeReadOnly(attribute)" class="floorplan-designer__field-note">
-                            Read-only
-                        </small>
-                        <small *ngIf="isSymbolAttributeMissingRequiredValue(attribute)" class="floorplan-designer__field-error">
-                            Value required before saving.
-                        </small>
-                    </label>
-                </div>
-                <div *ngIf="selectedAnnotation.kind === 'symbol'" class="floorplan-designer__selected-detail-block">
-                    <div class="floorplan-designer__selected-subtitle">Tags</div>
-                    <div *ngIf="getSelectedSymbolTags().length > 0; else noSelectedSymbolTags" class="floorplan-designer__tag-list">
-                        <span *ngFor="let tag of getSelectedSymbolTags(); let tagIndex = index" class="floorplan-designer__tag-chip">
-                            {{tag.label}}
-                            <button type="button" [attr.aria-label]="'Remove tag ' + tag.label" (click)="removeSelectedSymbolTag(tagIndex)">
-                                <mat-icon fontIcon="close"></mat-icon>
-                            </button>
-                        </span>
-                    </div>
-                    <ng-template #noSelectedSymbolTags>
-                        <div class="floorplan-designer__selected-empty">No tags assigned.</div>
-                    </ng-template>
-                    <div class="floorplan-designer__tag-add">
-                        <input
-                            class="floorplan-designer__input"
-                            [(ngModel)]="selectedSymbolTagText"
-                            placeholder="Add tag"
-                            (keydown.enter)="addSelectedSymbolTag(); $event.preventDefault()" />
-                        <button type="button" (click)="addSelectedSymbolTag()">Add</button>
-                    </div>
-                </div>
-                <div *ngIf="selectedAnnotation.kind === 'symbol' && getSelectedSymbolMediaFiles().length > 0" class="floorplan-designer__selected-detail-block">
-                    <div class="floorplan-designer__selected-subtitle">Media</div>
-                    <button
-                        *ngFor="let file of getSelectedSymbolMediaFiles()"
-                        type="button"
-                        class="floorplan-designer__media-link"
-                        (click)="downloadSelectedSymbolMedia(file)">
-                        <mat-icon fontIcon="download"></mat-icon>
-                        <span>{{file.fileName}}</span>
-                    </button>
-                </div>
-                <textarea
-                    *ngIf="selectedAnnotation.kind !== 'symbol'"
-                    class="floorplan-designer__textarea"
-                    rows="4"
-                    [(ngModel)]="selectedAnnotation.text"
-                    placeholder="Text"></textarea>
-                <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
+                    [class.is-invalid]="isSymbolAttributeMissingRequiredValue(attribute)"
+                    [(ngModel)]="attribute.value"
+                    [readOnly]="isSymbolAttributeReadOnly(attribute)"
+                    [placeholder]="attribute.defaultValue || ''" />
+                  @if (isSymbolAttributeReadOnly(attribute)) {
+                    <small class="floorplan-designer__field-note">
+                      Read-only
+                    </small>
+                  }
+                  @if (isSymbolAttributeMissingRequiredValue(attribute)) {
+                    <small class="floorplan-designer__field-error">
+                      Value required before saving.
+                    </small>
+                  }
+                </label>
+              }
             </div>
-        </aside>
-
-        <div class="floorplan-designer__floating-zoom" aria-label="Floorplan zoom controls" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-            <button type="button" aria-label="Zoom out" (click)="zoomOut()"><mat-icon fontIcon="remove"></mat-icon></button>
-            <strong>{{zoomLevel.toFixed(2)}}x</strong>
-            <button type="button" aria-label="Zoom in" (click)="zoomIn()"><mat-icon fontIcon="add"></mat-icon></button>
-        </div>
-
-        <div class="floorplan-designer__vertical-tools" aria-label="Floorplan tools" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-            <button type="button" [title]="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" [attr.aria-label]="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" (click)="toggleFullscreen()">
-                <mat-icon [fontIcon]="isFullscreen ? 'fullscreen_exit' : 'fullscreen'"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'symbol'" [title]="getSymbolToolTitle()" aria-label="Symbol" (click)="setTool('symbol')">
-                <span *ngIf="symbolDisplayMode === 'icon' && selectedSymbol?.iconDataUrl" class="floorplan-designer__vertical-symbol-icon" [ngStyle]="getVerticalSymbolIconStyle(selectedSymbol!)"></span>
-                <span *ngIf="symbolDisplayMode === 'bubble' || !selectedSymbol?.iconDataUrl" class="floorplan-designer__vertical-symbol-bubble" [style.background]="selectedSymbol?.color || '#77d7ff'">{{selectedSymbol?.code || '+'}}</span>
-            </button>
-            <button type="button" [class.is-active]="tool === 'select'" title="Select" aria-label="Select" (click)="setTool('select')">
-                <mat-icon fontIcon="near_me"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'pan'" title="Pan" aria-label="Pan" (click)="setTool('pan')">
-                <mat-icon fontIcon="pan_tool"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'note'" title="Note" aria-label="Note" (click)="setTool('note')">
-                <mat-icon fontIcon="notes"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'joint'" title="Joint" aria-label="Joint" (click)="setTool('joint')">
-                <mat-icon fontIcon="hub"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'calibrate'" title="Calibrate scale" aria-label="Calibrate scale" (click)="startCalibrationMode()">
-                <mat-icon fontIcon="straighten"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="tool === 'circuit'" title="Circuit mode" aria-label="Circuit mode" (click)="setTool('circuit')">
-                <mat-icon fontIcon="timeline"></mat-icon>
-            </button>
-            <button type="button" [class.is-active]="symbolDisplayMode === 'bubble'" [title]="symbolDisplayMode === 'icon' ? 'Switch to bubble view' : 'Switch to icon view'" [attr.aria-label]="symbolDisplayMode === 'icon' ? 'Switch to bubble view' : 'Switch to icon view'" (click)="toggleSymbolDisplayMode()">
-                <mat-icon [fontIcon]="symbolDisplayMode === 'icon' ? 'label' : 'image'"></mat-icon>
-            </button>
-            <button type="button" title="Rotate floorplan" aria-label="Rotate floorplan" (click)="rotateFloorplan()">
-                <mat-icon fontIcon="rotate_90_degrees_cw"></mat-icon>
-            </button>
-        </div>
-
-        <div *ngIf="tool === 'circuit' || circuitEditActive" class="floorplan-designer__circuit-ribbon">
-            <div>
-                <strong>{{selectedCircuit?.name || 'Circuit Mode'}}</strong>
-                <span>{{getCircuitStatusText(selectedCircuit)}}</span>
+          }
+          @if (selectedAnnotation.kind === 'symbol') {
+            <div class="floorplan-designer__selected-detail-block">
+              <div class="floorplan-designer__selected-subtitle">Tags</div>
+              @if (getSelectedSymbolTags().length > 0) {
+                <div class="floorplan-designer__tag-list">
+                  @for (tag of getSelectedSymbolTags(); track tag; let tagIndex = $index) {
+                    <span class="floorplan-designer__tag-chip">
+                      {{tag.label}}
+                      <button type="button" [attr.aria-label]="'Remove tag ' + tag.label" (click)="removeSelectedSymbolTag(tagIndex)">
+                        <mat-icon fontIcon="close"></mat-icon>
+                      </button>
+                    </span>
+                  }
+                </div>
+              } @else {
+                <div class="floorplan-designer__selected-empty">No tags assigned.</div>
+              }
+              <div class="floorplan-designer__tag-add">
+                <input
+                  class="floorplan-designer__input"
+                  [(ngModel)]="selectedSymbolTagText"
+                  placeholder="Add tag"
+                  (keydown.enter)="addSelectedSymbolTag(); $event.preventDefault()" />
+                <button type="button" (click)="addSelectedSymbolTag()">Add</button>
+              </div>
             </div>
-            <label class="floorplan-designer__circuit-name-field">
-                <span>Name</span>
-                <input type="text" [(ngModel)]="circuitName" (input)="updateCircuitStyle()" placeholder="Circuit name" />
-            </label>
-            <label>
-                <span>Color</span>
-                <input type="color" [(ngModel)]="circuitColor" (input)="updateCircuitStyle()" />
-            </label>
-            <label>
-                <span>Line</span>
-                <select [(ngModel)]="circuitLineStyle" (change)="updateCircuitStyle()">
-                    <option value="solid">Solid</option>
-                    <option value="dashed">Dashed</option>
-                    <option value="dotted">Dotted</option>
-                </select>
-            </label>
-            <label>
-                <span>Weight</span>
-                <select [(ngModel)]="circuitLineWeight" (change)="updateCircuitStyle()">
-                    <option *ngFor="let weight of circuitLineWeightOptions; let index = index" [ngValue]="weight">
-                        {{index + 1}}
-                    </option>
-                </select>
-            </label>
-            <button type="button" *ngIf="!circuitEditActive" (click)="createCircuit()">Create Circuit</button>
-            <button type="button" *ngIf="circuitEditActive" (click)="endCircuitEdit()">End Circuit</button>
-            <button type="button" *ngIf="circuitEditActive" (click)="cancelCircuitEdit()">Reset</button>
-            <button type="button" (click)="exitCircuitMode()">Exit Circuit Mode</button>
+          }
+          @if (selectedAnnotation.kind === 'symbol' && getSelectedSymbolMediaFiles().length > 0) {
+            <div class="floorplan-designer__selected-detail-block">
+              <div class="floorplan-designer__selected-subtitle">Media</div>
+              @for (file of getSelectedSymbolMediaFiles(); track file) {
+                <button
+                  type="button"
+                  class="floorplan-designer__media-link"
+                  (click)="downloadSelectedSymbolMedia(file)">
+                  <mat-icon fontIcon="download"></mat-icon>
+                  <span>{{file.fileName}}</span>
+                </button>
+              }
+            </div>
+          }
+          @if (selectedAnnotation.kind !== 'symbol') {
+            <textarea
+              class="floorplan-designer__textarea"
+              rows="4"
+              [(ngModel)]="selectedAnnotation.text"
+            placeholder="Text"></textarea>
+          }
+          <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
         </div>
+      }
+    </aside>
 
-        <section
-            #stage
-            class="floorplan-designer__stage"
-            [class.is-pan-mode]="tool === 'pan'"
-            [class.is-panning]="isPanning"
-            (mousedown)="beginPan($event)"
-            (mousemove)="continuePan($event)"
-            (mouseup)="endPan()"
-            (mouseleave)="endPan()">
-            <div
-                #surface
-                class="floorplan-designer__surface"
-                [style.width]="getSurfaceWidth()"
-                [style.height]="getSurfaceHeight()"
-                (mousedown)="beginCalibration($event)"
-                (click)="onSurfaceClick($event)">
-                <div
-                    class="floorplan-designer__surface-content"
-                    [style.width]="getContentWidth()"
-                    [style.height]="getContentHeight()"
-                    [ngStyle]="getSurfaceContentStyle()">
-                    <ng-container *ngIf="sourceUrl; else emptySource">
-                        <canvas
-                            *ngIf="isPdfSource(); else imageSource"
-                            #pdfCanvas
-                            class="floorplan-designer__pdf"
-                            [style.width]="getPdfCanvasWidth()"
-                            [style.height]="getPdfCanvasHeight()"></canvas>
-                        <ng-template #imageSource>
-                            <img
-                                class="floorplan-designer__image"
-                                [src]="imageDisplayUrl"
-                                [alt]="title"
-                                draggable="false"
-                                (load)="onImageLoad($event)" />
-                        </ng-template>
+    <div class="floorplan-designer__floating-zoom" aria-label="Floorplan zoom controls" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <button type="button" aria-label="Zoom out" (click)="zoomOut()"><mat-icon fontIcon="remove"></mat-icon></button>
+      <strong>{{zoomLevel.toFixed(2)}}x</strong>
+      <button type="button" aria-label="Zoom in" (click)="zoomIn()"><mat-icon fontIcon="add"></mat-icon></button>
+    </div>
+
+    <div class="floorplan-designer__vertical-tools" aria-label="Floorplan tools" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <button type="button" [title]="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" [attr.aria-label]="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'" (click)="toggleFullscreen()">
+        <mat-icon [fontIcon]="isFullscreen ? 'fullscreen_exit' : 'fullscreen'"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'symbol'" [title]="getSymbolToolTitle()" aria-label="Symbol" (click)="setTool('symbol')">
+        @if (symbolDisplayMode === 'icon' && selectedSymbol?.iconDataUrl) {
+          <span class="floorplan-designer__vertical-symbol-icon" [ngStyle]="getVerticalSymbolIconStyle(selectedSymbol!)"></span>
+        }
+        @if (symbolDisplayMode === 'bubble' || !selectedSymbol?.iconDataUrl) {
+          <span class="floorplan-designer__vertical-symbol-bubble" [style.background]="selectedSymbol?.color || '#77d7ff'">{{selectedSymbol?.code || '+'}}</span>
+        }
+      </button>
+      <button type="button" [class.is-active]="tool === 'select'" title="Select" aria-label="Select" (click)="setTool('select')">
+        <mat-icon fontIcon="near_me"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'pan'" title="Pan" aria-label="Pan" (click)="setTool('pan')">
+        <mat-icon fontIcon="pan_tool"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'note'" title="Note" aria-label="Note" (click)="setTool('note')">
+        <mat-icon fontIcon="notes"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'joint'" title="Joint" aria-label="Joint" (click)="setTool('joint')">
+        <mat-icon fontIcon="hub"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'calibrate'" title="Calibrate scale" aria-label="Calibrate scale" (click)="startCalibrationMode()">
+        <mat-icon fontIcon="straighten"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="tool === 'circuit'" title="Circuit mode" aria-label="Circuit mode" (click)="setTool('circuit')">
+        <mat-icon fontIcon="timeline"></mat-icon>
+      </button>
+      <button type="button" [class.is-active]="symbolDisplayMode === 'bubble'" [title]="symbolDisplayMode === 'icon' ? 'Switch to bubble view' : 'Switch to icon view'" [attr.aria-label]="symbolDisplayMode === 'icon' ? 'Switch to bubble view' : 'Switch to icon view'" (click)="toggleSymbolDisplayMode()">
+        <mat-icon [fontIcon]="symbolDisplayMode === 'icon' ? 'label' : 'image'"></mat-icon>
+      </button>
+      <button type="button" title="Rotate floorplan" aria-label="Rotate floorplan" (click)="rotateFloorplan()">
+        <mat-icon fontIcon="rotate_90_degrees_cw"></mat-icon>
+      </button>
+    </div>
+
+    @if (tool === 'circuit' || circuitEditActive) {
+      <div class="floorplan-designer__circuit-ribbon">
+        <div>
+          <strong>{{selectedCircuit?.name || 'Circuit Mode'}}</strong>
+          <span>{{getCircuitStatusText(selectedCircuit)}}</span>
+        </div>
+        <label class="floorplan-designer__circuit-name-field">
+          <span>Name</span>
+          <input type="text" [(ngModel)]="circuitName" (input)="updateCircuitStyle()" placeholder="Circuit name" />
+        </label>
+        <label>
+          <span>Color</span>
+          <input type="color" [(ngModel)]="circuitColor" (input)="updateCircuitStyle()" />
+        </label>
+        <label>
+          <span>Line</span>
+          <select [(ngModel)]="circuitLineStyle" (change)="updateCircuitStyle()">
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </label>
+        <label>
+          <span>Weight</span>
+          <select [(ngModel)]="circuitLineWeight" (change)="updateCircuitStyle()">
+            @for (weight of circuitLineWeightOptions; track weight; let index = $index) {
+              <option [ngValue]="weight">
+                {{index + 1}}
+              </option>
+            }
+          </select>
+        </label>
+        @if (!circuitEditActive) {
+          <button type="button" (click)="createCircuit()">Create Circuit</button>
+        }
+        @if (circuitEditActive) {
+          <button type="button" (click)="endCircuitEdit()">End Circuit</button>
+        }
+        @if (circuitEditActive) {
+          <button type="button" (click)="cancelCircuitEdit()">Reset</button>
+        }
+        <button type="button" (click)="exitCircuitMode()">Exit Circuit Mode</button>
+      </div>
+    }
+
+    <section
+      #stage
+      class="floorplan-designer__stage"
+      [class.is-pan-mode]="tool === 'pan'"
+      [class.is-panning]="isPanning"
+      (mousedown)="beginPan($event)"
+      (mousemove)="continuePan($event)"
+      (mouseup)="endPan()"
+      (mouseleave)="endPan()">
+      <div
+        #surface
+        class="floorplan-designer__surface"
+        [style.width]="getSurfaceWidth()"
+        [style.height]="getSurfaceHeight()"
+        (mousedown)="beginCalibration($event)"
+        (click)="onSurfaceClick($event)">
+        <div
+          class="floorplan-designer__surface-content"
+          [style.width]="getContentWidth()"
+          [style.height]="getContentHeight()"
+          [ngStyle]="getSurfaceContentStyle()">
+          @if (sourceUrl) {
+            @if (isPdfSource()) {
+              <canvas
+                #pdfCanvas
+                class="floorplan-designer__pdf"
+                [style.width]="getPdfCanvasWidth()"
+              [style.height]="getPdfCanvasHeight()"></canvas>
+            } @else {
+              <img
+                class="floorplan-designer__image"
+                [src]="imageDisplayUrl"
+                [alt]="title"
+                draggable="false"
+                (load)="onImageLoad($event)" />
+            }
+          } @else {
+            <div class="floorplan-designer__empty">Select or upload a floorplan to begin.</div>
+          }
+
+          @if (showBaselineLayer && showCircuitLayer) {
+            <svg class="floorplan-designer__circuit-overlay floorplan-designer__circuit-overlay--baseline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              @for (circuit of visibleBaselineCircuits; track circuit) {
+                <ng-container>
+                  @for (segment of circuit.segments; track segment) {
+                    <ng-container>
+                      @if (getBaselineCircuitSegmentLine(circuit, segment); as line) {
+                        <line
+                          [attr.x1]="line.x1"
+                          [attr.y1]="line.y1"
+                          [attr.x2]="line.x2"
+                          [attr.y2]="line.y2"
+                          [attr.stroke]="getCircuitSegmentColor(circuit, segment)"
+                          [attr.stroke-width]="getBaselineCircuitSegmentStrokeWidth(circuit, segment)"
+                          [attr.stroke-dasharray]="getCircuitStrokeDashArray(circuit, segment)" />
+                      }
                     </ng-container>
+                  }
+                </ng-container>
+              }
+            </svg>
+          }
 
-                    <svg *ngIf="showBaselineLayer && showCircuitLayer" class="floorplan-designer__circuit-overlay floorplan-designer__circuit-overlay--baseline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                        <ng-container *ngFor="let circuit of visibleBaselineCircuits">
-                            <ng-container *ngFor="let segment of circuit.segments">
-                                <line
-                                    *ngIf="getBaselineCircuitSegmentLine(circuit, segment) as line"
-                                    [attr.x1]="line.x1"
-                                    [attr.y1]="line.y1"
-                                    [attr.x2]="line.x2"
-                                    [attr.y2]="line.y2"
-                                    [attr.stroke]="getCircuitSegmentColor(circuit, segment)"
-                                    [attr.stroke-width]="getBaselineCircuitSegmentStrokeWidth(circuit, segment)"
-                                    [attr.stroke-dasharray]="getCircuitStrokeDashArray(circuit, segment)" />
-                            </ng-container>
-                        </ng-container>
-                    </svg>
+          @if (showCircuitLayer) {
+            <svg class="floorplan-designer__circuit-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+              @for (circuit of visibleCircuits; track circuit) {
+                <ng-container>
+                  @for (segment of circuit.segments; track segment) {
+                    <ng-container>
+                      @if (getCircuitSegmentLine(circuit, segment); as line) {
+                        <line
+                          [attr.x1]="line.x1"
+                          [attr.y1]="line.y1"
+                          [attr.x2]="line.x2"
+                          [attr.y2]="line.y2"
+                          [attr.stroke]="getCircuitSegmentColor(circuit, segment)"
+                          [attr.stroke-width]="getCircuitSegmentStrokeWidth(circuit, segment)"
+                          [attr.stroke-dasharray]="getCircuitStrokeDashArray(circuit, segment)"
+                          [class.is-selected]="selectedCircuitSegmentId === segment.id"
+                          (click)="selectCircuitSegment(circuit, segment, $event)" />
+                      }
+                    </ng-container>
+                  }
+                </ng-container>
+              }
+            </svg>
+          }
 
-                    <svg *ngIf="showCircuitLayer" class="floorplan-designer__circuit-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <ng-container *ngFor="let circuit of visibleCircuits">
-                            <ng-container *ngFor="let segment of circuit.segments">
-                                <line
-                                    *ngIf="getCircuitSegmentLine(circuit, segment) as line"
-                                    [attr.x1]="line.x1"
-                                    [attr.y1]="line.y1"
-                                    [attr.x2]="line.x2"
-                                    [attr.y2]="line.y2"
-                                    [attr.stroke]="getCircuitSegmentColor(circuit, segment)"
-                                    [attr.stroke-width]="getCircuitSegmentStrokeWidth(circuit, segment)"
-                                    [attr.stroke-dasharray]="getCircuitStrokeDashArray(circuit, segment)"
-                                    [class.is-selected]="selectedCircuitSegmentId === segment.id"
-                                    (click)="selectCircuitSegment(circuit, segment, $event)" />
-                            </ng-container>
-                        </ng-container>
-                    </svg>
-
-                    <div
-                        *ngIf="calibrationDraft"
-                        class="floorplan-designer__calibration-line"
-                        [class.is-active]="isCalibrating"
-                        [ngStyle]="getCalibrationDraftLineStyle()">
-                        <span></span>
-                    </div>
-
-                    <div
-                        *ngFor="let annotation of visibleAreaOfInfluenceAnnotations"
-                        class="floorplan-designer__area-of-influence"
-                        [style.left.%]="annotation.xRatio * 100"
-                        [style.top.%]="annotation.yRatio * 100"
-                        [ngStyle]="getAreaOfInfluenceStyle(annotation)"
-                        aria-hidden="true">
-                    </div>
-
-                    <div
-                        *ngFor="let annotation of visibleBaselineAnnotations"
-                        class="floorplan-designer__annotation floorplan-designer__annotation--baseline"
-                        [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
-                        [class.floorplan-designer__annotation--sticky]="annotation.kind === 'sticky'"
-                        [style.left.%]="annotation.xRatio * 100"
-                        [style.top.%]="annotation.yRatio * 100"
-                        [attr.title]="'Original scope: ' + getAnnotationTooltipText(annotation)"
-                        [ngStyle]="annotation.kind === 'symbol' || annotation.kind === 'joint' ? getSymbolAnnotationStyle() : null">
-                        <span
-                            *ngIf="shouldRenderAnnotationBubble(annotation)"
-                            class="floorplan-designer__symbol"
-                            [style.background]="annotation.color">
-                            {{annotation.floorplanLabelText || annotation.symbol}}
-                        </span>
-                        <span
-                            *ngIf="shouldRenderAnnotationIcon(annotation)"
-                            class="floorplan-designer__symbol floorplan-designer__symbol--icon"
-                            [ngStyle]="getAnnotationIconStyle(annotation)">
-                        </span>
-                        <span
-                            *ngIf="annotation.kind === 'joint' && symbolDisplayMode === 'icon'"
-                            class="floorplan-designer__joint-icon"
-                            title="Original joint"
-                            aria-label="Original joint">
-                        </span>
-                        <span
-                            *ngIf="annotation.kind === 'joint' && symbolDisplayMode === 'bubble'"
-                            class="floorplan-designer__joint">
-                            J
-                        </span>
-                        <div *ngIf="annotation.kind === 'note'" class="floorplan-designer__baseline-note">
-                            <strong>{{getBaselineLabel(annotation)}}</strong>
-                            <p>{{annotation.text || 'Original note'}}</p>
-                        </div>
-                        <div
-                            *ngIf="annotation.kind === 'sticky'"
-                            class="floorplan-designer__baseline-sticky"
-                            [ngStyle]="getStickyNoteStyle(annotation)">
-                            {{annotation.text || getBaselineLabel(annotation)}}
-                        </div>
-                    </div>
-
-                    <div
-                        *ngFor="let annotation of visibleAnnotations"
-                        class="floorplan-designer__annotation"
-                        [class.is-selected]="selectedAnnotation?.id === annotation.id"
-                        [class.is-dragging]="isDraggingAnnotation && dragAnnotationId === annotation.id"
-                        [class.is-symbol-pulse]="isPulsingSymbolAnnotation(annotation)"
-                        [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
-                        [class.floorplan-designer__annotation--sticky]="annotation.kind === 'sticky'"
-                        [style.left.%]="annotation.xRatio * 100"
-                        [style.top.%]="annotation.yRatio * 100"
-                        [attr.title]="getAnnotationTooltipText(annotation)"
-                        [ngStyle]="annotation.kind === 'symbol' || annotation.kind === 'joint' ? getSymbolAnnotationStyle() : null"
-                        (mousedown)="annotation.kind === 'symbol' || annotation.kind === 'joint' ? beginAnnotationDrag(annotation, $event) : null"
-                        (click)="selectAnnotation(annotation, $event)">
-                        <span
-                            *ngIf="shouldRenderAnnotationBubble(annotation)"
-                            class="floorplan-designer__symbol"
-                            [style.background]="annotation.color"
-                            [attr.title]="getAnnotationTooltipText(annotation)">
-                            {{annotation.floorplanLabelText || annotation.symbol}}
-                        </span>
-                        <span
-                            *ngIf="shouldRenderAnnotationIcon(annotation)"
-                            class="floorplan-designer__symbol floorplan-designer__symbol--icon"
-                            [ngStyle]="getAnnotationIconStyle(annotation)"
-                            [attr.title]="getAnnotationTooltipText(annotation) || annotation.iconLabel || annotation.label"
-                            [attr.aria-label]="annotation.iconLabel || annotation.label">
-                        </span>
-                        <span
-                            *ngIf="annotation.kind === 'joint' && symbolDisplayMode === 'icon'"
-                            class="floorplan-designer__joint-icon"
-                            [class.is-active]="circuitActiveNodeId === annotation.id"
-                            title="Joint"
-                            aria-label="Joint">
-                        </span>
-                        <span
-                            *ngIf="annotation.kind === 'joint' && symbolDisplayMode === 'bubble'"
-                            class="floorplan-designer__joint"
-                            [class.is-active]="circuitActiveNodeId === annotation.id">
-                            J
-                        </span>
-                    <div *ngIf="annotation.kind === 'note'" class="floorplan-designer__notebook-note">
-                        <button
-                            type="button"
-                            class="floorplan-designer__note-gripper"
-                            aria-label="Move note"
-                            (click)="$event.stopPropagation()"
-                            (mousedown)="beginAnnotationDrag(annotation, $event)">
-                            <mat-icon fontIcon="drag_indicator"></mat-icon>
-                        </button>
-                        <input
-                            class="floorplan-designer__notebook-title"
-                            [(ngModel)]="annotation.label"
-                            placeholder="Note title"
-                            aria-label="Note title"
-                            (click)="$event.stopPropagation()"
-                            (mousedown)="$event.stopPropagation()"
-                            (focus)="selectedAnnotation = annotation" />
-                        <textarea
-                            class="floorplan-designer__notebook-body"
-                            [class.has-overflow]="noteBodyHasOverflow(annotation.text)"
-                            [(ngModel)]="annotation.text"
-                            [style.height.px]="getNoteBodyHeight(annotation.text)"
-                            placeholder="Write note..."
-                            aria-label="Note text"
-                            (click)="$event.stopPropagation()"
-                            (mousedown)="$event.stopPropagation()"
-                            (focus)="selectedAnnotation = annotation"></textarea>
-                    </div>
-                    <div
-                        *ngIf="annotation.kind === 'sticky'"
-                        class="floorplan-designer__sticky-note"
-                        [ngStyle]="getStickyNoteStyle(annotation)">
-                        <button
-                            type="button"
-                            class="floorplan-designer__sticky-gripper"
-                            aria-label="Move sticky note"
-                            (click)="$event.stopPropagation()"
-                            (mousedown)="beginAnnotationDrag(annotation, $event)">
-                            <mat-icon fontIcon="drag_indicator"></mat-icon>
-                        </button>
-                        <textarea
-                            class="floorplan-designer__sticky-text"
-                            [(ngModel)]="annotation.text"
-                            [style.fontSize.px]="getStickyFontSize(annotation.text)"
-                            placeholder="Type..."
-                            aria-label="Sticky note text"
-                            (click)="$event.stopPropagation()"
-                            (mousedown)="$event.stopPropagation()"
-                            (focus)="selectedAnnotation = annotation"></textarea>
-                    </div>
-                </div>
-                </div>
+          @if (calibrationDraft) {
+            <div
+              class="floorplan-designer__calibration-line"
+              [class.is-active]="isCalibrating"
+              [ngStyle]="getCalibrationDraftLineStyle()">
+              <span></span>
             </div>
+          }
 
-            <div *ngIf="pdfRenderWorking" class="floorplan-designer__overlay">Rendering PDF...</div>
-            <div *ngIf="renderError" class="floorplan-designer__overlay floorplan-designer__overlay--error">{{renderError}}</div>
-            <ng-template #emptySource>
-                <div class="floorplan-designer__empty">Select or upload a floorplan to begin.</div>
-            </ng-template>
-        </section>
-    </div>
-
-    <div *ngIf="calibrationDialogOpen" class="floorplan-designer__modal-backdrop" (mousedown)="$event.stopPropagation()" (click)="cancelCalibrationDialog()">
-        <section class="floorplan-designer__version-dialog floorplan-designer__calibration-dialog" role="dialog" aria-modal="true" aria-labelledby="floorplan-calibration-title" (click)="$event.stopPropagation()">
-            <header>
-                <div>
-                    <div class="floorplan-designer__kicker">Manual Calibration</div>
-                    <h2 id="floorplan-calibration-title">Confirm Drawing Scale</h2>
-                </div>
-                <button mat-icon-button type="button" aria-label="Close calibration" (click)="cancelCalibrationDialog()">
-                    <mat-icon fontIcon="close"></mat-icon>
-                </button>
-            </header>
-            <p>
-                Enter the real-world length represented by the reference line you drew. The scale will be stored with this floorplan after saving the design.
-            </p>
-            <div class="floorplan-designer__calibration-preview">
-                <span>Reference Pixels</span>
-                <strong>{{calibrationDraft?.pixelLength | number:'1.2-2'}} px</strong>
+          @for (annotation of visibleAreaOfInfluenceAnnotations; track annotation) {
+            <div
+              class="floorplan-designer__area-of-influence"
+              [style.left.%]="annotation.xRatio * 100"
+              [style.top.%]="annotation.yRatio * 100"
+              [ngStyle]="getAreaOfInfluenceStyle(annotation)"
+              aria-hidden="true">
             </div>
-            <label class="floorplan-designer__field">
-                <span>Known Length (feet)</span>
-                <input class="floorplan-designer__input" type="number" min="0.01" step="0.01" [(ngModel)]="calibrationKnownFeet" />
-            </label>
-            <footer>
-                <button mat-button type="button" (click)="cancelCalibrationDialog()">Cancel</button>
-                <button mat-flat-button type="button" [disabled]="!calibrationKnownFeet || calibrationKnownFeet <= 0" (click)="confirmCalibration()">Confirm Calibration</button>
-            </footer>
-        </section>
-    </div>
+          }
 
-    <div *ngIf="versionDialogOpen" class="floorplan-designer__modal-backdrop" (mousedown)="$event.stopPropagation()" (click)="closeVersionDialog()">
-        <section class="floorplan-designer__version-dialog" role="dialog" aria-modal="true" aria-labelledby="floorplan-version-title" (click)="$event.stopPropagation()">
-            <header>
-                <div>
-                    <div class="floorplan-designer__kicker">Base Layer Version</div>
-                    <h2 id="floorplan-version-title">Version Control</h2>
+          @for (annotation of visibleBaselineAnnotations; track annotation) {
+            <div
+              class="floorplan-designer__annotation floorplan-designer__annotation--baseline"
+              [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
+              [class.floorplan-designer__annotation--sticky]="annotation.kind === 'sticky'"
+              [style.left.%]="annotation.xRatio * 100"
+              [style.top.%]="annotation.yRatio * 100"
+              [attr.title]="'Original scope: ' + getAnnotationTooltipText(annotation)"
+              [ngStyle]="annotation.kind === 'symbol' || annotation.kind === 'joint' ? getSymbolAnnotationStyle() : null">
+              @if (shouldRenderAnnotationBubble(annotation)) {
+                <span
+                  class="floorplan-designer__symbol"
+                  [style.background]="annotation.color">
+                  {{annotation.floorplanLabelText || annotation.symbol}}
+                </span>
+              }
+              @if (shouldRenderAnnotationIcon(annotation)) {
+                <span
+                  class="floorplan-designer__symbol floorplan-designer__symbol--icon"
+                  [ngStyle]="getAnnotationIconStyle(annotation)">
+                </span>
+              }
+              @if (annotation.kind === 'joint' && symbolDisplayMode === 'icon') {
+                <span
+                  class="floorplan-designer__joint-icon"
+                  title="Original joint"
+                  aria-label="Original joint">
+                </span>
+              }
+              @if (annotation.kind === 'joint' && symbolDisplayMode === 'bubble') {
+                <span
+                  class="floorplan-designer__joint">
+                  J
+                </span>
+              }
+              @if (annotation.kind === 'note') {
+                <div class="floorplan-designer__baseline-note">
+                  <strong>{{getBaselineLabel(annotation)}}</strong>
+                  <p>{{annotation.text || 'Original note'}}</p>
                 </div>
-                <button mat-icon-button type="button" aria-label="Close version control" (click)="closeVersionDialog()">
-                    <mat-icon fontIcon="close"></mat-icon>
-                </button>
-            </header>
-            <p>
-                Upload a replacement base layer. The current image remains the previous version, while marks stay on their normalized floorplan positions.
-            </p>
-            <label class="floorplan-designer__file-pick">
-                <input type="file" accept="image/*,application/pdf" (change)="onVersionFileSelected($event)" />
-                <span>{{versionFile?.name || 'Choose replacement floorplan'}}</span>
-            </label>
-            <label class="floorplan-designer__field">
-                <span>Version Name</span>
-                <input class="floorplan-designer__input" [(ngModel)]="versionName" />
-            </label>
-            <label class="floorplan-designer__field">
-                <span>Version Notes</span>
-                <textarea class="floorplan-designer__textarea" rows="4" [(ngModel)]="versionNotes" placeholder="Optional notes for this base layer version"></textarea>
-            </label>
-            <footer>
-                <button mat-button type="button" (click)="closeVersionDialog()">Cancel</button>
-                <button mat-flat-button type="button" [disabled]="!versionFile" (click)="submitVersionRequest()">Create Version</button>
-            </footer>
-        </section>
-    </div>
+              }
+              @if (annotation.kind === 'sticky') {
+                <div
+                  class="floorplan-designer__baseline-sticky"
+                  [ngStyle]="getStickyNoteStyle(annotation)">
+                  {{annotation.text || getBaselineLabel(annotation)}}
+                </div>
+              }
+            </div>
+          }
 
-    <div *ngIf="showActions" class="floorplan-designer__actions">
-        <span class="floorplan-designer__status">{{statusText}}</span>
-        <button mat-button type="button" (click)="close()">{{closeLabel}}</button>
-        <button mat-flat-button type="button" [disabled]="!sourceUrl" (click)="save()">Save Design</button>
+          @for (annotation of visibleAnnotations; track annotation) {
+            <div
+              class="floorplan-designer__annotation"
+              [class.is-selected]="selectedAnnotation?.id === annotation.id"
+              [class.is-dragging]="isDraggingAnnotation && dragAnnotationId === annotation.id"
+              [class.is-symbol-pulse]="isPulsingSymbolAnnotation(annotation)"
+              [class.floorplan-designer__annotation--note]="annotation.kind === 'note'"
+              [class.floorplan-designer__annotation--sticky]="annotation.kind === 'sticky'"
+              [style.left.%]="annotation.xRatio * 100"
+              [style.top.%]="annotation.yRatio * 100"
+              [attr.title]="getAnnotationTooltipText(annotation)"
+              [ngStyle]="annotation.kind === 'symbol' || annotation.kind === 'joint' ? getSymbolAnnotationStyle() : null"
+              (mousedown)="annotation.kind === 'symbol' || annotation.kind === 'joint' ? beginAnnotationDrag(annotation, $event) : null"
+              (click)="selectAnnotation(annotation, $event)">
+              @if (shouldRenderAnnotationBubble(annotation)) {
+                <span
+                  class="floorplan-designer__symbol"
+                  [style.background]="annotation.color"
+                  [attr.title]="getAnnotationTooltipText(annotation)">
+                  {{annotation.floorplanLabelText || annotation.symbol}}
+                </span>
+              }
+              @if (shouldRenderAnnotationIcon(annotation)) {
+                <span
+                  class="floorplan-designer__symbol floorplan-designer__symbol--icon"
+                  [ngStyle]="getAnnotationIconStyle(annotation)"
+                  [attr.title]="getAnnotationTooltipText(annotation) || annotation.iconLabel || annotation.label"
+                  [attr.aria-label]="annotation.iconLabel || annotation.label">
+                </span>
+              }
+              @if (annotation.kind === 'joint' && symbolDisplayMode === 'icon') {
+                <span
+                  class="floorplan-designer__joint-icon"
+                  [class.is-active]="circuitActiveNodeId === annotation.id"
+                  title="Joint"
+                  aria-label="Joint">
+                </span>
+              }
+              @if (annotation.kind === 'joint' && symbolDisplayMode === 'bubble') {
+                <span
+                  class="floorplan-designer__joint"
+                  [class.is-active]="circuitActiveNodeId === annotation.id">
+                  J
+                </span>
+              }
+              @if (annotation.kind === 'note') {
+                <div class="floorplan-designer__notebook-note">
+                  <button
+                    type="button"
+                    class="floorplan-designer__note-gripper"
+                    aria-label="Move note"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="beginAnnotationDrag(annotation, $event)">
+                    <mat-icon fontIcon="drag_indicator"></mat-icon>
+                  </button>
+                  <input
+                    class="floorplan-designer__notebook-title"
+                    [(ngModel)]="annotation.label"
+                    placeholder="Note title"
+                    aria-label="Note title"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                    (focus)="selectedAnnotation = annotation" />
+                  <textarea
+                    class="floorplan-designer__notebook-body"
+                    [class.has-overflow]="noteBodyHasOverflow(annotation.text)"
+                    [(ngModel)]="annotation.text"
+                    [style.height.px]="getNoteBodyHeight(annotation.text)"
+                    placeholder="Write note..."
+                    aria-label="Note text"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                  (focus)="selectedAnnotation = annotation"></textarea>
+                </div>
+              }
+              @if (annotation.kind === 'sticky') {
+                <div
+                  class="floorplan-designer__sticky-note"
+                  [ngStyle]="getStickyNoteStyle(annotation)">
+                  <button
+                    type="button"
+                    class="floorplan-designer__sticky-gripper"
+                    aria-label="Move sticky note"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="beginAnnotationDrag(annotation, $event)">
+                    <mat-icon fontIcon="drag_indicator"></mat-icon>
+                  </button>
+                  <textarea
+                    class="floorplan-designer__sticky-text"
+                    [(ngModel)]="annotation.text"
+                    [style.fontSize.px]="getStickyFontSize(annotation.text)"
+                    placeholder="Type..."
+                    aria-label="Sticky note text"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                  (focus)="selectedAnnotation = annotation"></textarea>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (pdfRenderWorking) {
+        <div class="floorplan-designer__overlay">Rendering PDF...</div>
+      }
+      @if (renderError) {
+        <div class="floorplan-designer__overlay floorplan-designer__overlay--error">{{renderError}}</div>
+      }
+    </section>
+  </div>
+
+  @if (calibrationDialogOpen) {
+    <div class="floorplan-designer__modal-backdrop" (mousedown)="$event.stopPropagation()" (click)="cancelCalibrationDialog()">
+      <section class="floorplan-designer__version-dialog floorplan-designer__calibration-dialog" role="dialog" aria-modal="true" aria-labelledby="floorplan-calibration-title" (click)="$event.stopPropagation()">
+        <header>
+          <div>
+            <div class="floorplan-designer__kicker">Manual Calibration</div>
+            <h2 id="floorplan-calibration-title">Confirm Drawing Scale</h2>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close calibration" (click)="cancelCalibrationDialog()">
+            <mat-icon fontIcon="close"></mat-icon>
+          </button>
+        </header>
+        <p>
+          Enter the real-world length represented by the reference line you drew. The scale will be stored with this floorplan after saving the design.
+        </p>
+        <div class="floorplan-designer__calibration-preview">
+          <span>Reference Pixels</span>
+          <strong>{{$safeNavigationMigration(calibrationDraft?.pixelLength) | number:'1.2-2'}} px</strong>
+        </div>
+        <label class="floorplan-designer__field">
+          <span>Known Length (feet)</span>
+          <input class="floorplan-designer__input" type="number" min="0.01" step="0.01" [(ngModel)]="calibrationKnownFeet" />
+        </label>
+        <footer>
+          <button mat-button type="button" (click)="cancelCalibrationDialog()">Cancel</button>
+          <button mat-flat-button type="button" [disabled]="!calibrationKnownFeet || calibrationKnownFeet <= 0" (click)="confirmCalibration()">Confirm Calibration</button>
+        </footer>
+      </section>
     </div>
+  }
+
+  @if (versionDialogOpen) {
+    <div class="floorplan-designer__modal-backdrop" (mousedown)="$event.stopPropagation()" (click)="closeVersionDialog()">
+      <section class="floorplan-designer__version-dialog" role="dialog" aria-modal="true" aria-labelledby="floorplan-version-title" (click)="$event.stopPropagation()">
+        <header>
+          <div>
+            <div class="floorplan-designer__kicker">Base Layer Version</div>
+            <h2 id="floorplan-version-title">Version Control</h2>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close version control" (click)="closeVersionDialog()">
+            <mat-icon fontIcon="close"></mat-icon>
+          </button>
+        </header>
+        <p>
+          Upload a replacement base layer. The current image remains the previous version, while marks stay on their normalized floorplan positions.
+        </p>
+        <label class="floorplan-designer__file-pick">
+          <input type="file" accept="image/*,application/pdf" (change)="onVersionFileSelected($event)" />
+          <span>{{versionFile?.name || 'Choose replacement floorplan'}}</span>
+        </label>
+        <label class="floorplan-designer__field">
+          <span>Version Name</span>
+          <input class="floorplan-designer__input" [(ngModel)]="versionName" />
+        </label>
+        <label class="floorplan-designer__field">
+          <span>Version Notes</span>
+          <textarea class="floorplan-designer__textarea" rows="4" [(ngModel)]="versionNotes" placeholder="Optional notes for this base layer version"></textarea>
+        </label>
+        <footer>
+          <button mat-button type="button" (click)="closeVersionDialog()">Cancel</button>
+          <button mat-flat-button type="button" [disabled]="!versionFile" (click)="submitVersionRequest()">Create Version</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if (showActions) {
+    <div class="floorplan-designer__actions">
+      <span class="floorplan-designer__status">{{statusText}}</span>
+      <button mat-button type="button" (click)="close()">{{closeLabel}}</button>
+      <button mat-flat-button type="button" [disabled]="!sourceUrl" (click)="save()">Save Design</button>
+    </div>
+  }
 </div>

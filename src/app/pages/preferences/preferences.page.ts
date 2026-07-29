@@ -1,5 +1,5 @@
-import { CommonModule, Location } from '@angular/common'
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core'
+import { CommonModule, Location } from '@angular/common';
+import { Component, ElementRef, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import { MatButtonToggleModule } from '@angular/material/button-toggle'
@@ -31,6 +31,7 @@ declare const atlas: any
         MatSelectModule
     ],
     templateUrl: './preferences.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./preferences.page.scss']
 })
 export class PreferencesPage {

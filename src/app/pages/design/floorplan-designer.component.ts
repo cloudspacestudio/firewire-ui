@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core'
+import { AfterViewInit, Component, ElementRef, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { MatButtonModule } from '@angular/material/button'
@@ -62,6 +62,7 @@ export interface FloorplanDesignerSymbolOption {
     selector: 'floorplan-designer',
     imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule],
     templateUrl: './floorplan-designer.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./floorplan-designer.component.scss']
 })
 export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnDestroy {

@@ -1,6 +1,6 @@
-import {Component, inject, OnInit} from '@angular/core'
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core'
 import { Resolve, RouterLink } from '@angular/router'
-import { NgIf, NgFor } from '@angular/common'
+
 import {
     MAT_DIALOG_DATA,
     MatDialogTitle,
@@ -17,15 +17,13 @@ import { VwDevice } from '../../schemas/vwdevice.schema'
 @Component({
     standalone: true,
     templateUrl: './device.dialog.html',
-    imports: [NgIf, MatDialogTitle, MatDialogContent, 
-        MatDialogActions, MatButtonModule,
-        MatDialogClose, MatIconModule,
-        DeviceDetailComponent]
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [MatDialogTitle, MatDialogContent, MatDialogActions, MatButtonModule, MatDialogClose, MatIconModule, DeviceDetailComponent]
 })
 export class DeviceDialog implements OnInit {
     deviceInput: string = inject(MAT_DIALOG_DATA)
     deviceId?: string
-    
+
     device?: VwDevice
 
     ngOnInit() {

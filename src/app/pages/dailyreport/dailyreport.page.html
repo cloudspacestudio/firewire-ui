@@ -1,197 +1,216 @@
 <page-toolbar title="Daily Report">
-    <div class="button-bar">
-        <button mat-fab class="back dr-btn dr-nav-btn" [routerLink]="backLink" aria-label="Back to project">
-            <mat-icon fontIcon="chevron_left"></mat-icon>
-        </button>
-    </div>
-    <div class="dr-toolbar-nav">
-        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">DETAILS</button>
-        <button mat-flat-button type="button" class="active">DAILY REPORT</button>
-        <button mat-raised-button type="button" class="inactive" [routerLink]="getImportsRoute()" [queryParams]="{ returnTo: detailsLink }">IMPORT TASKS</button>
-        <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">UPLOAD DOCS</button>
-    </div>
+  <div class="button-bar">
+    <button mat-fab class="back dr-btn dr-nav-btn" [routerLink]="backLink" aria-label="Back to project">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+  </div>
+  <div class="dr-toolbar-nav">
+    <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">DETAILS</button>
+    <button mat-flat-button type="button" class="active">DAILY REPORT</button>
+    <button mat-raised-button type="button" class="inactive" [routerLink]="getImportsRoute()" [queryParams]="{ returnTo: detailsLink }">IMPORT TASKS</button>
+    <button mat-raised-button type="button" class="inactive" [routerLink]="detailsLink">UPLOAD DOCS</button>
+  </div>
 </page-toolbar>
 <!--Loaded, Init, No Data-->
-<div *ngIf="pageState===2 || pageState===0 || pageState===4" class="page-root">
+@if (pageState===2 || pageState===0 || pageState===4) {
+  <div class="page-root">
     <div class="page-content">
-        <div class="content-root">
-            <section class="dr-shell">
-                <div class="dr-header">
-                    <div>
-                        <div *ngIf="project" class="dr-project-banner">
-                            <div class="dr-project-label">Project</div>
-                            <div class="dr-project-name">{{project.name}}</div>
-                        </div>
-                        <h1 class="dr-title">Daily Report Uplink</h1>
-                        <div class="dr-subtitle">
-                            Build Fieldwire summaries and transmit daily production data.
-                        </div>
-                    </div>
-                    <div class="dr-status-chip">
-                        {{ pageState===2 ? 'Data Ready' : pageState===4 ? 'No Data' : 'Idle' }}
-                    </div>
+      <div class="content-root">
+        <section class="dr-shell">
+          <div class="dr-header">
+            <div>
+              @if (project) {
+                <div class="dr-project-banner">
+                  <div class="dr-project-label">Project</div>
+                  <div class="dr-project-name">{{project.name}}</div>
                 </div>
-
-                <form class="dr-form-wrap" [formGroup]="form" enctype="multipart/form-data">
-                    <div class="dr-card">
-                        <div class="dr-section-head">
-                            <h2 class="dr-section-title">Telemetry Controls</h2>
-                            <div class="dr-section-meta">{{ selectedTemplateName }}</div>
-                        </div>
-
-                        <div class="dr-control-grid">
-                            <mat-form-field>
-                                <mat-label>Choose a date</mat-label>
-                                <input matInput [matDatepicker]="picker" formControlName="picker" (dateChange)="changeDate($event)">
-                                <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-                                <mat-datepicker #picker></mat-datepicker>
-                            </mat-form-field>
-
-                            <mat-form-field appearance="fill">
-                                <mat-label>Template</mat-label>
-                                <mat-select formControlName="templateId" (valueChange)="onSelectChange($event)">
-                                    <mat-option *ngFor="let template of templates" [value]="template.id">
-                                        {{ template.name }}
-                                    </mat-option>
-                                </mat-select>
-                            </mat-form-field>
-
-                            <button type="button" mat-flat-button color="primary" class="dr-btn dr-primary-action" (click)="load()">
-                                Load Report Data
-                            </button>
-                        </div>
-
-                        <div *ngIf="pageState===2 && templates.length > 0 && templateStatuses.length > 0" class="dr-action-row">
-                            <button type="button" mat-flat-button color="primary" class="dr-btn" (click)="createForm()">
-                                Generate in Fieldwire
-                            </button>
-                            <button *ngIf="generatedFormId" type="button" mat-flat-button color="primary" class="dr-btn dr-btn-alt" (click)="getProjectFormFull()">
-                                Run Form Full
-                            </button>
-                            <button *ngIf="generatedFormId" type="button" mat-flat-button color="primary" class="dr-btn dr-btn-alt" (click)="loadDailyReport()">
-                                Load Data Into Form
-                            </button>
-                        </div>
-
-                        <div class="dr-action-link table-link" *ngIf="generatedFormId" [innerHtml]="getFwLinkForFormById()"></div>
-                    </div>
-
-                    <div *ngIf="groupedRecords.length || records.length" class="dr-metrics">
-                        <div class="dr-metric">
-                            <div class="dr-metric-label">Trades</div>
-                            <div class="dr-metric-value">{{ groupedRecords.length }}</div>
-                        </div>
-                        <div class="dr-metric">
-                            <div class="dr-metric-label">Records</div>
-                            <div class="dr-metric-value">{{ records.length }}</div>
-                        </div>
-                        <div class="dr-metric">
-                            <div class="dr-metric-label">Total Hours</div>
-                            <div class="dr-metric-value is-success">{{ totalHours }}</div>
-                        </div>
-                        <div class="dr-metric">
-                            <div class="dr-metric-label">Form Link</div>
-                            <div class="dr-metric-value">{{ generatedFormId ? 'Live' : 'Pending' }}</div>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="dr-card dr-data-shell">
-                    <div class="dr-section-head">
-                        <h2 class="dr-section-title">Output Streams</h2>
-                        <div class="dr-section-meta">{{ getFormName() }}</div>
-                    </div>
-
-                    <mat-tab-group *ngIf="groupedRecords.length || records.length; else noDataTabs" class="dr-tabs">
-                        <mat-tab label="Fieldwire Task Summary">
-                            <div *ngIf="groupedRecords.length > 0; else noGrouped" class="dr-table-wrap">
-                                <table class="dr-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Trade</th>
-                                            <th class="is-num">Quantity</th>
-                                            <th class="is-num">Hours</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr *ngFor="let record of groupedRecords">
-                                            <td>{{record.statusName}}</td>
-                                            <td class="is-num">{{record.count}}</td>
-                                            <td class="is-num">{{record.labor}}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <ng-template #noGrouped>
-                                <div class="dr-empty">No grouped task summary records found for the selected date.</div>
-                            </ng-template>
-                        </mat-tab>
-
-                        <mat-tab label="Worker Summary">
-                            <div *ngIf="records.length > 0; else noWorkers" class="dr-table-wrap">
-                                <table class="dr-table">
-                                    <thead>
-                                        <tr>
-                                            <th>User</th>
-                                            <th>Floorplan</th>
-                                            <th>Device</th>
-                                            <th>Task Name</th>
-                                            <th>Trade</th>
-                                            <th class="is-num">Hours</th>
-                                            <th>FW Link</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr *ngFor="let record of records">
-                                            <td>{{record.userName}}</td>
-                                            <td>{{getFloorplanName(record)}}</td>
-                                            <td>{{record.team.name}}</td>
-                                            <td>{{record.taskDetail.name||'Empty'}}</td>
-                                            <td>{{record.statusName}}</td>
-                                            <td class="is-num">{{record.manpower}}</td>
-                                            <td class="table-link" [innerHtml]="getFwLinkForTask(record.taskDetail)"></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <ng-template #noWorkers>
-                                <div class="dr-empty">No worker-level records found for the selected date.</div>
-                            </ng-template>
-                        </mat-tab>
-                    </mat-tab-group>
-
-                    <ng-template #noDataTabs>
-                        <div class="dr-empty">
-                            {{ pageMessage || (pageState===4 ? 'No records found. Adjust date or template and run load again.' : 'Load data to populate report summaries.') }}
-                        </div>
-                    </ng-template>
+              }
+              <h1 class="dr-title">Daily Report Uplink</h1>
+              <div class="dr-subtitle">
+                Build Fieldwire summaries and transmit daily production data.
+              </div>
+            </div>
+            <div class="dr-status-chip">
+              {{ pageState===2 ? 'Data Ready' : pageState===4 ? 'No Data' : 'Idle' }}
+            </div>
+          </div>
+          <form class="dr-form-wrap" [formGroup]="form" enctype="multipart/form-data">
+            <div class="dr-card">
+              <div class="dr-section-head">
+                <h2 class="dr-section-title">Telemetry Controls</h2>
+                <div class="dr-section-meta">{{ selectedTemplateName }}</div>
+              </div>
+              <div class="dr-control-grid">
+                <mat-form-field>
+                  <mat-label>Choose a date</mat-label>
+                  <input matInput [matDatepicker]="picker" formControlName="picker" (dateChange)="changeDate($event)">
+                  <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                  <mat-datepicker #picker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field appearance="fill">
+                  <mat-label>Template</mat-label>
+                  <mat-select formControlName="templateId" (valueChange)="onSelectChange($event)">
+                    @for (template of templates; track template) {
+                      <mat-option [value]="template.id">
+                        {{ template.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button type="button" mat-flat-button color="primary" class="dr-btn dr-primary-action" (click)="load()">
+                  Load Report Data
+                </button>
+              </div>
+              @if (pageState===2 && templates.length > 0 && templateStatuses.length > 0) {
+                <div class="dr-action-row">
+                  <button type="button" mat-flat-button color="primary" class="dr-btn" (click)="createForm()">
+                    Generate in Fieldwire
+                  </button>
+                  @if (generatedFormId) {
+                    <button type="button" mat-flat-button color="primary" class="dr-btn dr-btn-alt" (click)="getProjectFormFull()">
+                      Run Form Full
+                    </button>
+                  }
+                  @if (generatedFormId) {
+                    <button type="button" mat-flat-button color="primary" class="dr-btn dr-btn-alt" (click)="loadDailyReport()">
+                      Load Data Into Form
+                    </button>
+                  }
                 </div>
-
-                <div *ngIf="pageState===4" class="dr-empty" style="margin-top:12px;">
-                    {{ pageMessage || 'No records found for the selected day.' }}
+              }
+              @if (generatedFormId) {
+                <div class="dr-action-link table-link" [innerHtml]="getFwLinkForFormById()"></div>
+              }
+            </div>
+            @if (groupedRecords.length || records.length) {
+              <div class="dr-metrics">
+                <div class="dr-metric">
+                  <div class="dr-metric-label">Trades</div>
+                  <div class="dr-metric-value">{{ groupedRecords.length }}</div>
                 </div>
-            </section>
-        </div>
+                <div class="dr-metric">
+                  <div class="dr-metric-label">Records</div>
+                  <div class="dr-metric-value">{{ records.length }}</div>
+                </div>
+                <div class="dr-metric">
+                  <div class="dr-metric-label">Total Hours</div>
+                  <div class="dr-metric-value is-success">{{ totalHours }}</div>
+                </div>
+                <div class="dr-metric">
+                  <div class="dr-metric-label">Form Link</div>
+                  <div class="dr-metric-value">{{ generatedFormId ? 'Live' : 'Pending' }}</div>
+                </div>
+              </div>
+            }
+          </form>
+          <div class="dr-card dr-data-shell">
+            <div class="dr-section-head">
+              <h2 class="dr-section-title">Output Streams</h2>
+              <div class="dr-section-meta">{{ getFormName() }}</div>
+            </div>
+            @if (groupedRecords.length || records.length) {
+              <mat-tab-group class="dr-tabs">
+                <mat-tab label="Fieldwire Task Summary">
+                  @if (groupedRecords.length > 0) {
+                    <div class="dr-table-wrap">
+                      <table class="dr-table">
+                        <thead>
+                          <tr>
+                            <th>Trade</th>
+                            <th class="is-num">Quantity</th>
+                            <th class="is-num">Hours</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (record of groupedRecords; track record) {
+                            <tr>
+                              <td>{{record.statusName}}</td>
+                              <td class="is-num">{{record.count}}</td>
+                              <td class="is-num">{{record.labor}}</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  } @else {
+                    <div class="dr-empty">No grouped task summary records found for the selected date.</div>
+                  }
+                </mat-tab>
+                <mat-tab label="Worker Summary">
+                  @if (records.length > 0) {
+                    <div class="dr-table-wrap">
+                      <table class="dr-table">
+                        <thead>
+                          <tr>
+                            <th>User</th>
+                            <th>Floorplan</th>
+                            <th>Device</th>
+                            <th>Task Name</th>
+                            <th>Trade</th>
+                            <th class="is-num">Hours</th>
+                            <th>FW Link</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (record of records; track record) {
+                            <tr>
+                              <td>{{record.userName}}</td>
+                              <td>{{getFloorplanName(record)}}</td>
+                              <td>{{record.team.name}}</td>
+                              <td>{{record.taskDetail.name||'Empty'}}</td>
+                              <td>{{record.statusName}}</td>
+                              <td class="is-num">{{record.manpower}}</td>
+                              <td class="table-link" [innerHtml]="getFwLinkForTask(record.taskDetail)"></td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  } @else {
+                    <div class="dr-empty">No worker-level records found for the selected date.</div>
+                  }
+                </mat-tab>
+              </mat-tab-group>
+            } @else {
+              <div class="dr-empty">
+                {{ pageMessage || (pageState===4 ? 'No records found. Adjust date or template and run load again.' : 'Load data to populate report summaries.') }}
+              </div>
+            }
+          </div>
+          @if (pageState===4) {
+            <div class="dr-empty" style="margin-top:12px;">
+              {{ pageMessage || 'No records found for the selected day.' }}
+            </div>
+          }
+        </section>
+      </div>
     </div>
-</div>
+  </div>
+}
 <!--Rendering-->
-<div *ngIf="pageState===-1" class="dr-loading">
+@if (pageState===-1) {
+  <div class="dr-loading">
     <div class="dr-loading-card">
-        <div class="dr-loading-label">Initializing Uplink</div>
-        <div class="dr-loading-subtext">Project telemetry handshake in progress...</div>
+      <div class="dr-loading-label">Initializing Uplink</div>
+      <div class="dr-loading-subtext">Project telemetry handshake in progress...</div>
     </div>
-</div>
+  </div>
+}
 <!--Loading-->
-<div *ngIf="pageState===1" class="dr-loading">
+@if (pageState===1) {
+  <div class="dr-loading">
     <div class="dr-loading-card">
-        <div class="dr-loading-label">Scanning Tasks</div>
-        <div class="dr-loading-subtext">Compiling statuses, labor mappings, and operator records...</div>
+      <div class="dr-loading-label">Scanning Tasks</div>
+      <div class="dr-loading-subtext">Compiling statuses, labor mappings, and operator records...</div>
     </div>
-</div>
+  </div>
+}
 <!--Error-->
-<div *ngIf="pageState===3" class="dr-loading">
+@if (pageState===3) {
+  <div class="dr-loading">
     <div class="dr-loading-card is-error">
-        <div class="dr-loading-label">Transmission Error</div>
-        <div class="dr-loading-subtext">{{ pageMessage || 'Unable to complete daily report load.' }}</div>
+      <div class="dr-loading-label">Transmission Error</div>
+      <div class="dr-loading-subtext">{{ pageMessage || 'Unable to complete daily report load.' }}</div>
     </div>
-</div>
+  </div>
+}

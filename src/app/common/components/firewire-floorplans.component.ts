@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, EventEmitter, Input, Output } from '@angular/core'
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 
 import { MatButtonModule } from '@angular/material/button'
@@ -32,6 +32,7 @@ export interface FirewireFloorplanMoveEvent {
     selector: 'firewire-floorplans',
     imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
     templateUrl: './firewire-floorplans.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-floorplans.component.scss']
 })
 export class FirewireFloorplansComponent {

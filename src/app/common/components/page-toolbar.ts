@@ -1,5 +1,5 @@
-import { Component, DestroyRef, Input, OnInit, inject } from "@angular/core";
-import { NgIf, NgStyle } from "@angular/common";
+import { Component, DestroyRef, Input, OnInit, inject, ChangeDetectionStrategy } from "@angular/core";
+import { NgStyle } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -20,7 +20,7 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
 
 @Component({
     selector: 'page-toolbar',
-    imports: [NgIf, NgStyle, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule, MatFormFieldModule, MatInputModule],
+    imports: [NgStyle, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, MatToolbarModule, MatDividerModule, MatFormFieldModule, MatInputModule],
     styles: [`
         :host {
             display: block;
@@ -253,7 +253,7 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
         }
 
         :host ::ng-deep .fw-user-menu .mat-mdc-menu-item.fw-user-menu-meta {
-            --mdc-list-list-item-one-line-container-height: 20px;
+            --mat-list-list-item-one-line-container-height: 20px;
             min-height: 20px;
             height: 20px;
             line-height: 20px;
@@ -288,7 +288,7 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
         }
 
         :host ::ng-deep .fw-nav-menu .mat-mdc-menu-item {
-            --mdc-list-list-item-one-line-container-height: auto;
+            --mat-list-list-item-one-line-container-height: auto;
             --mat-menu-item-hover-state-layer-color: rgba(255, 144, 46, 0.22);
             min-height: 84px;
             height: auto;
@@ -418,134 +418,152 @@ import { WorkspacePinSetupDialog } from "./workspace-pin-setup.dialog";
             }
         }
     `],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <mat-toolbar class="page-toolbar fw-toolbar" [class.page-toolbar--transparent]="transparent">
-            <button *ngIf="!hideMenu" mat-icon-button class="fw-toolbar__menu-btn" [mat-menu-trigger-for]="navMenu" aria-label="Open navigation">
-                <mat-icon fontIcon="menu"></mat-icon>
+          @if (!hideMenu) {
+            <button mat-icon-button class="fw-toolbar__menu-btn" [mat-menu-trigger-for]="navMenu" aria-label="Open navigation">
+              <mat-icon fontIcon="menu"></mat-icon>
             </button>
-            <mat-menu #navMenu="matMenu" panelClass="fw-nav-menu">
-                <button *ngIf="false" mat-menu-item [routerLink]="'/root'">
-                    <span class="fw-nav-item fw-nav-item--home">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Home</span>
-                            <span class="fw-nav-item__subtitle">Return to the command overview</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/sales'">
-                    <span class="fw-nav-item fw-nav-item--sales">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Sales</span>
-                            <span class="fw-nav-item__subtitle">Placeholder for upcoming sales tools and workflows</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/design'">
-                    <span class="fw-nav-item fw-nav-item--design">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Design</span>
-                            <span class="fw-nav-item__subtitle">Coordinate design deliverables and drawing workflows</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/install'">
-                    <span class="fw-nav-item fw-nav-item--install">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Install</span>
-                            <span class="fw-nav-item__subtitle">Track field execution and installation operations</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/projects'">
-                    <span class="fw-nav-item fw-nav-item--projects">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Projects</span>
-                            <span class="fw-nav-item__subtitle">View and manage projects in Firewire</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/devices'">
-                    <span class="fw-nav-item fw-nav-item--devices">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Devices</span>
-                            <span class="fw-nav-item__subtitle">View and manage devices and materials</span>
-                        </span>
-                    </span>
-                </button>
-                <button mat-menu-item [routerLink]="'/settings'">
-                    <span class="fw-nav-item fw-nav-item--settings">
-                        <span class="fw-nav-item__content">
-                            <span class="fw-nav-item__title">Settings</span>
-                            <span class="fw-nav-item__subtitle">Administer preferences and platform settings</span>
-                        </span>
-                    </span>
-                </button>
-            </mat-menu>
-
-            <span class="fw-toolbar__brand" [routerLink]="'/root'">FIREWIRE</span>
-            <span *ngIf="title" class="fw-toolbar__title">:{{title}}</span>
-
-            <ng-content></ng-content>
-            
-            <span class="spacer"></span>
-            
-            <button [mat-menu-trigger-for]="userMenu" class="circle-btn fw-toolbar__user-btn" aria-label="Open user menu">
-                <img *ngIf="userAvatarUrl; else initialsTpl" [src]="userAvatarUrl" (error)="onAvatarError()" alt="User avatar" class="fw-toolbar__avatar" />
-                <ng-template #initialsTpl>{{userInitials}}</ng-template>
+          }
+          <mat-menu #navMenu="matMenu" panelClass="fw-nav-menu">
+            @if (false) {
+              <button mat-menu-item [routerLink]="'/root'">
+                <span class="fw-nav-item fw-nav-item--home">
+                  <span class="fw-nav-item__content">
+                    <span class="fw-nav-item__title">Home</span>
+                    <span class="fw-nav-item__subtitle">Return to the command overview</span>
+                  </span>
+                </span>
+              </button>
+            }
+            <button mat-menu-item [routerLink]="'/sales'">
+              <span class="fw-nav-item fw-nav-item--sales">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Sales</span>
+                  <span class="fw-nav-item__subtitle">Placeholder for upcoming sales tools and workflows</span>
+                </span>
+              </span>
             </button>
-            <mat-menu #userMenu="matMenu" panelClass="fw-user-menu">
-                <button mat-menu-item disabled class="fw-user-menu-meta">{{userName}}</button>
-                <button mat-menu-item disabled class="fw-user-menu-meta" *ngIf="userEmail">{{userEmail}}</button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item (click)="onLockWorkspace()">
-                    <mat-icon fontIcon="lock"></mat-icon>
-                    <span>Lock Workspace</span>
-                </button>
-                <button mat-menu-item [routerLink]="'/preferences'">Preferences</button>
-                <button mat-menu-item [routerLink]="'/about'">About</button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item (click)="onSignOut()">Sign Out</button>
-            </mat-menu>
+            <button mat-menu-item [routerLink]="'/design'">
+              <span class="fw-nav-item fw-nav-item--design">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Design</span>
+                  <span class="fw-nav-item__subtitle">Coordinate design deliverables and drawing workflows</span>
+                </span>
+              </span>
+            </button>
+            <button mat-menu-item [routerLink]="'/install'">
+              <span class="fw-nav-item fw-nav-item--install">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Install</span>
+                  <span class="fw-nav-item__subtitle">Track field execution and installation operations</span>
+                </span>
+              </span>
+            </button>
+            <button mat-menu-item [routerLink]="'/projects'">
+              <span class="fw-nav-item fw-nav-item--projects">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Projects</span>
+                  <span class="fw-nav-item__subtitle">View and manage projects in Firewire</span>
+                </span>
+              </span>
+            </button>
+            <button mat-menu-item [routerLink]="'/devices'">
+              <span class="fw-nav-item fw-nav-item--devices">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Devices</span>
+                  <span class="fw-nav-item__subtitle">View and manage devices and materials</span>
+                </span>
+              </span>
+            </button>
+            <button mat-menu-item [routerLink]="'/settings'">
+              <span class="fw-nav-item fw-nav-item--settings">
+                <span class="fw-nav-item__content">
+                  <span class="fw-nav-item__title">Settings</span>
+                  <span class="fw-nav-item__subtitle">Administer preferences and platform settings</span>
+                </span>
+              </span>
+            </button>
+          </mat-menu>
+
+          <span class="fw-toolbar__brand" [routerLink]="'/root'">FIREWIRE</span>
+          @if (title) {
+            <span class="fw-toolbar__title">:{{title}}</span>
+          }
+
+          <ng-content></ng-content>
+
+          <span class="spacer"></span>
+
+          <button [mat-menu-trigger-for]="userMenu" class="circle-btn fw-toolbar__user-btn" aria-label="Open user menu">
+            @if (userAvatarUrl) {
+              <img [src]="userAvatarUrl" (error)="onAvatarError()" alt="User avatar" class="fw-toolbar__avatar" />
+            } @else {
+              {{userInitials}}
+            }
+          </button>
+          <mat-menu #userMenu="matMenu" panelClass="fw-user-menu">
+            <button mat-menu-item disabled class="fw-user-menu-meta">{{userName}}</button>
+            @if (userEmail) {
+              <button mat-menu-item disabled class="fw-user-menu-meta">{{userEmail}}</button>
+            }
+            <mat-divider></mat-divider>
+            <button mat-menu-item (click)="onLockWorkspace()">
+              <mat-icon fontIcon="lock"></mat-icon>
+              <span>Lock Workspace</span>
+            </button>
+            <button mat-menu-item [routerLink]="'/preferences'">Preferences</button>
+            <button mat-menu-item [routerLink]="'/about'">About</button>
+            <mat-divider></mat-divider>
+            <button mat-menu-item (click)="onSignOut()">Sign Out</button>
+          </mat-menu>
         </mat-toolbar>
-        <div *ngIf="isWorkspaceLocked" class="fw-lock-overlay">
-            <video
-                *ngIf="lockBackgroundMode === 'video'"
+        @if (isWorkspaceLocked) {
+          <div class="fw-lock-overlay">
+            @if (lockBackgroundMode === 'video') {
+              <video
                 class="fw-lock-overlay__media"
                 [src]="lockBackgroundVideoUrl"
                 autoplay
                 muted
                 loop
                 playsinline>
-            </video>
-            <div
-                *ngIf="lockBackgroundMode !== 'video'"
+              </video>
+            }
+            @if (lockBackgroundMode !== 'video') {
+              <div
                 class="fw-lock-overlay__fallback"
                 [ngStyle]="lockBackgroundStyle">
-            </div>
+              </div>
+            }
             <div class="fw-lock-overlay__scrim"></div>
             <div class="fw-lock-overlay__grid"></div>
             <div class="fw-lock-card">
-                <div class="fw-lock-card__kicker">Secure Session</div>
-                <div class="fw-lock-card__title">Workspace Locked</div>
-                <div class="fw-lock-card__copy">The Firewire command surface is sealed. Re-enter your personal PIN to restore access to the active workspace.</div>
-                <div class="fw-lock-card__status">
-                    <mat-icon fontIcon="lock"></mat-icon>
-                    User Command Lock
-                </div>
-                <mat-form-field appearance="outline">
-                    <mat-label>Workspace PIN</mat-label>
-                    <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="unlockPin" (keyup.enter)="onUnlockWorkspace()" />
-                </mat-form-field>
-                <div *ngIf="lockErrorMessage" class="fw-lock-card__error">{{lockErrorMessage}}</div>
-                <div class="fw-lock-card__actions">
-                    <button mat-flat-button type="button" (click)="onUnlockWorkspace()" [disabled]="unlockWorking">
-                        {{unlockWorking ? 'UNLOCKING...' : 'UNLOCK WORKSPACE'}}
-                    </button>
-                </div>
-                <div class="fw-lock-card__hint">Use Preferences to rotate your PIN after unlock.</div>
+              <div class="fw-lock-card__kicker">Secure Session</div>
+              <div class="fw-lock-card__title">Workspace Locked</div>
+              <div class="fw-lock-card__copy">The Firewire command surface is sealed. Re-enter your personal PIN to restore access to the active workspace.</div>
+              <div class="fw-lock-card__status">
+                <mat-icon fontIcon="lock"></mat-icon>
+                User Command Lock
+              </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Workspace PIN</mat-label>
+                <input matInput type="password" inputmode="numeric" autocomplete="off" [(ngModel)]="unlockPin" (keyup.enter)="onUnlockWorkspace()" />
+              </mat-form-field>
+              @if (lockErrorMessage) {
+                <div class="fw-lock-card__error">{{lockErrorMessage}}</div>
+              }
+              <div class="fw-lock-card__actions">
+                <button mat-flat-button type="button" (click)="onUnlockWorkspace()" [disabled]="unlockWorking">
+                  {{unlockWorking ? 'UNLOCKING...' : 'UNLOCK WORKSPACE'}}
+                </button>
+              </div>
+              <div class="fw-lock-card__hint">Use Preferences to rotate your PIN after unlock.</div>
             </div>
-        </div>
-    `
+          </div>
+        }
+        `
 })
 export class PageToolbar implements OnInit {
     private readonly auth = inject(AuthService)

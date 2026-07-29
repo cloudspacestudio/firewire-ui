@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, Inject, OnInit, ViewChild } from "@angular/core"
+import { AfterViewInit, Component, Inject, OnInit, ViewChild, ChangeDetectionStrategy } from "@angular/core"
+
 import { CommonModule } from "@angular/common"
 import { Router, RouterLink } from "@angular/router"
 import { HttpClient } from "@angular/common/http"
@@ -33,22 +34,23 @@ interface DeviceSetFilterCriteria {
     standalone: true,
     selector: 'device-sets-page',
     imports: [
-        CommonModule,
-        RouterLink,
-        MatButtonModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        MatPaginatorModule,
-        MatSelectModule,
-        MatSortModule,
-        MatTableModule,
-        FormsModule,
-        PageToolbar,
-        NavToolbar
-    ],
+    CommonModule,
+    RouterLink,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatPaginatorModule,
+    MatSelectModule,
+    MatSortModule,
+    MatTableModule,
+    FormsModule,
+    PageToolbar,
+    NavToolbar
+],
     providers: [HttpClient],
     templateUrl: './device-sets.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./device-sets.page.scss']
 })
 export class DeviceSetsPage implements OnInit, AfterViewInit {
@@ -344,31 +346,34 @@ interface CreateDeviceSetDialogData {
 @Component({
     standalone: true,
     selector: 'create-device-set-dialog',
-    imports: [CommonModule, FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
+    imports: [FormsModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
-            <div class="fw-dialog-titlebar__text">New Device Set</div>
-            <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel new device set" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div class="fw-dialog-titlebar__text">New Device Set</div>
+          <button mat-icon-button type="button" class="fw-dialog-titlebar__close" aria-label="Cancel new device set" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="create-device-set-dialog">
-            <mat-form-field appearance="outline" class="create-device-set-dialog__field">
-                <mat-label>Set Name</mat-label>
-                <input matInput maxlength="120" [(ngModel)]="name" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="create-device-set-dialog__field">
-                <mat-label>Visibility</mat-label>
-                <mat-select multiple [(ngModel)]="visibility">
-                    <mat-option *ngFor="let option of data.visibilityOptions" [value]="option.value">{{option.label}}</mat-option>
-                </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline" class="create-device-set-dialog__field">
+            <mat-label>Set Name</mat-label>
+            <input matInput maxlength="120" [(ngModel)]="name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="create-device-set-dialog__field">
+            <mat-label>Visibility</mat-label>
+            <mat-select multiple [(ngModel)]="visibility">
+              @for (option of data.visibilityOptions; track option) {
+                <mat-option [value]="option.value">{{option.label}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
-            <button mat-flat-button [mat-dialog-close]="{ name: name, visibility: visibility }" [disabled]="!name.trim()" type="button">Create</button>
+          <button mat-stroked-button mat-dialog-close type="button">Cancel</button>
+          <button mat-flat-button [mat-dialog-close]="{ name: name, visibility: visibility }" [disabled]="!name.trim()" type="button">Create</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .create-device-set-dialog {
             width: min(520px, 88vw);
@@ -395,7 +400,8 @@ class CreateDeviceSetDialog {
 @Component({
     standalone: true,
     selector: 'confirm-device-set-delete-dialog',
-    imports: [CommonModule, MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle, MatIconModule],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div class="fw-dialog-titlebar" mat-dialog-title>
             <div class="fw-dialog-titlebar__text">Delete Device Set</div>

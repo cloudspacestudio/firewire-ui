@@ -1,5 +1,5 @@
-import { Component, OnInit, AfterViewInit, ViewChild } from "@angular/core"
-import { CommonModule } from "@angular/common"
+import { Component, OnInit, AfterViewInit, ViewChild, ChangeDetectionStrategy } from "@angular/core"
+
 import { FormsModule } from "@angular/forms"
 import { HttpClient } from "@angular/common/http"
 import { Router, RouterLink } from "@angular/router"
@@ -24,22 +24,22 @@ import { ProjectSettingsApi } from "./project-settings.api"
     standalone: true,
     selector: 'fieldwire-projects-page',
     imports: [
-        CommonModule,
-        FormsModule,
-        RouterLink,
-        MatButtonModule,
-        MatIconModule,
-        MatPaginatorModule,
-        MatSortModule,
-        MatTableModule,
-        MatInputModule,
-        MatFormFieldModule,
-        MatDialogModule,
-        PageToolbar,
-        NavToolbar
-    ],
+    FormsModule,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatTableModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatDialogModule,
+    PageToolbar,
+    NavToolbar
+],
     providers: [HttpClient],
     templateUrl: './fieldwire-projects.page.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./projects.page.scss']
 })
 export class FieldwireProjectsPage implements OnInit, AfterViewInit {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, Input } from '@angular/core'
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core'
 
 export interface FirewireEstimateSummaryRow {
     label: string
@@ -41,6 +41,7 @@ export interface FirewireEstimateSummaryModel {
     selector: 'firewire-estimate-summary',
     imports: [CommonModule],
     templateUrl: './firewire-estimate-summary.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-estimate-summary.component.scss']
 })
 export class FirewireEstimateSummaryComponent {

@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common'
-import { AfterViewInit, Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core'
+
+import { AfterViewInit, Component, ElementRef, QueryList, ViewChild, ViewChildren, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MatButtonModule } from '@angular/material/button'
 import {
@@ -48,185 +48,189 @@ export interface QuoteSheetData {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        MatDialogTitle,
-        MatDialogContent,
-        MatDialogActions,
-        MatDialogClose,
-        MatButtonModule,
-        MatIconModule
-    ],
+    FormsModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
+    MatButtonModule,
+    MatIconModule
+],
     template: `
         <div mat-dialog-title class="quote-sheet__titlebar">
-            <div>
-                <div class="quote-sheet__title-kicker">Proposal Output</div>
-                <div class="quote-sheet__title">Quotation</div>
-            </div>
-            <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
-                <mat-icon>close</mat-icon>
-            </button>
+          <div>
+            <div class="quote-sheet__title-kicker">Proposal Output</div>
+            <div class="quote-sheet__title">Quotation</div>
+          </div>
+          <button mat-icon-button type="button" aria-label="Close dialog" mat-dialog-close>
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <mat-dialog-content class="quote-sheet">
-            <div class="quote-sheet__toolbar">
-                <div class="quote-sheet__eyebrow">Customer Quote Preview</div>
-            </div>
+          <div class="quote-sheet__toolbar">
+            <div class="quote-sheet__eyebrow">Customer Quote Preview</div>
+          </div>
 
-            <div class="quote-sheet__paper">
-                <div #printRoot class="quote-sheet__paper-inner">
-                    <div class="quote-sheet__paper-header">
-                        <img class="quote-sheet__paper-logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
-                        <div class="quote-sheet__paper-title">Quotation</div>
-                    </div>
+          <div class="quote-sheet__paper">
+            <div #printRoot class="quote-sheet__paper-inner">
+              <div class="quote-sheet__paper-header">
+                <img class="quote-sheet__paper-logo" src="/images/firetrol-logo.png" alt="Firetrol Protection Systems" />
+                <div class="quote-sheet__paper-title">Quotation</div>
+              </div>
 
-                    <div class="quote-sheet__top-grid">
-                        <section class="quote-sheet__info-card">
-                            <div class="quote-sheet__info-card-title">Project</div>
-                            <div class="quote-sheet__info-row"><span>Project name</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectName" /></div>
-                            <div class="quote-sheet__info-row"><span>Project address</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectAddress" /></div>
-                            <div class="quote-sheet__info-row"><span>Project City, State, Zip</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectCityStateZip" /></div>
-                            <div class="quote-sheet__info-row"><span>Phone</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.phone" /></div>
-                            <div class="quote-sheet__info-row"><span>Fax</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.fax" /></div>
-                        </section>
-                        <section class="quote-sheet__info-card">
-                            <div class="quote-sheet__info-card-title">Customer</div>
-                            <div class="quote-sheet__info-row"><span>Customer</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.customer" /></div>
-                            <div class="quote-sheet__info-row"><span>Department</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.department" /></div>
-                        </section>
-                    </div>
+              <div class="quote-sheet__top-grid">
+                <section class="quote-sheet__info-card">
+                  <div class="quote-sheet__info-card-title">Project</div>
+                  <div class="quote-sheet__info-row"><span>Project name</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectName" /></div>
+                  <div class="quote-sheet__info-row"><span>Project address</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectAddress" /></div>
+                  <div class="quote-sheet__info-row"><span>Project City, State, Zip</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.projectCityStateZip" /></div>
+                  <div class="quote-sheet__info-row"><span>Phone</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.phone" /></div>
+                  <div class="quote-sheet__info-row"><span>Fax</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.fax" /></div>
+                </section>
+                <section class="quote-sheet__info-card">
+                  <div class="quote-sheet__info-card-title">Customer</div>
+                  <div class="quote-sheet__info-row"><span>Customer</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.customer" /></div>
+                  <div class="quote-sheet__info-row"><span>Department</span><input class="quote-sheet__paper-input" [(ngModel)]="editable.department" /></div>
+                </section>
+              </div>
 
-                    <section class="quote-sheet__section">
-                        <div class="quote-sheet__section-title">Scope of Work</div>
-                        <textarea
-                            #autosizeInput
-                            class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
-                            [(ngModel)]="editable.scopeOfWork"
-                            (input)="autosizeFromElement(autosizeInput)"></textarea>
-                    </section>
+              <section class="quote-sheet__section">
+                <div class="quote-sheet__section-title">Scope of Work</div>
+                <textarea
+                  #autosizeInput
+                  class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
+                  [(ngModel)]="editable.scopeOfWork"
+                (input)="autosizeFromElement(autosizeInput)"></textarea>
+              </section>
 
-                    <div class="quote-sheet__meta-grid">
-                        <div class="quote-sheet__meta-column">
-                            <div class="quote-sheet__meta-title">Specifications</div>
-                            <textarea
-                                #autosizeInput
-                                class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
-                                [(ngModel)]="editable.specifications"
-                                (input)="autosizeFromElement(autosizeInput)"></textarea>
-                        </div>
-                        <div class="quote-sheet__meta-column">
-                            <div class="quote-sheet__meta-title">Addenda</div>
-                            <textarea
-                                #autosizeInput
-                                class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
-                                [(ngModel)]="editable.addenda"
-                                (input)="autosizeFromElement(autosizeInput)"></textarea>
-                        </div>
-                        <div class="quote-sheet__meta-column">
-                            <div class="quote-sheet__meta-title">Plans</div>
-                            <textarea
-                                #autosizeInput
-                                class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
-                                [(ngModel)]="editable.plans"
-                                (input)="autosizeFromElement(autosizeInput)"></textarea>
-                        </div>
-                    </div>
-
-                    <section class="quote-sheet__section">
-                        <div class="quote-sheet__section-title quote-sheet__section-title--alert">Not Included or Deviated from Specification</div>
-                        <textarea
-                            #autosizeInput
-                            class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
-                            [(ngModel)]="editable.deviations"
-                            (input)="autosizeFromElement(autosizeInput)"></textarea>
-                    </section>
-
-                    <section class="quote-sheet__section">
-                        <div class="quote-sheet__section-title quote-sheet__section-title--accent">Proposal Narrative</div>
-                        <textarea
-                            #autosizeInput
-                            class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
-                            [(ngModel)]="editable.proposalNarrative"
-                            (input)="autosizeFromElement(autosizeInput)"></textarea>
-                    </section>
-
-                    <table class="quote-sheet__table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Description</th>
-                                <th>Qty</th>
-                                <th>Amount</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let row of editable.lineItems; let index = index">
-                                <td><input class="quote-sheet__paper-input" [(ngModel)]="row.id" [name]="'quote-id-' + index" /></td>
-                                <td><input class="quote-sheet__paper-input" [(ngModel)]="row.description" [name]="'quote-description-' + index" /></td>
-                                <td><input class="quote-sheet__paper-input is-right" type="number" min="0" [(ngModel)]="row.qty" [name]="'quote-qty-' + index" /></td>
-                                <td>
-                                    <input
-                                        class="quote-sheet__paper-input quote-sheet__money-input is-right"
-                                        type="text"
-                                        inputmode="decimal"
-                                        [ngModel]="formatUsd(row.amount)"
-                                        (ngModelChange)="row.amount = parseCurrencyInput($event)"
-                                        [name]="'quote-amount-' + index" />
-                                </td>
-                                <td class="quote-sheet__money-value quote-sheet__money-value--total is-right">{{formatUsd(getLineItemTotal(row))}}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="quote-sheet__foot-grid">
-                        <div class="quote-sheet__signature-panel">
-                            <div class="quote-sheet__thankyou">THANK YOU FOR YOUR BUSINESS!</div>
-                            <label class="quote-sheet__signature-label">
-                                <span>Signature</span>
-                                <input class="quote-sheet__paper-input quote-sheet__paper-input--signature" [(ngModel)]="editable.signatureName" />
-                            </label>
-                            <label class="quote-sheet__signature-label">
-                                <span>P.O.</span>
-                                <input class="quote-sheet__paper-input" />
-                            </label>
-                            <label class="quote-sheet__signature-label">
-                                <span>Date</span>
-                                <input class="quote-sheet__paper-input" [(ngModel)]="editable.signatureDate" />
-                            </label>
-                        </div>
-                        <div class="quote-sheet__totals-panel">
-                            <div class="quote-sheet__total-row"><span>Subtotal</span><strong>{{formatUsd(getSubtotal())}}</strong></div>
-                            <div class="quote-sheet__total-row"><span>Tax Rate</span><strong>{{editable.taxRatePercent.toFixed(2)}}%</strong></div>
-                            <div class="quote-sheet__total-row"><span>Sales Tax if applicable</span><strong>{{formatUsd(getSalesTaxAmount())}}</strong></div>
-                            <div class="quote-sheet__total-row"><span>Shipping and Handling</span><strong>{{formatUsd(getRoundedShippingHandling())}}</strong></div>
-                            <div class="quote-sheet__total-row quote-sheet__total-row--grand"><span>Total</span><strong>{{formatUsd(getGrandTotal())}}</strong></div>
-                        </div>
-                    </div>
-
-                    <section class="quote-sheet__section quote-sheet__section--terms">
-                        <div class="quote-sheet__terms-title">Terms and Conditions</div>
-                        <textarea
-                            #termsInput
-                            class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--terms"
-                            [(ngModel)]="editable.termsAndConditions"
-                            (input)="autosizeFromElement(termsInput)"></textarea>
-                    </section>
+              <div class="quote-sheet__meta-grid">
+                <div class="quote-sheet__meta-column">
+                  <div class="quote-sheet__meta-title">Specifications</div>
+                  <textarea
+                    #autosizeInput
+                    class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
+                    [(ngModel)]="editable.specifications"
+                  (input)="autosizeFromElement(autosizeInput)"></textarea>
                 </div>
+                <div class="quote-sheet__meta-column">
+                  <div class="quote-sheet__meta-title">Addenda</div>
+                  <textarea
+                    #autosizeInput
+                    class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
+                    [(ngModel)]="editable.addenda"
+                  (input)="autosizeFromElement(autosizeInput)"></textarea>
+                </div>
+                <div class="quote-sheet__meta-column">
+                  <div class="quote-sheet__meta-title">Plans</div>
+                  <textarea
+                    #autosizeInput
+                    class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--small"
+                    [(ngModel)]="editable.plans"
+                  (input)="autosizeFromElement(autosizeInput)"></textarea>
+                </div>
+              </div>
+
+              <section class="quote-sheet__section">
+                <div class="quote-sheet__section-title quote-sheet__section-title--alert">Not Included or Deviated from Specification</div>
+                <textarea
+                  #autosizeInput
+                  class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
+                  [(ngModel)]="editable.deviations"
+                (input)="autosizeFromElement(autosizeInput)"></textarea>
+              </section>
+
+              <section class="quote-sheet__section">
+                <div class="quote-sheet__section-title quote-sheet__section-title--accent">Proposal Narrative</div>
+                <textarea
+                  #autosizeInput
+                  class="quote-sheet__paper-input quote-sheet__paper-input--multiline"
+                  [(ngModel)]="editable.proposalNarrative"
+                (input)="autosizeFromElement(autosizeInput)"></textarea>
+              </section>
+
+              <table class="quote-sheet__table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Amount</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of editable.lineItems; track row; let index = $index) {
+                    <tr>
+                      <td><input class="quote-sheet__paper-input" [(ngModel)]="row.id" [name]="'quote-id-' + index" /></td>
+                      <td><input class="quote-sheet__paper-input" [(ngModel)]="row.description" [name]="'quote-description-' + index" /></td>
+                      <td><input class="quote-sheet__paper-input is-right" type="number" min="0" [(ngModel)]="row.qty" [name]="'quote-qty-' + index" /></td>
+                      <td>
+                        <input
+                          class="quote-sheet__paper-input quote-sheet__money-input is-right"
+                          type="text"
+                          inputmode="decimal"
+                          [ngModel]="formatUsd(row.amount)"
+                          (ngModelChange)="row.amount = parseCurrencyInput($event)"
+                          [name]="'quote-amount-' + index" />
+                      </td>
+                      <td class="quote-sheet__money-value quote-sheet__money-value--total is-right">{{formatUsd(getLineItemTotal(row))}}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+
+              <div class="quote-sheet__foot-grid">
+                <div class="quote-sheet__signature-panel">
+                  <div class="quote-sheet__thankyou">THANK YOU FOR YOUR BUSINESS!</div>
+                  <label class="quote-sheet__signature-label">
+                    <span>Signature</span>
+                    <input class="quote-sheet__paper-input quote-sheet__paper-input--signature" [(ngModel)]="editable.signatureName" />
+                  </label>
+                  <label class="quote-sheet__signature-label">
+                    <span>P.O.</span>
+                    <input class="quote-sheet__paper-input" />
+                  </label>
+                  <label class="quote-sheet__signature-label">
+                    <span>Date</span>
+                    <input class="quote-sheet__paper-input" [(ngModel)]="editable.signatureDate" />
+                  </label>
+                </div>
+                <div class="quote-sheet__totals-panel">
+                  <div class="quote-sheet__total-row"><span>Subtotal</span><strong>{{formatUsd(getSubtotal())}}</strong></div>
+                  <div class="quote-sheet__total-row"><span>Tax Rate</span><strong>{{editable.taxRatePercent.toFixed(2)}}%</strong></div>
+                  <div class="quote-sheet__total-row"><span>Sales Tax if applicable</span><strong>{{formatUsd(getSalesTaxAmount())}}</strong></div>
+                  <div class="quote-sheet__total-row"><span>Shipping and Handling</span><strong>{{formatUsd(getRoundedShippingHandling())}}</strong></div>
+                  <div class="quote-sheet__total-row quote-sheet__total-row--grand"><span>Total</span><strong>{{formatUsd(getGrandTotal())}}</strong></div>
+                </div>
+              </div>
+
+              <section class="quote-sheet__section quote-sheet__section--terms">
+                <div class="quote-sheet__terms-title">Terms and Conditions</div>
+                <textarea
+                  #termsInput
+                  class="quote-sheet__paper-input quote-sheet__paper-input--multiline quote-sheet__paper-input--terms"
+                  [(ngModel)]="editable.termsAndConditions"
+                (input)="autosizeFromElement(termsInput)"></textarea>
+              </section>
             </div>
+          </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end" class="quote-sheet__footer">
-            <div class="quote-sheet__footer-status" *ngIf="statusText">{{statusText}}</div>
-            <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
-                <mat-icon fontIcon="description"></mat-icon>
-                Create Sheet
-            </button>
-            <button mat-stroked-button type="button" (click)="printSheet()">
-                <mat-icon fontIcon="print"></mat-icon>
-                Print Sheet
-            </button>
-            <button mat-button type="button" mat-dialog-close>Close</button>
+          @if (statusText) {
+            <div class="quote-sheet__footer-status">{{statusText}}</div>
+          }
+          <button mat-flat-button type="button" (click)="createSheet()" [disabled]="saveWorking">
+            <mat-icon fontIcon="description"></mat-icon>
+            Create Sheet
+          </button>
+          <button mat-stroked-button type="button" (click)="printSheet()">
+            <mat-icon fontIcon="print"></mat-icon>
+            Print Sheet
+          </button>
+          <button mat-button type="button" mat-dialog-close>Close</button>
         </mat-dialog-actions>
-    `,
+        `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
         .quote-sheet__titlebar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 10px;border-bottom:1px solid rgba(72,221,255,.12);background:radial-gradient(circle at 0% 0%,rgba(72,221,255,.08),transparent 34%),radial-gradient(circle at 100% 0%,rgba(255,164,61,.08),transparent 32%),rgba(7,11,19,.96)}
         .quote-sheet__title-kicker,.quote-sheet__eyebrow{color:rgba(177,213,228,.72);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
