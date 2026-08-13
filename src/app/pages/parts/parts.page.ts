@@ -67,6 +67,7 @@ const PARTS_VENDOR_VIEWS: PartsVendorView[] = [
 export class PartsPage implements OnInit, AfterViewInit  {
     displayedColumns: string[] = [
         'PartNumber',
+        'vendorName',
         'LongDescription',
         'ParentCategory',
         'Category',
@@ -135,6 +136,12 @@ export class PartsPage implements OnInit, AfterViewInit  {
 
     applyFilter(event: Event) {
         this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.storePartsTextFilter()
+        this.applyCombinedFilter()
+    }
+
+    clearTextFilter() {
+        this.textFilter = ''
         this.storePartsTextFilter()
         this.applyCombinedFilter()
     }
@@ -588,20 +595,35 @@ export class PartsPage implements OnInit, AfterViewInit  {
                 parsed = { text: filter }
             }
 
-            const text = String(parsed.text || '').trim()
+            const text = this.normalizePartsSearchText(parsed.text)
             const categories = Array.isArray(parsed.categories) ? parsed.categories.filter((value): value is string => typeof value === 'string' && !!value) : []
             const textHaystack = [
                 row.PartNumber,
                 row.LongDescription,
                 row.ParentCategory,
                 row.Category,
-                row.UPC
-            ].map((value) => String(value || '').toLowerCase()).join(' ')
+                row.UPC,
+                row.brand,
+                row.vendorName,
+                row.sourceVendorName
+            ].map((value) => this.normalizePartsSearchText(value)).join(' ')
 
-            const matchesText = !text || textHaystack.includes(text)
+            const textTokens = text.split(' ').filter(Boolean)
+            const compactText = text.replace(/\s+/g, '')
+            const compactHaystack = textHaystack.replace(/\s+/g, '')
+            const matchesText = !text
+                || textTokens.every((token) => textHaystack.includes(token))
+                || (!!compactText && compactHaystack.includes(compactText))
             const matchesCategory = categories.length <= 0 || categories.includes(String(row.Category || '').trim())
             return matchesText && matchesCategory
         }
+    }
+
+    private normalizePartsSearchText(value: unknown): string {
+        return String(value || '')
+            .toLocaleLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim()
     }
 
     private getPartsCategoryFilterStorageKey(): string {

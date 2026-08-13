@@ -1,57 +1,298 @@
-import { Component, ChangeDetectionStrategy } from "@angular/core"
+import { HttpClient } from '@angular/common/http'
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core'
+import { FormsModule } from '@angular/forms'
+import { RouterLink } from '@angular/router'
+
+import { MatButtonModule } from '@angular/material/button'
+import { MatFormFieldModule } from '@angular/material/form-field'
+import { MatIconModule } from '@angular/material/icon'
+import { MatInputModule } from '@angular/material/input'
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator'
+import { MatSort, MatSortModule, Sort, SortDirection } from '@angular/material/sort'
+import { MatTableDataSource, MatTableModule } from '@angular/material/table'
 
 import { PageToolbar } from '../../common/components/page-toolbar'
+import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
 
 @Component({
     standalone: true,
-    imports: [PageToolbar],
-    template: `
-        <page-toolbar title="INSTALL"></page-toolbar>
-        <div class="placeholder-page">
-            <div class="placeholder-card">
-                <div class="placeholder-eyebrow">Install</div>
-                <h1>Install workspace is not built out yet.</h1>
-                <p>This tile is now in place for the upcoming installation workflow area.</p>
-            </div>
-        </div>
-    `,
+    selector: 'install-page',
+    imports: [
+        FormsModule,
+        RouterLink,
+        MatButtonModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatInputModule,
+        MatPaginatorModule,
+        MatSortModule,
+        MatTableModule,
+        PageToolbar
+    ],
+    providers: [HttpClient],
+    templateUrl: './install.page.html',
     changeDetection: ChangeDetectionStrategy.Eager,
-    styles: [`
-        .placeholder-page {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 96px 24px 24px;
-            background: linear-gradient(180deg, #08111d, #050910);
-        }
-
-        .placeholder-card {
-            width: min(680px, 100%);
-            padding: 28px;
-            border: 1px solid rgba(132, 255, 190, 0.18);
-            border-radius: 20px;
-            background: linear-gradient(135deg, rgba(7, 15, 25, 0.92), rgba(14, 28, 29, 0.72));
-            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
-            color: #edf8ff;
-        }
-
-        .placeholder-eyebrow {
-            margin-bottom: 8px;
-            color: #84ffbe;
-            font-size: 0.72rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-        }
-
-        h1 {
-            margin: 0 0 12px;
-            font-size: clamp(1.6rem, 3vw, 2.4rem);
-        }
-
-        p {
-            margin: 0;
-            color: rgba(237, 248, 255, 0.8);
-        }
-    `]
+    styleUrls: ['./install.page.scss']
 })
-export class InstallPage {}
+export class InstallPage implements OnInit {
+    readonly installStages = ['Design', 'Install']
+    displayedColumns: string[] = ['projectTypeIcon', 'name', 'projectNbr', 'projectStatus', 'address', 'bidDueDate', 'actions']
+    pageWorking = true
+    errText = ''
+    textFilter = ''
+    currentSortActive = 'name'
+    currentSortDirection: SortDirection = 'asc'
+    pageSize = 25
+    projects: ProjectListItemSchema[] = []
+    datasource = new MatTableDataSource<ProjectListItemSchema>([])
+    private paginator?: MatPaginator
+    private sort?: MatSort
+
+    @ViewChild(MatPaginator)
+    set paginatorRef(value: MatPaginator | undefined) {
+        this.paginator = value
+        this.datasource.paginator = value || null
+        this.applyStoredPageSizeState()
+    }
+
+    @ViewChild(MatSort)
+    set sortRef(value: MatSort | undefined) {
+        this.sort = value
+        this.datasource.sort = value || null
+        this.applyStoredSortState()
+    }
+
+    constructor(private http: HttpClient) {}
+
+    ngOnInit(): void {
+        this.textFilter = this.readStoredFilter()
+        const storedSort = this.readStoredSort()
+        this.currentSortActive = storedSort.active
+        this.currentSortDirection = storedSort.direction
+        this.pageSize = this.readStoredPageSize()
+        this.configureFilterPredicate()
+        this.loadProjects()
+    }
+
+    loadProjects(): void {
+        this.pageWorking = true
+        this.errText = ''
+        this.projects = []
+        this.datasource.data = []
+
+        this.http.get('/api/firewire/projects').subscribe({
+            next: (response: any) => {
+                const rows = Array.isArray(response?.rows) ? response.rows as ProjectListItemSchema[] : []
+                this.projects = rows.filter((row) => !!row.firewireProjectId && this.isInstallStageProject(row))
+                this.datasource.data = this.projects
+                this.applyStoredSortState()
+                this.applyStoredPageSizeState()
+                this.applyStoredFilterState()
+                this.pageWorking = false
+            },
+            error: (err: any) => {
+                this.errText = err?.error?.message || err?.message || 'Unable to load install projects.'
+                this.pageWorking = false
+            }
+        })
+    }
+
+    applyFilter(event: Event): void {
+        this.textFilter = (event.target as HTMLInputElement).value || ''
+        this.datasource.filter = this.textFilter.trim().toLowerCase()
+        this.storeFilter()
+        if (this.datasource.paginator) {
+            this.datasource.paginator.firstPage()
+        }
+    }
+
+    onSortChange(sort: Sort): void {
+        this.currentSortActive = sort.active || 'name'
+        this.currentSortDirection = sort.direction || 'asc'
+        this.storeSort()
+    }
+
+    onPageChange(event: PageEvent): void {
+        this.pageSize = Number(event.pageSize || 25)
+        this.storePageSize()
+    }
+
+    getNoDataRowText(filterValue: string): string {
+        if (this.pageWorking) {
+            return 'Loading install projects...'
+        }
+        if (this.errText) {
+            return this.errText
+        }
+        if (!filterValue) {
+            return 'No projects are currently in Design or Install.'
+        }
+        return `No install projects matching "${filterValue}"`
+    }
+
+    toLocalDateString(input: Date | string | null | undefined): string {
+        if (!input) {
+            return ''
+        }
+
+        const parsed = new Date(input)
+        if (Number.isNaN(parsed.getTime())) {
+            return ''
+        }
+
+        return new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(parsed)
+    }
+
+    getInstallProjectLink(row: ProjectListItemSchema): string[] {
+        return row.firewireProjectId ? ['/install', row.firewireProjectId] : ['/install']
+    }
+
+    getProjectTypeIcon(projectType: ProjectListItemSchema['projectType']): string {
+        switch (projectType) {
+            case 'Sprinkler':
+                return 'water_drop'
+            case 'Security':
+                return 'shield'
+            case 'Fire Alarm':
+            default:
+                return 'local_fire_department'
+        }
+    }
+
+    getProjectTypeIconClass(projectType: ProjectListItemSchema['projectType']): string {
+        switch (projectType) {
+            case 'Sprinkler':
+                return 'install-type-icon install-type-icon--sprinkler'
+            case 'Security':
+                return 'install-type-icon install-type-icon--security'
+            case 'Fire Alarm':
+            default:
+                return 'install-type-icon install-type-icon--fire-alarm'
+        }
+    }
+
+    getStatusClass(row: ProjectListItemSchema): string {
+        return String(row.projectStatus || '').trim() === 'Install'
+            ? 'install-status install-status--install'
+            : 'install-status install-status--design'
+    }
+
+    getFieldwireProjectUrl(row: ProjectListItemSchema): string | null {
+        const fieldwireProjectId = row.fieldwireProjectId || row.fieldwireId
+        return fieldwireProjectId ? `https://app.fieldwire.com/projects/${fieldwireProjectId}` : null
+    }
+
+    private isInstallStageProject(row: ProjectListItemSchema): boolean {
+        const status = String(row.projectStatus || '').trim()
+        return this.installStages.includes(status)
+    }
+
+    private configureFilterPredicate(): void {
+        this.datasource.filterPredicate = (row, rawFilter) => {
+            const filter = rawFilter.trim().toLowerCase()
+            if (!filter) {
+                return true
+            }
+
+            const haystack = [
+                row.name,
+                row.projectNbr,
+                row.projectStatus,
+                row.address,
+                row.projectType,
+                row.salesman,
+                row.jobType,
+                row.scopeType,
+                row.projectScope,
+                row.difficulty
+            ].filter((value) => value !== null && typeof value !== 'undefined').join(' ').toLowerCase()
+
+            return haystack.includes(filter)
+        }
+    }
+
+    private applyStoredFilterState(): void {
+        this.datasource.filter = this.textFilter.trim().toLowerCase()
+    }
+
+    private applyStoredSortState(): void {
+        if (!this.sort) {
+            return
+        }
+        this.sort.active = this.currentSortActive
+        this.sort.direction = this.currentSortDirection
+    }
+
+    private applyStoredPageSizeState(): void {
+        if (this.paginator) {
+            this.paginator.pageSize = this.pageSize
+        }
+    }
+
+    private storeFilter(): void {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.install-projects.filter', this.textFilter)
+        } catch {}
+    }
+
+    private readStoredFilter(): string {
+        if (typeof localStorage === 'undefined') {
+            return ''
+        }
+        try {
+            return localStorage.getItem('firewire.install-projects.filter') || ''
+        } catch {
+            return ''
+        }
+    }
+
+    private storeSort(): void {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.install-projects.sort', JSON.stringify({
+                active: this.currentSortActive,
+                direction: this.currentSortDirection
+            }))
+        } catch {}
+    }
+
+    private readStoredSort(): { active: string, direction: SortDirection } {
+        if (typeof localStorage === 'undefined') {
+            return { active: 'name', direction: 'asc' }
+        }
+        try {
+            const parsed = JSON.parse(localStorage.getItem('firewire.install-projects.sort') || '{}') as { active?: unknown, direction?: unknown }
+            const active = typeof parsed.active === 'string' && parsed.active.trim() ? parsed.active.trim() : 'name'
+            const direction = parsed.direction === 'asc' || parsed.direction === 'desc' ? parsed.direction : 'asc'
+            return { active, direction }
+        } catch {
+            return { active: 'name', direction: 'asc' }
+        }
+    }
+
+    private storePageSize(): void {
+        if (typeof localStorage === 'undefined') {
+            return
+        }
+        try {
+            localStorage.setItem('firewire.install-projects.pageSize', String(this.pageSize))
+        } catch {}
+    }
+
+    private readStoredPageSize(): number {
+        if (typeof localStorage === 'undefined') {
+            return 25
+        }
+        try {
+            const raw = Number(localStorage.getItem('firewire.install-projects.pageSize') || '25')
+            return [5, 10, 25, 100].includes(raw) ? raw : 25
+        } catch {
+            return 25
+        }
+    }
+}

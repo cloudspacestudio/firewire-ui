@@ -30,7 +30,7 @@
         <span>Project Files</span>
         <strong>{{getFolderCount('all')}}</strong>
       </button>
-      @for (folder of allDirectories; track folder) {
+      @for (folder of allDirectories; track folder.id) {
         <button
           type="button"
           class="fw-doc-explorer__tree-item"
@@ -51,7 +51,7 @@
         <div class="fw-doc-explorer__header-main">
           <div class="fw-doc-explorer__eyebrow">Project Files</div>
           <nav class="fw-doc-explorer__breadcrumb" aria-label="Current folder">
-            @for (crumb of breadcrumb; track crumb; let isLast = $last) {
+            @for (crumb of breadcrumb; track crumb.id; let isLast = $last) {
               <button type="button" [disabled]="isLast" (click)="selectFolder(crumb.id)">{{crumb.label}}</button>
               @if (!isLast) {
                 <span>/</span>
@@ -87,7 +87,7 @@
       }
 
       <div class="fw-doc-explorer__items" [ngClass]="'fw-doc-explorer__items--' + viewMode">
-        @for (folder of childDirectories; track folder) {
+        @for (folder of childDirectories; track folder.id) {
           <button
             type="button"
             class="fw-doc-explorer__item fw-doc-explorer__item--folder"
@@ -99,7 +99,7 @@
           </button>
         }
 
-        @for (file of visibleFiles; track file) {
+        @for (file of visibleFiles; track file.id) {
           <article
             class="fw-doc-explorer__item fw-doc-explorer__item--file"
             (contextmenu)="onFileContextMenu($event, file.id)">
@@ -113,6 +113,15 @@
             <div class="fw-doc-explorer__details-cell">{{modifiedAt(file)}}</div>
             <div class="fw-doc-explorer__details-cell">{{modifiedBy(file)}}</div>
             <div class="fw-doc-explorer__actions">
+              <button
+                mat-icon-button
+                type="button"
+                [disabled]="!canInspect(file)"
+                [attr.aria-label]="'Inspect ' + file.name"
+                [matTooltip]="getInspectTooltip(file)"
+                (click)="openInspection(file)">
+                <mat-icon fontIcon="manage_search"></mat-icon>
+              </button>
               <button mat-icon-button type="button" [attr.aria-label]="'Download ' + file.name" (click)="downloadFile.emit(file.id)">
                 <mat-icon fontIcon="download"></mat-icon>
               </button>
@@ -155,6 +164,12 @@
         </button>
       }
       @if (contextMenu.kind === 'file') {
+        @if (getContextFile(); as contextFile) {
+          <button type="button" [disabled]="!canInspect(contextFile)" (click)="openInspection(contextFile); closeContextMenu()">
+            <mat-icon fontIcon="manage_search"></mat-icon>
+            Inspect Findings
+          </button>
+        }
         <button type="button" (click)="downloadFile.emit(getContextFileId()); closeContextMenu()">
           <mat-icon fontIcon="download"></mat-icon>
           Download

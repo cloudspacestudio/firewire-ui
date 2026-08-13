@@ -30,7 +30,7 @@ import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from "../../common/components/firewire-bom-worksheet.component"
 import { FirewireCustomerInfo, FirewireCustomerInfoCardComponent } from "../../common/components/firewire-customer-info-card.component"
-import { FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
+import { DocumentAnalysisProjectUpdateEvent, FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
 import { FirewireFloorplanFolderRenameEvent, FirewireFloorplanMoveEvent, FirewireFloorplansComponent } from "../../common/components/firewire-floorplans.component"
 import { FirewireTakeoffMatrixComponent } from "../../common/components/firewire-takeoff-matrix.component"
 import { FieldwireImportComponent, FieldwireImportDialogData, FieldwireImportDialogResult } from "../../common/components/fieldwire-import.component"
@@ -91,6 +91,17 @@ interface ProjectBomRowPart {
 interface ProjectBomRow {
     id: string
     deviceId?: string | null
+    sourceKind?: string
+    sourceDeviceId?: string | null
+    sourcePartId?: string | null
+    floorplanQuantityTarget?: number | null
+    quantitySource?: string | null
+    floorplanReady?: boolean
+    sourceAnalysisId?: string | null
+    sourceProposalId?: string | null
+    sourceDocumentId?: string | null
+    sourceDocumentVersionId?: string | null
+    sourceFilename?: string | null
     partNbr: string
     description: string
     qty: number
@@ -3206,7 +3217,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
                 const label = String(row.type || '').trim()
-                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                const approvedTarget = Number(row.floorplanQuantityTarget)
+                const qty = row.quantitySource === 'document-analysis' && Number.isFinite(approvedTarget)
+                    ? Math.max(0, Math.trunc(approvedTarget))
+                    : Math.max(0, Math.trunc(Number(row.qty || 0)))
                 if (!label || qty <= 0) {
                     continue
                 }
@@ -3316,7 +3330,10 @@ export class ProjectPage implements OnChanges, OnDestroy {
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
                 const categoryName = this.getFloorplanSymbolCategoryName(row)
-                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                const approvedTarget = Number(row.floorplanQuantityTarget)
+                const qty = row.quantitySource === 'document-analysis' && Number.isFinite(approvedTarget)
+                    ? Math.max(0, Math.trunc(approvedTarget))
+                    : Math.max(0, Math.trunc(Number(row.qty || 0)))
                 if (!row.includeOnFloorplan) {
                     continue
                 }
@@ -3340,6 +3357,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
                 bySymbol.set(id, {
                     id,
                     bomRowId: row.id,
+                    quantitySource: row.quantitySource || undefined,
+                    floorplanQuantityTarget: Number.isFinite(approvedTarget) ? Math.max(0, Math.trunc(approvedTarget)) : undefined,
                     deviceId: String(row.deviceId || '').trim() || undefined,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
                     floorplanLabelText: this.getBomRowFloorplanLabelText(row, categoryName, deviceName),
@@ -3392,6 +3411,8 @@ export class ProjectPage implements OnChanges, OnDestroy {
             const symbol = inventory.get(symbolId)
             if (!symbol) {
                 errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
+            } else if (symbol.quantitySource === 'document-analysis' && placedQty > symbol.totalQty) {
+                errors.push(`${symbol.label} has ${placedQty} placements but its approved document target is ${symbol.totalQty}. Remove the extra placements or explicitly revise the BOM target.`)
             }
         }
         return errors
@@ -3407,6 +3428,11 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     continue
                 }
                 const symbolId = this.getFloorplanSymbolIdForBomRow(row)
+                if (row.quantitySource === 'document-analysis' && Number.isFinite(Number(row.floorplanQuantityTarget))) {
+                    row.qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                    synchronized.add(symbolId)
+                    continue
+                }
                 row.qty = synchronized.has(symbolId) ? 0 : (placedCounts.get(symbolId) || 0)
                 synchronized.add(symbolId)
             }
@@ -4271,6 +4297,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         return {
             id: this.createClientId(),
             deviceId: null,
+            sourceKind: 'freeform',
+            floorplanQuantityTarget: null,
+            quantitySource: 'manual',
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -4308,6 +4337,17 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                     return {
                         id: String(row?.id || this.createClientId()),
                         deviceId: String(row?.deviceId || '').trim() || null,
+                        sourceKind: String(row?.sourceKind || '').trim() || undefined,
+                        sourceDeviceId: String(row?.sourceDeviceId || '').trim() || null,
+                        sourcePartId: String(row?.sourcePartId || '').trim() || null,
+                        floorplanQuantityTarget: Number.isFinite(Number(row?.floorplanQuantityTarget)) ? Math.max(0, Math.trunc(Number(row.floorplanQuantityTarget))) : null,
+                        quantitySource: String(row?.quantitySource || '').trim() || null,
+                        floorplanReady: !!row?.floorplanReady,
+                        sourceAnalysisId: String(row?.sourceAnalysisId || '').trim() || null,
+                        sourceProposalId: String(row?.sourceProposalId || '').trim() || null,
+                        sourceDocumentId: String(row?.sourceDocumentId || '').trim() || null,
+                        sourceDocumentVersionId: String(row?.sourceDocumentVersionId || '').trim() || null,
+                        sourceFilename: String(row?.sourceFilename || '').trim() || null,
                         partNbr: String(row?.partNbr || '').trim(),
                         lookupQuery: String(row?.partNbr || '').trim(),
                         description: this.getBomDescriptionWithParts(String(row?.description || '').trim(), bomRowParts),
@@ -4342,6 +4382,17 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             rows: (section.rows || []).map((row) => ({
                 id: String(row.id || this.createClientId()),
                 deviceId: String(row.deviceId || '').trim() || null,
+                sourceKind: row.sourceKind,
+                sourceDeviceId: row.sourceDeviceId || null,
+                sourcePartId: row.sourcePartId || null,
+                floorplanQuantityTarget: Number.isFinite(Number(row.floorplanQuantityTarget)) ? Math.max(0, Math.trunc(Number(row.floorplanQuantityTarget))) : null,
+                quantitySource: row.quantitySource || null,
+                floorplanReady: !!row.floorplanReady,
+                sourceAnalysisId: row.sourceAnalysisId || null,
+                sourceProposalId: row.sourceProposalId || null,
+                sourceDocumentId: row.sourceDocumentId || null,
+                sourceDocumentVersionId: row.sourceDocumentVersionId || null,
+                sourceFilename: row.sourceFilename || null,
                 partNbr: String(row.partNbr || '').trim(),
                 description: this.getBomDescriptionWithParts(String(row.description || '').trim(), row.bomRowParts || []),
                 qty: Number(row.qty || 0),
@@ -5214,11 +5265,70 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 this.ensureValidWorkspaceTabRoute()
                 this.pageWorking = false
             },
-            error: (err: Error) => {
+            error: (err: any) => {
                 console.dir(err)
+                this.clearStaleLinkedFieldwireProject(err)
                 this.pageWorking = false
             }
         })
+    }
+
+    onDocumentAnalysisProjectUpdated(event: DocumentAnalysisProjectUpdateEvent): void {
+        const hadUnsavedChanges = this.isProjectDirty
+        if (!hadUnsavedChanges) {
+            this.applyFirewireProject(event.project)
+            this.applyWorksheetState(event.project.worksheetData)
+            this.captureInitialProjectState()
+            this.firewireSaveMessage = 'Approved document actions applied to the project.'
+            return
+        }
+
+        this.firewireProject = { ...event.project }
+        if (event.targetFields.includes('worksheetData.bomSections')) {
+            this.mergeDocumentAnalysisBomRows(event.project.worksheetData?.bomSections)
+        }
+        for (const targetField of event.targetFields) {
+            if (targetField.startsWith('customerInfo.')) {
+                const customerField = targetField.slice('customerInfo.'.length) as keyof ProjectCustomerInfo
+                this.customerInfo[customerField] = String(event.project.worksheetData?.customerInfo?.[customerField] || '')
+                continue
+            }
+            switch (targetField) {
+                case 'name': this.firewireForm.name = event.project.name; break
+                case 'projectNbr': this.firewireForm.projectNbr = event.project.projectNbr; break
+                case 'address': this.firewireForm.address = event.project.address; break
+                case 'bidDueDate':
+                    this.firewireForm.bidDueDate = this.toDateInputValue(event.project.bidDueDate)
+                    this.firewireBidDueDate = this.parseDateOnlyValue(this.firewireForm.bidDueDate)
+                    break
+                case 'projectType': this.firewireForm.projectType = event.project.projectType; break
+                case 'jobType': this.firewireForm.jobType = event.project.jobType; break
+                case 'scopeType': this.firewireForm.scopeType = event.project.scopeType; break
+                case 'projectScope': this.firewireForm.projectScope = event.project.projectScope; break
+                case 'totalSqFt': this.firewireForm.totalSqFt = event.project.totalSqFt; break
+            }
+        }
+        this.firewireSaveMessage = 'Approved document actions applied. Other unsaved project edits were preserved.'
+    }
+
+    private mergeDocumentAnalysisBomRows(input: unknown): void {
+        const incomingSections = this.normalizeBomSections(input)
+        const existingKeys = new Set(this.bomSections.flatMap((section) => section.rows || []).map((row) =>
+            `${row.sourceAnalysisId || ''}:${row.sourceProposalId || row.id}`))
+        for (const incoming of incomingSections) {
+            const rows = (incoming.rows || []).filter((row) => row.sourceAnalysisId && row.sourceProposalId)
+                .filter((row) => !existingKeys.has(`${row.sourceAnalysisId}:${row.sourceProposalId}`))
+            if (rows.length === 0) continue
+            let target = this.bomSections.find((section) => section.sectionKey === incoming.sectionKey)
+            if (!target) {
+                target = { ...incoming, rows: [] }
+                this.bomSections = [...this.bomSections, target]
+            }
+            target.rows = [...target.rows, ...rows]
+            rows.forEach((row) => existingKeys.add(`${row.sourceAnalysisId}:${row.sourceProposalId}`))
+        }
+        this.bomSections = [...this.bomSections]
+        this.refreshTakeoffColumnDefinitions()
     }
 
     private loadFirewireProject() {
@@ -5548,11 +5658,50 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 this.ensureValidWorkspaceTabRoute()
                 this.pageWorking = false
             },
-            error: (err: Error) => {
+            error: (err: any) => {
                 console.dir(err)
+                this.clearStaleLinkedFieldwireProject(err)
                 this.pageWorking = false
             }
         })
+    }
+
+    private clearStaleLinkedFieldwireProject(err: any): void {
+        if (!this.firewireProject?.uuid || !this.isFieldwireProjectNotFoundError(err)) {
+            return
+        }
+
+        this.http.patch<{ data?: FirewireProjectSchema }>(`/api/firewire/projects/firewire/${this.firewireProject.uuid}/fieldwire-map`, {
+            fieldwireId: null
+        }).subscribe({
+            next: (response) => {
+                if (response?.data) {
+                    this.applyFirewireProject(response.data)
+                    this.captureInitialProjectState()
+                } else if (this.firewireProject) {
+                    this.firewireProject = {
+                        ...this.firewireProject,
+                        fieldwireId: null
+                    }
+                    this.firewireForm.fieldwireId = null
+                    this.captureInitialProjectState()
+                }
+                this.fieldwireProjectId = null
+                this.project = undefined
+                this.firewireSaveMessage = 'The linked Fieldwire project was not found, so the Fieldwire link was cleared.'
+                this.ensureValidWorkspaceTabRoute()
+            },
+            error: (clearErr) => {
+                console.error(clearErr)
+                this.firewireSaveMessage = 'The linked Fieldwire project was not found. Unable to clear the stale Fieldwire link automatically.'
+            }
+        })
+    }
+
+    private isFieldwireProjectNotFoundError(err: any): boolean {
+        const status = Number(err?.status || 0)
+        const message = String(err?.error?.message || err?.message || '')
+        return status === 500 && /404:\s*not found|entity not found/i.test(message)
     }
 
     private getFieldwireProjectId(): string | null {

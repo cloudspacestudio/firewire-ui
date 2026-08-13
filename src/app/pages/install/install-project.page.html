@@ -1,0 +1,136 @@
+<page-toolbar title="INSTALL DETAILS">
+  <div class="button-bar">
+    <button mat-fab class="back" [routerLink]="'/install'">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+  </div>
+  @if (project) {
+    <div class="install-project-toolbar-actions">
+      @if (getFieldwireProjectUrl(); as fieldwireProjectUrl) {
+        <a mat-stroked-button [href]="fieldwireProjectUrl" target="_blank" rel="noopener noreferrer">
+          <mat-icon fontIcon="open_in_new"></mat-icon>
+          Fieldwire
+        </a>
+      }
+      <a mat-stroked-button [routerLink]="getEstimateWorkspaceLink()" [queryParams]="{ returnTo: '/install/' + project.uuid }">
+        <mat-icon fontIcon="tune"></mat-icon>
+        Estimate Details
+      </a>
+    </div>
+  }
+</page-toolbar>
+
+<div class="page-root">
+  <div class="page-content">
+    <div class="content-root">
+      @if (pageWorking) {
+        <div class="install-project-state">
+          Loading project details...
+        </div>
+      }
+
+      @if (!pageWorking && errText) {
+        <div class="install-project-state install-project-state--error">
+          {{errText}}
+        </div>
+      }
+
+      @if (!pageWorking && project) {
+        <section class="install-project-shell">
+          <div class="install-project-hero">
+            <div>
+              <div class="install-project-kicker">Details</div>
+              <h1>{{getProjectTitle()}}</h1>
+              <p>{{project.address || 'Address unavailable'}}</p>
+            </div>
+            <div class="install-project-badges">
+              <span [class]="getStatusClass()">{{project.projectStatus || 'Status Pending'}}</span>
+              @if (project.projectNbr) {
+                <span>#{{project.projectNbr}}</span>
+              }
+              @if (project.projectType) {
+                <span>{{project.projectType}}</span>
+              }
+            </div>
+          </div>
+
+          <section class="install-project-details-panel">
+            <div class="install-project-panel-heading">
+              <div class="install-project-kicker">Project Snapshot</div>
+              <h2>Details</h2>
+            </div>
+            <div class="install-project-detail-grid">
+              @for (item of getProjectDetails(); track item.label) {
+                <div class="install-project-detail">
+                  <span>{{item.label}}</span>
+                  <strong>{{item.value}}</strong>
+                </div>
+              }
+            </div>
+          </section>
+
+          <section class="install-project-status-panel">
+            <div class="install-project-panel-heading install-project-status-heading">
+              <div>
+                <div class="install-project-kicker">Fieldwire Activity</div>
+                <h2>Task Status Changes</h2>
+                <p>Tasks from the linked Fieldwire project that moved into a project status during the selected recent activity window.</p>
+              </div>
+              <span>{{statusChangesWindowLabel}}</span>
+            </div>
+
+            <div
+              class="install-project-status-summary"
+              [class.install-project-status-summary--error]="!!statusChangesError">
+              {{getStatusChangeSummary()}}
+            </div>
+
+            @if (project.fieldwireId && statusChanges.length > 0) {
+              <table
+                class="install-project-status-table"
+                mat-table
+                [dataSource]="statusChanges">
+                <ng-container matColumnDef="statusChangedAt">
+                  <th mat-header-cell *matHeaderCellDef>Status Changed</th>
+                  <td mat-cell *matCellDef="let row">{{toLocalDateTimeString(row.statusChangedAt) || 'Unavailable'}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="statusName">
+                  <th mat-header-cell *matHeaderCellDef>New Status</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span class="install-project-fieldwire-status">{{row.statusName || 'Status Pending'}}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="taskName">
+                  <th mat-header-cell *matHeaderCellDef>Task</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span class="install-project-task-name">{{row.taskName || row.taskId}}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="sequenceNumber">
+                  <th mat-header-cell *matHeaderCellDef>Task #</th>
+                  <td mat-cell *matCellDef="let row">{{row.sequenceNumber || ''}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="priority">
+                  <th mat-header-cell *matHeaderCellDef>Priority</th>
+                  <td mat-cell *matCellDef="let row">{{row.priority || ''}}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="taskUpdatedAt">
+                  <th mat-header-cell *matHeaderCellDef>Task Updated</th>
+                  <td mat-cell *matCellDef="let row">{{toLocalDateTimeString(row.taskUpdatedAt) || 'Unavailable'}}</td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="statusChangeColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: statusChangeColumns;"></tr>
+              </table>
+            }
+          </section>
+        </section>
+      }
+    </div>
+  </div>
+</div>

@@ -1,0 +1,212 @@
+:host {
+    display: block;
+}
+
+.install-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.install-filter-field {
+    flex: 0 0 320px;
+    width: 320px;
+}
+
+.install-stage-note {
+    color: rgba(191, 214, 228, 0.78);
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.install-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    margin-bottom: 14px;
+    padding: 18px 20px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.08), rgba(255, 164, 61, 0.06)),
+        rgba(8, 14, 25, 0.78);
+}
+
+.install-eyebrow,
+.install-hero__meta span {
+    color: #84ffbe;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.install-hero h1 {
+    margin: 6px 0 0;
+    color: #edf8ff;
+    font-size: clamp(1.2rem, 2vw, 1.7rem);
+    letter-spacing: 0;
+}
+
+.install-hero__meta {
+    display: grid;
+    align-content: start;
+    justify-items: end;
+    gap: 6px;
+    min-width: 90px;
+}
+
+.install-hero__meta strong {
+    color: #fff2de;
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.install-state {
+    margin-bottom: 14px;
+    border: 1px solid rgba(72, 221, 255, 0.22);
+    border-radius: 8px;
+    padding: 18px;
+    color: #cfe8f5;
+    background: rgba(7, 15, 25, 0.78);
+}
+
+.install-state--error {
+    border-color: rgba(255, 177, 128, 0.44);
+    color: #ffd6b5;
+}
+
+.install-table {
+    min-width: 920px;
+}
+
+.install-type-column {
+    width: 56px;
+}
+
+.install-actions-column {
+    width: 150px;
+}
+
+.install-project-link {
+    color: #7bc8ff;
+    text-decoration: underline;
+    text-decoration-color: rgba(123, 200, 255, 0.72);
+    text-underline-offset: 2px;
+}
+
+.install-project-link:hover {
+    color: #b8e6ff;
+}
+
+.install-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(8, 18, 30, 0.72);
+    color: #f1fbff;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.install-status--design {
+    border-color: rgba(162, 132, 255, 0.34);
+    color: #d8ccff;
+}
+
+.install-status--install {
+    border-color: rgba(255, 164, 61, 0.38);
+    color: #ffd8a3;
+}
+
+.install-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.install-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #9cd9ff;
+    text-decoration: none;
+    font-size: 0.92rem;
+    white-space: nowrap;
+}
+
+.install-action-link:hover {
+    color: #d3efff;
+}
+
+.install-action-link mat-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
+}
+
+.fieldwire-link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    padding: 0;
+    line-height: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.fieldwire-link-button img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.install-type-icon {
+    font-size: 1.2rem;
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+.install-type-icon--fire-alarm {
+    color: #ff8d5a;
+}
+
+.install-type-icon--sprinkler {
+    color: #73d4ff;
+}
+
+.install-type-icon--security {
+    color: #bdd18c;
+}
+
+@media (max-width: 900px) {
+    .install-actions {
+        flex-wrap: wrap;
+    }
+
+    .install-filter-field {
+        flex: 1 1 240px;
+        width: 100%;
+    }
+
+    .install-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .install-hero__meta {
+        justify-items: start;
+    }
+}

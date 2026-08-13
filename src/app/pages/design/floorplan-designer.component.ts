@@ -32,6 +32,8 @@ export interface FloorplanDesignerVersionRequest {
 export interface FloorplanDesignerSymbolOption {
     id: string
     bomRowId?: string
+    quantitySource?: string
+    floorplanQuantityTarget?: number
     code: string
     label: string
     color: string
@@ -601,7 +603,10 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     }
 
     getSymbolPlacedText(symbol: FloorplanDesignerSymbolOption): string {
-        return `${this.getCurrentSymbolCount(symbol.id)} placed`
+        const placed = this.getCurrentSymbolCount(symbol.id)
+        return symbol.quantitySource === 'document-analysis'
+            ? `${placed} of ${symbol.totalQty} target placed`
+            : `${placed} placed`
     }
 
     getSymbolPrimaryText(symbol: FloorplanDesignerSymbolOption): string {
@@ -1517,6 +1522,12 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
             this.statusText = 'No BOM symbols are available to place.'
             return
         }
+        if (this.tool === 'symbol'
+            && this.selectedSymbol?.quantitySource === 'document-analysis'
+            && this.getSymbolRemaining(this.selectedSymbol) <= 0) {
+            this.statusText = `The approved placement target of ${this.selectedSymbol.totalQty} has been reached. Remove an existing symbol before placing another.`
+            return
+        }
         if (this.tool === 'circuit') {
             this.statusText = 'Select a symbol or joint to add it to the circuit.'
             return
@@ -1531,7 +1542,9 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
             this.selectedAnnotation = undefined
             this.selectedCircuitSegmentId = ''
             this.statusText = this.selectedSymbol
-                ? `${this.selectedSymbol.label} placed. BOM quantity will update when the design is saved.`
+                ? this.selectedSymbol.quantitySource === 'document-analysis'
+                    ? `${this.selectedSymbol.label} placed. The approved BOM quantity remains ${this.selectedSymbol.totalQty}.`
+                    : `${this.selectedSymbol.label} placed. BOM quantity will update when the design is saved.`
                 : 'Symbol placed.'
             return
         }

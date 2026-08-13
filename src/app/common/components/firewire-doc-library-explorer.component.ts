@@ -3,7 +3,9 @@ import { Component, EventEmitter, HostListener, Input, OnInit, Output, ChangeDet
 import { RouterLink } from '@angular/router'
 
 import { MatButtonModule } from '@angular/material/button'
+import { MatDialog } from '@angular/material/dialog'
 import { MatIconModule } from '@angular/material/icon'
+import { MatTooltipModule } from '@angular/material/tooltip'
 
 import {
     ProjectDocLibraryDirectoryRecord,
@@ -11,6 +13,16 @@ import {
     ProjectDocLibraryFileVersionRecord,
     ProjectDocLibraryStorageService
 } from '../services/project-doc-library-storage.service'
+import {
+    FirewireDocumentAnalysisDialog,
+    FirewireDocumentAnalysisDialogData
+} from './firewire-document-analysis.dialog'
+import { FirewireProjectSchema } from '../../schemas/firewire-project.schema'
+
+export interface DocumentAnalysisProjectUpdateEvent {
+    project: FirewireProjectSchema
+    targetFields: string[]
+}
 
 type DocLibraryViewMode = 'tiles' | 'icons' | 'list' | 'details'
 type ContextMenuState =
@@ -28,7 +40,7 @@ interface ExplorerDirectory {
 @Component({
     standalone: true,
     selector: 'firewire-doc-library-explorer',
-    imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule],
+    imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatTooltipModule],
     templateUrl: './firewire-doc-library-explorer.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-doc-library-explorer.component.scss']
@@ -38,6 +50,7 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
     private readonly viewModeStorageKey = 'firewire.docLibrary.viewMode'
 
     @Input() projectKey = 'UNASSIGNED'
+    @Input() analysisProjectId = ''
     @Input() files: ProjectDocLibraryFileRecord[] = []
     @Input() directories: ProjectDocLibraryDirectoryRecord[] = []
     @Input() selectedFolder = this.rootFolderId
@@ -55,11 +68,15 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
     @Output() createDirectory = new EventEmitter<string>()
     @Output() renameDirectory = new EventEmitter<string>()
     @Output() deleteDirectory = new EventEmitter<string>()
+    @Output() projectUpdated = new EventEmitter<DocumentAnalysisProjectUpdateEvent>()
 
     viewMode: DocLibraryViewMode = 'details'
     contextMenu: ContextMenuState = null
 
-    constructor(private readonly storage: ProjectDocLibraryStorageService) {}
+    constructor(
+        private readonly storage: ProjectDocLibraryStorageService,
+        private readonly dialog: MatDialog
+    ) {}
 
     ngOnInit(): void {
         const stored = localStorage.getItem(this.viewModeStorageKey)
@@ -230,6 +247,63 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
         return this.storage.isDrawing(file)
             && String(version?.mimeType || '').toLowerCase().startsWith('image/')
             && !!(version?.dataUrl || version?.contentUrl)
+    }
+
+    canInspect(file: ProjectDocLibraryFileRecord): boolean {
+        const version = this.latestVersion(file)
+        if (!this.analysisProjectId || !version || Number(version.sizeBytes || 0) >= 50 * 1024 * 1024) {
+            return false
+        }
+        return ['csv', 'doc', 'docx', 'md', 'pdf', 'ppt', 'pptx', 'tsv', 'txt', 'xls', 'xlsx']
+            .includes(this.extensionLabel(file).toLowerCase())
+    }
+
+    getInspectTooltip(file: ProjectDocLibraryFileRecord): string {
+        if (!this.analysisProjectId) {
+            return 'AI inspection requires a saved Firewire project.'
+        }
+        if (Number(this.latestVersion(file)?.sizeBytes || 0) >= 50 * 1024 * 1024) {
+            return 'Direct AI inspection supports documents under 50 MB.'
+        }
+        if (!this.canInspect(file)) {
+            return 'This file type is not supported by document inspection yet.'
+        }
+        return 'Inspect document findings with AI'
+    }
+
+    openInspection(file: ProjectDocLibraryFileRecord): void {
+        if (!this.canInspect(file)) {
+            return
+        }
+        const version = this.latestVersion(file)
+        if (!version) {
+            return
+        }
+        const activeElement = document.activeElement
+        if (activeElement instanceof HTMLElement) {
+            activeElement.blur()
+        }
+        this.dialog.open(FirewireDocumentAnalysisDialog, {
+            panelClass: ['fw-fit-content-dialog-pane', 'fw-document-analysis-dialog-pane'],
+            maxWidth: '96vw',
+            disableClose: true,
+            closeOnNavigation: false,
+            data: {
+                projectId: this.analysisProjectId,
+                workspaceKey: file.storageKey || this.projectKey,
+                fileId: file.id,
+                versionId: version.id,
+                sourceFilename: version.sourceFileName || file.sourceFileName || file.name,
+                onProjectUpdated: (project: FirewireProjectSchema, targetFields: string[]) => {
+                    this.projectUpdated.emit({ project, targetFields })
+                }
+            } as FirewireDocumentAnalysisDialogData
+        })
+    }
+
+    getContextFile(): ProjectDocLibraryFileRecord | undefined {
+        const fileId = this.getContextFileId()
+        return fileId ? this.files.find((file) => file.id === fileId) : undefined
     }
 
     getMarkupQueryParams(file: ProjectDocLibraryFileRecord): Record<string, string> {

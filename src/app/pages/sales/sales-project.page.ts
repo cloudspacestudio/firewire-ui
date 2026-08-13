@@ -16,7 +16,7 @@ import { MatSelectModule } from '@angular/material/select'
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from '../../common/components/firewire-bom-worksheet.component'
 import { FirewireCustomerInfo, FirewireCustomerInfoCardComponent } from '../../common/components/firewire-customer-info-card.component'
-import { FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
+import { DocumentAnalysisProjectUpdateEvent, FirewireDocLibraryExplorerComponent } from '../../common/components/firewire-doc-library-explorer.component'
 import { FirewireEstimateSummaryComponent, FirewireEstimateSummaryModel } from '../../common/components/firewire-estimate-summary.component'
 import { FirewireFloorplanFolderRenameEvent, FirewireFloorplanMoveEvent, FirewireFloorplansComponent } from '../../common/components/firewire-floorplans.component'
 import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
@@ -65,6 +65,17 @@ interface SalesBomRowPart {
 interface SalesBomRow {
     id: string
     deviceId?: string | null
+    sourceKind?: string
+    sourceDeviceId?: string | null
+    sourcePartId?: string | null
+    floorplanQuantityTarget?: number | null
+    quantitySource?: string | null
+    floorplanReady?: boolean
+    sourceAnalysisId?: string | null
+    sourceProposalId?: string | null
+    sourceDocumentId?: string | null
+    sourceDocumentVersionId?: string | null
+    sourceFilename?: string | null
     partNbr: string
     description: string
     qty: number
@@ -356,6 +367,63 @@ export class SalesProjectPage {
         })
     }
 
+    onDocumentAnalysisProjectUpdated(event: DocumentAnalysisProjectUpdateEvent): void {
+        const hadUnsavedChanges = this.isProjectDirty || this.isCustomerInfoDirty || this.isBomDirty
+        this.project = { ...event.project }
+        if (!hadUnsavedChanges) {
+            this.projectForm = this.buildForm(event.project)
+            this.customerInfo = this.buildCustomerInfo(event.project)
+            this.floorplanFolders = this.normalizeFloorplanFolders(event.project.worksheetData?.floorplanFolders)
+            this.bomSections = this.cloneBomSections(event.project.worksheetData?.bomSections)
+            this.captureInitialFormState()
+            this.captureInitialCustomerInfoState()
+            this.captureInitialBomState()
+            this.saveMessage = 'Approved document actions applied to the project.'
+            return
+        }
+
+        if (event.targetFields.includes('worksheetData.bomSections')) {
+            this.mergeDocumentAnalysisBomRows(event.project.worksheetData?.bomSections)
+        }
+        for (const targetField of event.targetFields) {
+            if (targetField.startsWith('customerInfo.')) {
+                const customerField = targetField.slice('customerInfo.'.length) as keyof SalesCustomerInfo
+                this.customerInfo[customerField] = String(event.project.worksheetData?.customerInfo?.[customerField] || '')
+                continue
+            }
+            switch (targetField) {
+                case 'name': this.projectForm.name = event.project.name; break
+                case 'address': this.projectForm.address = event.project.address; break
+                case 'bidDueDate': this.projectForm.bidDueDate = event.project.bidDueDate; break
+                case 'projectType': this.projectForm.projectType = event.project.projectType; break
+                case 'jobType': this.projectForm.jobType = event.project.jobType; break
+                case 'scopeType': this.projectForm.scopeType = event.project.scopeType; break
+                case 'projectScope': this.projectForm.projectScope = event.project.projectScope; break
+                case 'totalSqFt': this.projectForm.totalSqFt = event.project.totalSqFt; break
+            }
+        }
+        this.saveMessage = 'Approved document actions applied. Other unsaved project edits were preserved.'
+    }
+
+    private mergeDocumentAnalysisBomRows(input: unknown): void {
+        const incomingSections = this.cloneBomSections(input)
+        const existingKeys = new Set(this.bomSections.flatMap((section) => section.rows || []).map((row) =>
+            `${row.sourceAnalysisId || ''}:${row.sourceProposalId || row.id}`))
+        for (const incoming of incomingSections) {
+            const rows = (incoming.rows || []).filter((row) => row.sourceAnalysisId && row.sourceProposalId)
+                .filter((row) => !existingKeys.has(`${row.sourceAnalysisId}:${row.sourceProposalId}`))
+            if (rows.length === 0) continue
+            let target = this.bomSections.find((section) => section.sectionKey === incoming.sectionKey)
+            if (!target) {
+                target = { ...incoming, rows: [] }
+                this.bomSections = [...this.bomSections, target]
+            }
+            target.rows = [...target.rows, ...rows]
+            rows.forEach((row) => existingKeys.add(`${row.sourceAnalysisId}:${row.sourceProposalId}`))
+        }
+        this.bomSections = [...this.bomSections]
+    }
+
     async saveBom(): Promise<void> {
         if (!this.projectId || !this.project) {
             return
@@ -618,7 +686,10 @@ export class SalesProjectPage {
         for (const section of this.bomSections) {
             for (const row of section.rows || []) {
                 const categoryName = this.getFloorplanSymbolCategoryName(row)
-                const qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                const approvedTarget = Number(row.floorplanQuantityTarget)
+                const qty = row.quantitySource === 'document-analysis' && Number.isFinite(approvedTarget)
+                    ? Math.max(0, Math.trunc(approvedTarget))
+                    : Math.max(0, Math.trunc(Number(row.qty || 0)))
                 if (!row.includeOnFloorplan) {
                     continue
                 }
@@ -642,6 +713,8 @@ export class SalesProjectPage {
                 bySymbol.set(id, {
                     id,
                     bomRowId: row.id,
+                    quantitySource: row.quantitySource || undefined,
+                    floorplanQuantityTarget: Number.isFinite(approvedTarget) ? Math.max(0, Math.trunc(approvedTarget)) : undefined,
                     deviceId: String(row.deviceId || '').trim() || undefined,
                     code: this.createFloorplanSymbolCode(categoryName, deviceName),
                     floorplanLabelText: this.getBomRowFloorplanLabelText(row, categoryName, deviceName),
@@ -694,6 +767,8 @@ export class SalesProjectPage {
             const symbol = inventory.get(symbolId)
             if (!symbol) {
                 errors.push(`A placed symbol no longer exists on the BOM. Remove ${placedQty} orphaned placement${placedQty === 1 ? '' : 's'} from the floorplans.`)
+            } else if (symbol.quantitySource === 'document-analysis' && placedQty > symbol.totalQty) {
+                errors.push(`${symbol.label} has ${placedQty} placements but its approved document target is ${symbol.totalQty}. Remove the extra placements or explicitly revise the BOM target.`)
             }
         }
         return errors
@@ -709,6 +784,11 @@ export class SalesProjectPage {
                     continue
                 }
                 const symbolId = this.getFloorplanSymbolIdForBomRow(row)
+                if (row.quantitySource === 'document-analysis' && Number.isFinite(Number(row.floorplanQuantityTarget))) {
+                    row.qty = Math.max(0, Math.trunc(Number(row.qty || 0)))
+                    synchronized.add(symbolId)
+                    continue
+                }
                 row.qty = synchronized.has(symbolId) ? 0 : (placedCounts.get(symbolId) || 0)
                 synchronized.add(symbolId)
             }
@@ -2512,6 +2592,17 @@ export class SalesProjectPage {
                     return {
                         id: String(row?.id || this.createClientId()),
                         deviceId: String(row?.deviceId || '').trim() || null,
+                        sourceKind: String(row?.sourceKind || '').trim() || undefined,
+                        sourceDeviceId: String(row?.sourceDeviceId || '').trim() || null,
+                        sourcePartId: String(row?.sourcePartId || '').trim() || null,
+                        floorplanQuantityTarget: Number.isFinite(Number(row?.floorplanQuantityTarget)) ? Math.max(0, Math.trunc(Number(row.floorplanQuantityTarget))) : null,
+                        quantitySource: String(row?.quantitySource || '').trim() || null,
+                        floorplanReady: !!row?.floorplanReady,
+                        sourceAnalysisId: String(row?.sourceAnalysisId || '').trim() || null,
+                        sourceProposalId: String(row?.sourceProposalId || '').trim() || null,
+                        sourceDocumentId: String(row?.sourceDocumentId || '').trim() || null,
+                        sourceDocumentVersionId: String(row?.sourceDocumentVersionId || '').trim() || null,
+                        sourceFilename: String(row?.sourceFilename || '').trim() || null,
                         partNbr: String(row?.partNbr || '').trim(),
                         lookupQuery: String(row?.partNbr || '').trim(),
                         description: this.getBomDescriptionWithParts(String(row?.description || '').trim(), bomRowParts),
@@ -2540,6 +2631,9 @@ export class SalesProjectPage {
         return {
             id: this.createClientId(),
             deviceId: null,
+            sourceKind: 'freeform',
+            floorplanQuantityTarget: null,
+            quantitySource: 'manual',
             partNbr: '',
             lookupQuery: '',
             description: '',
@@ -2571,6 +2665,17 @@ export class SalesProjectPage {
             rows: (section.rows || []).map((row) => ({
                 id: String(row.id || this.createClientId()),
                 deviceId: String(row.deviceId || '').trim() || null,
+                sourceKind: row.sourceKind,
+                sourceDeviceId: row.sourceDeviceId || null,
+                sourcePartId: row.sourcePartId || null,
+                floorplanQuantityTarget: Number.isFinite(Number(row.floorplanQuantityTarget)) ? Math.max(0, Math.trunc(Number(row.floorplanQuantityTarget))) : null,
+                quantitySource: row.quantitySource || null,
+                floorplanReady: !!row.floorplanReady,
+                sourceAnalysisId: row.sourceAnalysisId || null,
+                sourceProposalId: row.sourceProposalId || null,
+                sourceDocumentId: row.sourceDocumentId || null,
+                sourceDocumentVersionId: row.sourceDocumentVersionId || null,
+                sourceFilename: row.sourceFilename || null,
                 partNbr: String(row.partNbr || '').trim(),
                 description: this.getBomDescriptionWithParts(String(row.description || '').trim(), row.bomRowParts || []),
                 qty: Number(row.qty || 0),

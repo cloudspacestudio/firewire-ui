@@ -231,6 +231,7 @@
                       (change)="onDocLibraryFileSelected($event)" />
                     <firewire-doc-library-explorer
                       [projectKey]="project.uuid"
+                      [analysisProjectId]="project.uuid"
                       [files]="docLibraryFiles"
                       [directories]="docLibraryDirectories"
                       [selectedFolder]="selectedDocLibraryFolder"
@@ -242,6 +243,7 @@
                       (deleteFile)="deleteDocLibraryFile($event)"
                       (createDirectory)="createDocLibraryDirectory($event)"
                       (renameDirectory)="renameDocLibraryDirectory($event)"
+                      (projectUpdated)="onDocumentAnalysisProjectUpdated($event)"
                       (deleteDirectory)="deleteDocLibraryDirectory($event)">
                     </firewire-doc-library-explorer>
                   </div>

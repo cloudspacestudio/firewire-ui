@@ -1,0 +1,241 @@
+:host {
+    display: block;
+}
+
+.install-project-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.install-project-toolbar-actions a {
+    min-height: 38px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.install-project-toolbar-actions mat-icon {
+    margin-right: 6px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+.install-project-state {
+    padding: 18px;
+    border: 1px solid rgba(72, 221, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(8, 14, 25, 0.76);
+    color: #d9eff9;
+}
+
+.install-project-state--error {
+    border-color: rgba(255, 164, 61, 0.34);
+    color: #ffd6b5;
+}
+
+.install-project-shell {
+    display: grid;
+    gap: 18px;
+}
+
+.install-project-hero,
+.install-project-details-panel {
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.08), rgba(255, 164, 61, 0.06)),
+        rgba(8, 14, 25, 0.8);
+}
+
+.install-project-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    padding: 20px 22px;
+}
+
+.install-project-kicker,
+.install-project-detail span {
+    color: #84ffbe;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.install-project-hero h1 {
+    margin: 8px 0 0;
+    color: #edf8ff;
+    font-size: clamp(1.35rem, 2.2vw, 2rem);
+    letter-spacing: 0;
+}
+
+.install-project-hero p {
+    margin: 10px 0 0;
+    color: rgba(223, 239, 248, 0.8);
+    line-height: 1.45;
+}
+
+.install-project-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-content: start;
+    justify-content: flex-end;
+}
+
+.install-project-badges span,
+.install-project-status {
+    padding: 7px 10px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 999px;
+    background: rgba(8, 18, 30, 0.72);
+    color: #f1fbff;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.install-project-status--design {
+    border-color: rgba(162, 132, 255, 0.34);
+    color: #d8ccff;
+}
+
+.install-project-status--install {
+    border-color: rgba(255, 164, 61, 0.38);
+    color: #ffd8a3;
+}
+
+.install-project-details-panel {
+    display: grid;
+    gap: 14px;
+    padding: 20px 22px;
+}
+
+.install-project-status-panel {
+    display: grid;
+    gap: 14px;
+    padding: 20px 22px;
+    border: 1px solid rgba(72, 221, 255, 0.14);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(72, 221, 255, 0.06), rgba(132, 255, 190, 0.04)),
+        rgba(8, 14, 25, 0.8);
+}
+
+.install-project-panel-heading h2 {
+    margin: 6px 0 0;
+    color: #edf8ff;
+    font-size: 1.1rem;
+}
+
+.install-project-status-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.install-project-status-heading p {
+    max-width: 72ch;
+    margin: 8px 0 0;
+    color: rgba(223, 239, 248, 0.78);
+    line-height: 1.4;
+}
+
+.install-project-status-heading > span {
+    flex: 0 0 auto;
+    color: #ffd8a3;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.install-project-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.install-project-detail {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid rgba(72, 221, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(10, 18, 31, 0.48);
+}
+
+.install-project-detail strong {
+    color: #f4fbff;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.install-project-status-summary {
+    padding: 10px 12px;
+    border: 1px solid rgba(72, 221, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(8, 18, 30, 0.58);
+    color: rgba(223, 239, 248, 0.82);
+}
+
+.install-project-status-summary--error {
+    border-color: rgba(255, 164, 61, 0.34);
+    color: #ffd6b5;
+}
+
+.install-project-status-table {
+    width: 100%;
+    min-width: 860px;
+}
+
+.install-project-fieldwire-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    border: 1px solid rgba(132, 255, 190, 0.24);
+    border-radius: 999px;
+    background: rgba(8, 18, 30, 0.72);
+    color: #c7ffe0;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.install-project-task-name {
+    color: #f4fbff;
+    font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+    .install-project-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .install-project-status-heading {
+        display: grid;
+    }
+
+    .install-project-status-heading > span {
+        text-align: left;
+    }
+}
+
+@media (max-width: 700px) {
+    .install-project-toolbar-actions {
+        flex-wrap: wrap;
+    }
+
+    .install-project-hero,
+    .install-project-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .install-project-badges {
+        justify-content: flex-start;
+    }
+}

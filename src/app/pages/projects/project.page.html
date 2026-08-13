@@ -824,6 +824,7 @@
                                   <div class="doc-library-panel">
                                     <firewire-doc-library-explorer
                                       [projectKey]="getDocLibraryProjectKey()"
+                                      [analysisProjectId]="firewireProject?.uuid || ''"
                                       [files]="docLibraryFiles"
                                       [directories]="docLibraryDirectories"
                                       [selectedFolder]="selectedDocLibraryFolder"
@@ -839,6 +840,7 @@
                                       (moveFile)="moveDocLibraryFile($event)"
                                       (createDirectory)="createDocLibraryDirectory($event)"
                                       (renameDirectory)="renameDocLibraryDirectory($event)"
+                                      (projectUpdated)="onDocumentAnalysisProjectUpdated($event)"
                                       (deleteDirectory)="deleteDocLibraryDirectory($event)">
                                     </firewire-doc-library-explorer>
                                   </div>

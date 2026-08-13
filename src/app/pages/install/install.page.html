@@ -1,0 +1,130 @@
+<page-toolbar title="INSTALL">
+  <div class="button-bar">
+    <button mat-fab class="back" [routerLink]="'/home'">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+  </div>
+</page-toolbar>
+
+<div class="page-root">
+  <div class="page-content">
+    <div class="tabstrip">
+      <div class="install-actions">
+        <mat-form-field class="install-filter-field">
+          <mat-label>Filter</mat-label>
+          <input matInput [value]="textFilter" (keyup)="applyFilter($event)" placeholder="Project, address, stage" #input />
+        </mat-form-field>
+        <span class="install-stage-note">Design and Install stages</span>
+      </div>
+    </div>
+
+    <div class="content-root with-tabstrip">
+      <section class="install-hero">
+        <div>
+          <div class="install-eyebrow">Install Queue</div>
+          <h1>Projects moving from design into field execution.</h1>
+        </div>
+        <div class="install-hero__meta">
+          <span>Active</span>
+          <strong>{{projects.length}}</strong>
+        </div>
+      </section>
+
+      @if (pageWorking) {
+        <div class="install-state">
+          Loading install projects...
+        </div>
+      }
+      @if (!pageWorking && errText) {
+        <div class="install-state install-state--error">
+          {{errText}}
+        </div>
+      }
+
+      @if (!pageWorking && !errText) {
+        <table
+          class="install-table"
+          mat-table
+          [dataSource]="datasource"
+          matSort
+          [matSortActive]="currentSortActive"
+          [matSortDirection]="currentSortDirection"
+          (matSortChange)="onSortChange($event)">
+          <ng-container matColumnDef="projectTypeIcon">
+            <th mat-header-cell *matHeaderCellDef class="install-type-column"></th>
+            <td mat-cell *matCellDef="let row" class="install-type-column">
+              <mat-icon [class]="getProjectTypeIconClass(row.projectType)" [fontIcon]="getProjectTypeIcon(row.projectType)"></mat-icon>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="name" sticky="true">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+            <td mat-cell *matCellDef="let row">
+              <a class="install-project-link" [routerLink]="getInstallProjectLink(row)">{{row.name}}</a>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="projectNbr">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Project #</th>
+            <td mat-cell *matCellDef="let row">{{row.projectNbr || ''}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="projectStatus">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Stage</th>
+            <td mat-cell *matCellDef="let row">
+              <span [class]="getStatusClass(row)">{{row.projectStatus || ''}}</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="address">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Address</th>
+            <td mat-cell *matCellDef="let row">{{row.address || ''}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="bidDueDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Bid Due</th>
+            <td mat-cell *matCellDef="let row">{{toLocalDateString(row.bidDueDate)}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="install-actions-column"></th>
+            <td mat-cell *matCellDef="let row" class="install-actions-column">
+              <div class="install-row-actions">
+                @if (getFieldwireProjectUrl(row); as fieldwireProjectUrl) {
+                  <a
+                    class="fieldwire-link-button"
+                    [href]="fieldwireProjectUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open Fieldwire project in a new tab">
+                    <img src="/fieldwire-logo.webp" alt="" />
+                  </a>
+                }
+                <a class="install-action-link" [routerLink]="getInstallProjectLink(row)">
+                  <mat-icon fontIcon="subject"></mat-icon>
+                  <span>Details</span>
+                </a>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" colspan="7">{{getNoDataRowText(input.value)}}</td>
+          </tr>
+        </table>
+      }
+
+      @if (!pageWorking && !errText) {
+        <mat-paginator
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[5, 10, 25, 100]"
+          (page)="onPageChange($event)"
+          aria-label="Select page of install projects">
+        </mat-paginator>
+      }
+    </div>
+  </div>
+</div>
