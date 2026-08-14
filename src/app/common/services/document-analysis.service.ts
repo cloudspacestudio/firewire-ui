@@ -136,6 +136,45 @@ export interface DocumentAnalysisBomApplyResult {
     project: FirewireProjectSchema
 }
 
+export interface DocumentAnalysisDeviceCreationApplication {
+    id: string
+    createdAt: string
+    createdBy: string
+    proposalId: string
+    partId: string
+    deviceId: string
+    created: boolean
+    name: string
+    shortName: string
+    categoryName: string
+    includeOnFloorplan: boolean
+    floorplanLabelText: string
+}
+
+export interface DocumentAnalysisCreateDeviceInput {
+    name: string
+    shortName: string
+    categoryName: string
+    includeOnFloorplan: boolean
+    floorplanLabelText: string
+    defaultLabor: number
+}
+
+export interface DocumentAnalysisCreateDeviceResult {
+    record: DocumentAnalysisRecord
+    proposal: DocumentAnalysisBomProposal
+    device: {
+        deviceId: string
+        name: string
+        shortName?: string
+        categoryName?: string
+        includeOnFloorplan?: boolean
+        floorplanLabelText?: string
+        partNumber?: string
+    }
+    application: DocumentAnalysisDeviceCreationApplication
+}
+
 export interface DocumentInspectionResult {
     document: {
         originalFilename: string
@@ -193,6 +232,7 @@ export interface DocumentAnalysisRecord {
     }
     actionApplications?: DocumentAnalysisActionApplication[]
     bomActionApplications?: DocumentAnalysisBomActionApplication[]
+    deviceCreationApplications?: DocumentAnalysisDeviceCreationApplication[]
 }
 
 export class DocumentAnalysisRequestError extends Error {
@@ -314,6 +354,26 @@ export class DocumentAnalysisService {
             return response.data
         } catch (error) {
             throw new Error(this.getErrorMessage(error, 'Unable to apply the selected BOM actions.'))
+        }
+    }
+
+    async createDeviceForBomProposal(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        proposalId: string,
+        input: DocumentAnalysisCreateDeviceInput
+    ): Promise<DocumentAnalysisCreateDeviceResult> {
+        try {
+            const response = await firstValueFrom(this.http.post<{ data: DocumentAnalysisCreateDeviceResult }>(
+                `${this.getUrl(projectId, fileId, versionId)}/actions/bom/proposals/${encodeURIComponent(proposalId)}/create-device`,
+                { workspaceKey, analysisId, ...input }
+            ).pipe(timeout({ first: INSPECTION_LOOKUP_TIMEOUT_MS })))
+            return response.data
+        } catch (error) {
+            throw new Error(this.getErrorMessage(error, 'Unable to create the Firewire device.'))
         }
     }
 

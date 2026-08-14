@@ -9,6 +9,8 @@
     flex-direction: column;
     gap: 16px;
     min-width: 0;
+    font-size: 1rem;
+    line-height: 1.5;
 }
 
 .fw-doc-explorer__summary {
@@ -28,7 +30,7 @@
 .fw-doc-explorer__stat span,
 .fw-doc-explorer__eyebrow {
     color: #70d9ff;
-    font-size: 0.68rem;
+    font-size: 0.8125rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
@@ -100,7 +102,7 @@
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     color: #a9c3d4;
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     text-align: center;
 }
 
@@ -128,7 +130,7 @@
     margin: 4px 0 0;
     overflow: hidden;
     color: #eef7ff;
-    font-size: 0.9rem;
+    font-size: 1.125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -290,7 +292,7 @@ button.fw-doc-explorer__item {
 .fw-doc-explorer__details-cell {
     overflow: hidden;
     color: #8298a8;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -305,7 +307,7 @@ button.fw-doc-explorer__item {
     border-radius: 5px;
     background: rgba(11, 32, 48, 0.8);
     color: #dce8f4;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 700;
 }
 
@@ -341,7 +343,7 @@ button.fw-doc-explorer__item {
 
 .fw-doc-explorer__markup-link {
     color: #75d9ff;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
 }
 
 .fw-doc-explorer__context-menu {

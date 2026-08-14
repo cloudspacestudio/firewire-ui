@@ -1,11 +1,15 @@
 import { CommonModule } from '@angular/common'
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'
 import { MatProgressBarModule } from '@angular/material/progress-bar'
 import { MatCheckboxModule } from '@angular/material/checkbox'
+import { MatFormFieldModule } from '@angular/material/form-field'
+import { MatInputModule } from '@angular/material/input'
+import { MatSlideToggleModule } from '@angular/material/slide-toggle'
 import { FirewireProjectSchema } from '../../schemas/firewire-project.schema'
 
 import {
@@ -27,11 +31,21 @@ export interface FirewireDocumentAnalysisDialogData {
     onProjectUpdated?: (project: FirewireProjectSchema, targetFields: string[]) => void
 }
 
+interface DocumentDeviceQuickCapture {
+    name: string
+    shortName: string
+    categoryName: string
+    includeOnFloorplan: boolean
+    floorplanLabelText: string
+    defaultLabor: number
+}
+
 @Component({
     standalone: true,
     selector: 'firewire-document-analysis-dialog',
     imports: [
         CommonModule,
+        FormsModule,
         MatButtonModule,
         MatCheckboxModule,
         MatDialogActions,
@@ -39,8 +53,11 @@ export interface FirewireDocumentAnalysisDialogData {
         MatDialogContent,
         MatDialogTitle,
         MatIconModule,
+        MatFormFieldModule,
+        MatInputModule,
         MatProgressBarModule,
-        MatProgressSpinnerModule
+        MatProgressSpinnerModule,
+        MatSlideToggleModule
     ],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
@@ -174,6 +191,72 @@ export interface FirewireDocumentAnalysisDialogData {
                         }
                         <div><dt>Match basis</dt><dd>{{action.catalogMatch.rationale}}</dd></div>
                       </dl>
+                      @if (canCreateDeviceForBomAction(action) && deviceCaptureProposalId !== action.proposalId) {
+                        <div class="document-analysis__device-resolution">
+                          <div>
+                            <strong>Floorplan device missing</strong>
+                            <span>Create a reusable Firewire device from the displayed master part, then apply this row to the BOM.</span>
+                          </div>
+                          <button mat-stroked-button type="button" [disabled]="deviceCreating" (click)="beginDeviceCapture(action)">
+                            Create Missing Device
+                          </button>
+                        </div>
+                      }
+                      @if (deviceCaptureProposalId === action.proposalId && deviceCapture) {
+                        <div class="document-analysis__device-capture">
+                          <div class="document-analysis__device-capture-heading">
+                            <div>
+                              <strong>Create Device From {{action.catalogMatch.partNumber}}</strong>
+                              <span>This confirms the displayed {{action.catalogMatch.vendorName || 'master catalog'}} part and creates reusable catalog data.</span>
+                            </div>
+                            <button mat-button type="button" [disabled]="deviceCreating" (click)="cancelDeviceCapture()">Cancel</button>
+                          </div>
+                          <div class="document-analysis__device-capture-grid">
+                            <mat-form-field>
+                              <mat-label>Device Name</mat-label>
+                              <input matInput maxlength="200" [(ngModel)]="deviceCapture.name" />
+                            </mat-form-field>
+                            <mat-form-field>
+                              <mat-label>Short Name</mat-label>
+                              <input matInput maxlength="50" [(ngModel)]="deviceCapture.shortName" />
+                            </mat-form-field>
+                            <mat-form-field>
+                              <mat-label>Category</mat-label>
+                              <input matInput maxlength="120" [(ngModel)]="deviceCapture.categoryName" />
+                            </mat-form-field>
+                            <mat-form-field>
+                              <mat-label>Floorplan Label</mat-label>
+                              <input matInput maxlength="4" [(ngModel)]="deviceCapture.floorplanLabelText" />
+                              <mat-hint>1–4 characters from the document legend</mat-hint>
+                            </mat-form-field>
+                            <mat-form-field>
+                              <mat-label>Default Labor Cost</mat-label>
+                              <input matInput type="number" min="0" step="1" [(ngModel)]="deviceCapture.defaultLabor" />
+                            </mat-form-field>
+                            <div class="document-analysis__device-floorplan-toggle">
+                              <mat-slide-toggle [(ngModel)]="deviceCapture.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
+                              <span>The legend label will be used as a bubble until symbol artwork is captured or an icon is assigned.</span>
+                            </div>
+                          </div>
+                          @if (action.catalogMatch.status === 'POSSIBLE') {
+                            <div class="document-analysis__device-warning">
+                              <mat-icon fontIcon="warning_amber"></mat-icon>
+                              <span>This was a possible match. Creating the device explicitly confirms {{action.catalogMatch.partNumber}} as the intended master part.</span>
+                            </div>
+                          }
+                          @if (deviceCaptureMessage) {
+                            <div class="document-analysis__apply-status" [attr.data-tone]="deviceCaptureError ? 'danger' : 'fact'" role="status">
+                              <mat-icon [fontIcon]="deviceCaptureError ? 'error_outline' : 'info'"></mat-icon>
+                              <span>{{deviceCaptureMessage}}</span>
+                            </div>
+                          }
+                          <div class="document-analysis__device-capture-actions">
+                            <button mat-flat-button color="primary" type="button" [disabled]="!canSubmitDeviceCapture() || deviceCreating" (click)="createDeviceForBomAction(action)">
+                              {{deviceCreating ? 'Creating Device...' : 'Create Device & Resolve Match'}}
+                            </button>
+                          </div>
+                        </div>
+                      }
                       @if (action.scheduleQuantityFound) {
                         <div class="document-analysis__citation">Schedule: {{getSourceLabel(action.scheduleSource)}}</div>
                       }
@@ -363,6 +446,11 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
     bomApplying = false
     bomApplyMessage = ''
     bomApplyError = false
+    deviceCreating = false
+    deviceCaptureProposalId = ''
+    deviceCapture: DocumentDeviceQuickCapture | null = null
+    deviceCaptureMessage = ''
+    deviceCaptureError = false
     private readonly selectedActionFields = new Set<string>()
     private readonly selectedBomProposalIds = new Set<string>()
 
@@ -450,6 +538,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.applyError = false
         this.bomApplyMessage = ''
         this.bomApplyError = false
+        this.cancelDeviceCapture()
         this.selectedActionFields.clear()
         this.selectedBomProposalIds.clear()
         this.record = null
@@ -654,6 +743,94 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
             && action.catalogMatch.status === 'MATCHED'
             && (entityType === 'DEVICE' || entityType === 'PART')
             && !!(entityType === 'DEVICE' ? action.catalogMatch.deviceId : action.catalogMatch.partId)
+    }
+
+    canCreateDeviceForBomAction(action: DocumentAnalysisBomProposal): boolean {
+        return !this.isBomActionApplied(action)
+            && action.quantityStatus !== 'CONFLICT'
+            && Number(action.reconciledQuantity) > 0
+            && action.catalogMatch.entityType === 'PART'
+            && !!action.catalogMatch.partId
+            && action.catalogMatch.status !== 'NOT_FOUND'
+    }
+
+    beginDeviceCapture(action: DocumentAnalysisBomProposal): void {
+        if (!this.canCreateDeviceForBomAction(action)) {
+            return
+        }
+        const partNumber = String(action.catalogMatch.partNumber || action.partNumber || action.modelNumber || '').trim()
+        this.deviceCaptureProposalId = action.proposalId
+        this.deviceCapture = {
+            name: String(action.deviceType || action.description || partNumber || 'Fire Alarm Device').trim().slice(0, 200),
+            shortName: String(partNumber || action.symbolLabel || 'Device').trim().slice(0, 50),
+            categoryName: String(action.deviceType || 'Fire Alarm Device').trim().slice(0, 120),
+            includeOnFloorplan: true,
+            floorplanLabelText: String(action.symbolLabel || '').trim().slice(0, 4),
+            defaultLabor: 112
+        }
+        this.deviceCaptureMessage = ''
+        this.deviceCaptureError = false
+    }
+
+    cancelDeviceCapture(): void {
+        if (this.deviceCreating) {
+            return
+        }
+        this.deviceCaptureProposalId = ''
+        this.deviceCapture = null
+        this.deviceCaptureMessage = ''
+        this.deviceCaptureError = false
+    }
+
+    canSubmitDeviceCapture(): boolean {
+        const capture = this.deviceCapture
+        return !!capture
+            && !!capture.name.trim()
+            && !!capture.shortName.trim()
+            && Number.isFinite(Number(capture.defaultLabor))
+            && Number(capture.defaultLabor) >= 0
+    }
+
+    async createDeviceForBomAction(action: DocumentAnalysisBomProposal): Promise<void> {
+        if (!this.record || !this.deviceCapture || this.deviceCreating || !this.canSubmitDeviceCapture()) {
+            return
+        }
+        this.deviceCreating = true
+        this.deviceCaptureMessage = 'Creating the reusable device and linking the confirmed master part.'
+        this.deviceCaptureError = false
+        try {
+            const result = await this.analysis.createDeviceForBomProposal(
+                this.data.projectId,
+                this.data.workspaceKey,
+                this.data.fileId,
+                this.data.versionId,
+                this.record.id,
+                action.proposalId,
+                {
+                    ...this.deviceCapture,
+                    name: this.deviceCapture.name.trim(),
+                    shortName: this.deviceCapture.shortName.trim(),
+                    categoryName: this.deviceCapture.categoryName.trim(),
+                    floorplanLabelText: this.deviceCapture.floorplanLabelText.trim().slice(0, 4),
+                    defaultLabor: Number(this.deviceCapture.defaultLabor)
+                }
+            )
+            this.record = result.record
+            this.selectedBomProposalIds.add(action.proposalId)
+            this.deviceCaptureProposalId = ''
+            this.deviceCapture = null
+            this.deviceCaptureMessage = ''
+            this.bomApplyError = false
+            this.bomApplyMessage = result.application.created
+                ? `${result.device.name} was created, linked to ${result.proposal.catalogMatch.partNumber}, and selected for BOM application.`
+                : `${result.device.name} already existed and is now selected for BOM application.`
+        } catch (error) {
+            this.deviceCaptureError = true
+            this.deviceCaptureMessage = error instanceof Error ? error.message : 'Unable to create the Firewire device.'
+        } finally {
+            this.deviceCreating = false
+            this.changeDetector.markForCheck()
+        }
     }
 
     isBomActionSelected(action: DocumentAnalysisBomProposal): boolean {
