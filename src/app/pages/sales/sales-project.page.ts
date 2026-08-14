@@ -26,6 +26,7 @@ import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
+    ProjectDocLibraryWorkspaceState,
     ProjectFloorplanDesignAnnotation,
     ProjectFloorplanSymbolAttribute,
     ProjectFloorplanSymbolMediaFile,
@@ -405,6 +406,12 @@ export class SalesProjectPage {
         this.saveMessage = 'Approved document actions applied. Other unsaved project edits were preserved.'
     }
 
+    onDocumentAnalysisWorkspaceUpdated(workspace: ProjectDocLibraryWorkspaceState): void {
+        this.docLibraryFiles = [...(workspace.files || [])]
+        this.docLibraryDirectories = [...(workspace.directories || [])]
+        this.floorplanStatusMessage = 'AI-created floorplan media is ready for review.'
+    }
+
     private mergeDocumentAnalysisBomRows(input: unknown): void {
         const incomingSections = this.cloneBomSections(input)
         const existingKeys = new Set(this.bomSections.flatMap((section) => section.rows || []).map((row) =>
@@ -659,7 +666,9 @@ export class SalesProjectPage {
 
     getFloorplanVersionContent(file: ProjectDocLibraryFileRecord): string {
         const version = this.getLatestDocLibraryVersion(file)
-        return version?.dataUrl || version?.contentUrl || ''
+        return version?.dataUrl
+            || version?.contentUrl
+            || (version?.id ? this.projectDocLibraryStorage.getVersionContentUrl(file.storageKey || this.getDocLibraryStorageKey(), file.id, version.id) : '')
     }
 
     getFloorplanTotalBytes(): number {

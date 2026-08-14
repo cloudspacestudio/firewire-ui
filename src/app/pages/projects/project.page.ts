@@ -39,6 +39,7 @@ import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
+    ProjectDocLibraryWorkspaceState,
     ProjectFloorplanDesignAnnotation,
     ProjectFloorplanSymbolAttribute,
     ProjectFloorplanSymbolMediaFile,
@@ -1565,7 +1566,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     getFloorplanVersionContent(file: ProjectDocLibraryFileRecord): string {
         const version = this.getLatestDocLibraryVersion(file)
-        return version?.dataUrl || version?.contentUrl || ''
+        return version?.dataUrl
+            || version?.contentUrl
+            || (version?.id ? this.projectDocLibraryStorage.getVersionContentUrl(file.storageKey || this.getDocLibraryStorageKey(), file.id, version.id) : '')
     }
 
     getFloorplanPreviewContent(file: ProjectDocLibraryFileRecord): string {
@@ -5309,6 +5312,13 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             }
         }
         this.firewireSaveMessage = 'Approved document actions applied. Other unsaved project edits were preserved.'
+    }
+
+    onDocumentAnalysisWorkspaceUpdated(workspace: ProjectDocLibraryWorkspaceState): void {
+        this.docLibraryFiles = [...(workspace.files || [])]
+        this.docLibraryDirectories = [...(workspace.directories || [])]
+        this.refreshTakeoffColumnDefinitions()
+        this.floorplanStatusMessage = 'AI-created floorplan media is ready for review.'
     }
 
     private mergeDocumentAnalysisBomRows(input: unknown): void {

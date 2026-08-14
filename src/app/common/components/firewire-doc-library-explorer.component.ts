@@ -11,8 +11,10 @@ import {
     ProjectDocLibraryDirectoryRecord,
     ProjectDocLibraryFileRecord,
     ProjectDocLibraryFileVersionRecord,
+    ProjectDocLibraryWorkspaceState,
     ProjectDocLibraryStorageService
 } from '../services/project-doc-library-storage.service'
+import { PdfThumbnailService } from '../services/pdf-thumbnail.service'
 import {
     FirewireDocumentAnalysisDialog,
     FirewireDocumentAnalysisDialogData
@@ -69,12 +71,14 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
     @Output() renameDirectory = new EventEmitter<string>()
     @Output() deleteDirectory = new EventEmitter<string>()
     @Output() projectUpdated = new EventEmitter<DocumentAnalysisProjectUpdateEvent>()
+    @Output() workspaceUpdated = new EventEmitter<ProjectDocLibraryWorkspaceState>()
 
     viewMode: DocLibraryViewMode = 'details'
     contextMenu: ContextMenuState = null
 
     constructor(
         private readonly storage: ProjectDocLibraryStorageService,
+        private readonly pdfThumbnailService: PdfThumbnailService,
         private readonly dialog: MatDialog
     ) {}
 
@@ -296,6 +300,32 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
                 sourceFilename: version.sourceFileName || file.sourceFileName || file.name,
                 onProjectUpdated: (project: FirewireProjectSchema, targetFields: string[]) => {
                     this.projectUpdated.emit({ project, targetFields })
+                },
+                onWorkspaceUpdated: async (workspace: any, changedFileId?: string) => {
+                    const projectKey = file.storageKey || this.projectKey
+                    const hydrated = this.storage.hydrateWorkspace(workspace, projectKey)
+                    const changedFile = changedFileId
+                        ? hydrated.files.find((item) => item.id === changedFileId)
+                        : undefined
+                    const changedVersion = changedFile?.versions?.[changedFile.versions.length - 1]
+                    if (changedFile?.folderId === 'floorplans'
+                        && changedVersion
+                        && !changedVersion.thumbnailDataUrl
+                        && (String(changedVersion.mimeType || '').toLowerCase() === 'application/pdf'
+                            || String(changedFile.extension || '').toLowerCase() === 'pdf')) {
+                        try {
+                            const blob = await this.storage.downloadVersion(projectKey, changedFile.id, changedVersion)
+                            changedVersion.thumbnailDataUrl = await this.pdfThumbnailService.createThumbnail(blob)
+                            await this.storage.saveWorkspace(projectKey, hydrated)
+                        } catch (error) {
+                            console.error('Unable to generate the AI-created floorplan thumbnail.', error)
+                        }
+                    }
+                    const nextFiles = hydrated.files
+                    const nextDirectories = hydrated.directories || []
+                    this.files.splice(0, this.files.length, ...nextFiles)
+                    this.directories.splice(0, this.directories.length, ...nextDirectories)
+                    this.workspaceUpdated.emit(hydrated)
                 }
             } as FirewireDocumentAnalysisDialogData
         })

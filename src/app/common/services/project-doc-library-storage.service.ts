@@ -41,6 +41,9 @@ export interface ProjectDocLibraryFileRecord {
     floorplanFolderId?: string
     changeOrderSourceProjectId?: string
     changeOrderSourceFileId?: string
+    sourceAnalysisId?: string
+    sourceDocumentId?: string
+    sourceDocumentVersionId?: string
     floorplanDesign?: ProjectFloorplanDesignState
     versions: ProjectDocLibraryFileVersionRecord[]
 }
@@ -78,6 +81,11 @@ export interface ProjectFloorplanDesignAnnotation {
     tags?: ProjectFloorplanSymbolTag[]
     mediaFiles?: ProjectFloorplanSymbolMediaFile[]
     showAreaOfInfluence?: boolean
+    sourceAnalysisId?: string
+    sourcePlacementId?: string
+    sourceConfidence?: number
+    sourceDocumentId?: string
+    sourceDocumentVersionId?: string
     symbol?: string
     label?: string
     text?: string
@@ -179,6 +187,10 @@ export class ProjectDocLibraryStorageService {
     async loadWorkspace(projectKey: string): Promise<ProjectDocLibraryWorkspaceState> {
         const response = await firstValueFrom(this.http.get<{ data?: { payload?: any } }>(`/api/firewire/storage/project-doc-library/${encodeURIComponent(projectKey)}`))
         return this.normalizeWorkspace(response?.data?.payload, projectKey)
+    }
+
+    hydrateWorkspace(input: any, projectKey: string): ProjectDocLibraryWorkspaceState {
+        return this.normalizeWorkspace(input, projectKey)
     }
 
     async saveWorkspace(projectKey: string, state: ProjectDocLibraryWorkspaceState): Promise<void> {

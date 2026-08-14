@@ -89,6 +89,44 @@ export interface DocumentAnalysisBomProposal {
         confidence: number
         rationale: string
     }
+    projectBomMatch?: {
+        status: 'NOT_EVALUATED' | 'NOT_ON_BOM' | 'ALREADY_ON_BOM' | 'DUPLICATE_PROPOSAL'
+        bomRowId: string
+        bomSectionTitle: string
+        quantity: number
+        rationale: string
+    }
+}
+
+export interface DocumentAnalysisFloorplanSymbolPlacement {
+    placementId: string
+    bomProposalId: string
+    deviceType: string
+    symbolLabel: string
+    manufacturer: string
+    modelNumber: string
+    partNumber: string
+    xRatio: number
+    yRatio: number
+    confidence: number
+    source: DocumentAnalysisSource
+}
+
+export interface DocumentAnalysisFloorplanProposal {
+    proposalId: string
+    actionType: 'CREATE_FLOORPLAN'
+    name: string
+    pageNumber: number
+    evidenceType: DocumentAnalysisEvidenceType
+    confidence: number
+    rationale: string
+    source: DocumentAnalysisSource
+    symbolPlacements: DocumentAnalysisFloorplanSymbolPlacement[]
+    floorplanMatch?: {
+        status: 'NOT_EVALUATED' | 'MISSING' | 'ALREADY_EXISTS' | 'CREATED'
+        floorplanFileId: string
+        rationale: string
+    }
 }
 
 export interface DocumentAnalysisActionApplication {
@@ -151,6 +189,26 @@ export interface DocumentAnalysisDeviceCreationApplication {
     floorplanLabelText: string
 }
 
+export interface DocumentAnalysisFloorplanApplication {
+    id: string
+    appliedAt: string
+    appliedBy: string
+    proposalId: string
+    floorplanFileId: string
+    floorplanName: string
+    pageNumber: number
+}
+
+export interface DocumentAnalysisFloorplanPlacementApplication {
+    id: string
+    appliedAt: string
+    appliedBy: string
+    proposalId: string
+    floorplanFileId: string
+    placementIds: string[]
+    annotationIds: string[]
+}
+
 export interface DocumentAnalysisCreateDeviceInput {
     name: string
     shortName: string
@@ -204,6 +262,7 @@ export interface DocumentInspectionResult {
     openQuestions: DocumentAnalysisFinding[]
     proposedActions?: DocumentAnalysisProjectDetailProposal[]
     proposedBomActions?: DocumentAnalysisBomProposal[]
+    proposedFloorplanActions?: DocumentAnalysisFloorplanProposal[]
     executiveSummary: string
 }
 
@@ -233,6 +292,8 @@ export interface DocumentAnalysisRecord {
     actionApplications?: DocumentAnalysisActionApplication[]
     bomActionApplications?: DocumentAnalysisBomActionApplication[]
     deviceCreationApplications?: DocumentAnalysisDeviceCreationApplication[]
+    floorplanApplications?: DocumentAnalysisFloorplanApplication[]
+    floorplanPlacementApplications?: DocumentAnalysisFloorplanPlacementApplication[]
 }
 
 export class DocumentAnalysisRequestError extends Error {
@@ -374,6 +435,75 @@ export class DocumentAnalysisService {
             return response.data
         } catch (error) {
             throw new Error(this.getErrorMessage(error, 'Unable to create the Firewire device.'))
+        }
+    }
+
+    async createFloorplan(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        proposalId: string
+    ): Promise<any> {
+        return this.applyFloorplanAction(projectId, workspaceKey, fileId, versionId, analysisId, proposalId, 'create')
+    }
+
+    async placeFloorplanSymbols(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        proposalId: string
+    ): Promise<any> {
+        return this.applyFloorplanAction(projectId, workspaceKey, fileId, versionId, analysisId, proposalId, 'place-symbols')
+    }
+
+    async locateFloorplanSymbols(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        proposalId: string,
+        replaceExisting = false
+    ): Promise<any> {
+        return this.applyFloorplanAction(
+            projectId,
+            workspaceKey,
+            fileId,
+            versionId,
+            analysisId,
+            proposalId,
+            'locate-symbols',
+            { replaceExisting }
+        )
+    }
+
+    private async applyFloorplanAction(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        proposalId: string,
+        action: 'create' | 'locate-symbols' | 'place-symbols',
+        extraBody: Record<string, unknown> = {}
+    ): Promise<any> {
+        try {
+            const response = await firstValueFrom(this.http.post<{ data: any }>(
+                `${this.getUrl(projectId, fileId, versionId)}/actions/floorplans/proposals/${encodeURIComponent(proposalId)}/${action}`,
+                { workspaceKey, analysisId, ...extraBody }
+            ).pipe(timeout({ first: action === 'locate-symbols' ? 600000 : INSPECTION_REQUEST_TIMEOUT_MS })))
+            return response.data
+        } catch (error) {
+            const fallback = action === 'create'
+                ? 'Unable to create the floorplan.'
+                : action === 'locate-symbols'
+                    ? 'Unable to locate device symbols on the floorplan.'
+                    : 'Unable to place floorplan symbols.'
+            throw new Error(this.getErrorMessage(error, fallback))
         }
     }
 
