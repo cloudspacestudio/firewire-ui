@@ -30,7 +30,7 @@ import { ProjectListItemSchema, ProjectSource } from "../../schemas/project-list
 import { PageToolbar } from '../../common/components/page-toolbar'
 import { FirewireBomWorksheetComponent } from "../../common/components/firewire-bom-worksheet.component"
 import { FirewireCustomerInfo, FirewireCustomerInfoCardComponent } from "../../common/components/firewire-customer-info-card.component"
-import { DocumentAnalysisProjectUpdateEvent, FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
+import { DocumentAnalysisProjectUpdateEvent, DocumentLibraryUploadIndicator, FirewireDocLibraryExplorerComponent } from "../../common/components/firewire-doc-library-explorer.component"
 import { FirewireFloorplanFolderRenameEvent, FirewireFloorplanMoveEvent, FirewireFloorplansComponent } from "../../common/components/firewire-floorplans.component"
 import { FirewireTakeoffMatrixComponent } from "../../common/components/firewire-takeoff-matrix.component"
 import { FieldwireImportComponent, FieldwireImportDialogData, FieldwireImportDialogResult } from "../../common/components/fieldwire-import.component"
@@ -45,7 +45,8 @@ import {
     ProjectFloorplanSymbolMediaFile,
     ProjectFloorplanSymbolTag,
     ProjectFloorplanDesignState,
-    ProjectDocLibraryStorageService
+    ProjectDocLibraryStorageService,
+    ProjectDocLibraryUploadProgress
 } from "../../common/services/project-doc-library-storage.service"
 import { PdfThumbnailService } from "../../common/services/pdf-thumbnail.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
@@ -913,6 +914,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     selectedTemplateId = ''
     projectTemplates: ProjectTemplateRecord[] = []
     projectDocumentUploadBusy = false
+    docLibraryUploadIndicator?: DocumentLibraryUploadIndicator
     projectUploadErrorToast = ''
     projectSuccessToast = ''
     private projectUploadErrorToastTimer?: ReturnType<typeof setTimeout>
@@ -4594,11 +4596,38 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
         try {
             const files = Array.from(input.files)
+            const totalBytes = Math.max(1, files.reduce((sum, file) => sum + file.size, 0))
+            let completedBytes = 0
             let uploadedCount = 0
             let versionedCount = 0
 
-            for (const file of files) {
-                const result = await this.uploadDocLibraryFile(file)
+            for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+                const file = files[fileIndex]
+                this.docLibraryUploadIndicator = {
+                    active: true,
+                    fileName: file.name,
+                    fileIndex: fileIndex + 1,
+                    fileCount: files.length,
+                    percent: Math.min(99, Math.round((completedBytes / totalBytes) * 100)),
+                    loadedBytes: completedBytes,
+                    totalBytes,
+                    phase: 'uploading'
+                }
+                const result = await this.uploadDocLibraryFile(file, (progress) => {
+                    const currentFileBytes = Math.round(file.size * (progress.percent / 100))
+                    const loadedBytes = Math.min(totalBytes, completedBytes + currentFileBytes)
+                    this.docLibraryUploadIndicator = {
+                        active: true,
+                        fileName: file.name,
+                        fileIndex: fileIndex + 1,
+                        fileCount: files.length,
+                        percent: Math.min(99, Math.round((loadedBytes / totalBytes) * 100)),
+                        loadedBytes,
+                        totalBytes,
+                        phase: progress.phase
+                    }
+                })
+                completedBytes += file.size
                 if (result === 'uploaded') {
                     uploadedCount += 1
                 } else if (result === 'versioned') {
@@ -4623,6 +4652,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             console.error('Project document upload failed.', err)
         } finally {
             this.projectDocumentUploadBusy = false
+            this.docLibraryUploadIndicator = undefined
             input.value = ''
         }
     }
@@ -4889,11 +4919,11 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         return file.versions[file.versions.length - 1]
     }
 
-    private async uploadDocLibraryFile(file: File): Promise<'uploaded' | 'versioned' | 'skipped'> {
-        return this.uploadDocLibraryFileToFolder(file, this.selectedDocLibraryFolder || 'all', true)
+    private async uploadDocLibraryFile(file: File, onProgress?: (progress: ProjectDocLibraryUploadProgress) => void): Promise<'uploaded' | 'versioned' | 'skipped'> {
+        return this.uploadDocLibraryFileToFolder(file, this.selectedDocLibraryFolder || 'all', true, '', '', onProgress)
     }
 
-    private async uploadDocLibraryFileToFolder(file: File, folderId: string, confirmVersion: boolean, thumbnailDataUrl = '', floorplanFolderId = ''): Promise<'uploaded' | 'versioned' | 'skipped'> {
+    private async uploadDocLibraryFileToFolder(file: File, folderId: string, confirmVersion: boolean, thumbnailDataUrl = '', floorplanFolderId = '', onProgress?: (progress: ProjectDocLibraryUploadProgress) => void): Promise<'uploaded' | 'versioned' | 'skipped'> {
         const duplicate = this.docLibraryFiles.find((item) =>
             item.folderId === folderId
             && this.projectDocLibraryStorage.hasSourceFileName(item, file.name))
@@ -4922,7 +4952,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 folderId,
                 versionNumber: duplicate.versions.length + 1,
                 lastModified: file.lastModified
-            })
+            }, onProgress)
             version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
             duplicate.storageKey = duplicateStorageKey
             duplicate.versions.push(version)
@@ -4940,7 +4970,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             folderId,
             versionNumber: 1,
             lastModified: file.lastModified
-        })
+        }, onProgress)
         version.thumbnailDataUrl = thumbnailDataUrl || version.thumbnailDataUrl
 
         this.docLibraryFiles.push({
@@ -5172,6 +5202,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.firewireSaveWorking = false
         this.firewireSaveMessage = ''
         this.projectDocumentUploadBusy = false
+        this.docLibraryUploadIndicator = undefined
         this.docLibraryFiles = []
         this.docLibraryStatusMessage = ''
         this.selectedDocLibraryFolder = 'all'

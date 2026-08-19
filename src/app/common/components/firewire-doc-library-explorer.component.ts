@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router'
 import { MatButtonModule } from '@angular/material/button'
 import { MatDialog } from '@angular/material/dialog'
 import { MatIconModule } from '@angular/material/icon'
+import { MatProgressBarModule } from '@angular/material/progress-bar'
 import { MatTooltipModule } from '@angular/material/tooltip'
 
 import {
@@ -26,6 +27,17 @@ export interface DocumentAnalysisProjectUpdateEvent {
     targetFields: string[]
 }
 
+export interface DocumentLibraryUploadIndicator {
+    active: boolean
+    fileName: string
+    fileIndex: number
+    fileCount: number
+    percent: number
+    loadedBytes: number
+    totalBytes: number
+    phase: 'uploading' | 'processing'
+}
+
 type DocLibraryViewMode = 'tiles' | 'icons' | 'list' | 'details'
 type ContextMenuState =
     | { kind: 'folder', folderId: string, x: number, y: number }
@@ -42,7 +54,7 @@ interface ExplorerDirectory {
 @Component({
     standalone: true,
     selector: 'firewire-doc-library-explorer',
-    imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatTooltipModule],
+    imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule],
     templateUrl: './firewire-doc-library-explorer.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./firewire-doc-library-explorer.component.scss']
@@ -57,6 +69,7 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
     @Input() directories: ProjectDocLibraryDirectoryRecord[] = []
     @Input() selectedFolder = this.rootFolderId
     @Input() statusMessage = ''
+    @Input() uploadIndicator?: DocumentLibraryUploadIndicator
     @Input() allowMarkup = false
     @Input() allowVersions = false
     @Input() allowMove = false

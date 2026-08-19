@@ -1,6 +1,13 @@
 import { Injectable, inject } from "@angular/core"
-import { HttpClient, HttpErrorResponse } from "@angular/common/http"
-import { firstValueFrom } from "rxjs"
+import { HttpClient, HttpErrorResponse, HttpEventType, HttpResponse } from "@angular/common/http"
+import { filter, firstValueFrom, tap } from "rxjs"
+
+export interface ProjectDocLibraryUploadProgress {
+    loadedBytes: number
+    totalBytes: number
+    percent: number
+    phase: 'uploading' | 'processing'
+}
 
 export interface ProjectDocLibraryFolderDefinition {
     id: string
@@ -216,7 +223,7 @@ export class ProjectDocLibraryStorageService {
         folderId: string
         versionNumber: number
         lastModified: number
-    }): Promise<ProjectDocLibraryFileVersionRecord> {
+    }, onProgress?: (progress: ProjectDocLibraryUploadProgress) => void): Promise<ProjectDocLibraryFileVersionRecord> {
         const body = new FormData()
         body.append('file', file, file.name)
         body.append('fileId', params.fileId)
@@ -226,11 +233,28 @@ export class ProjectDocLibraryStorageService {
         body.append('lastModified', String(params.lastModified))
 
         try {
+            onProgress?.({ loadedBytes: 0, totalBytes: file.size, percent: 0, phase: 'uploading' })
             const response = await firstValueFrom(this.http.post<{ data: ProjectDocLibraryFileVersionRecord }>(
                 `/api/firewire/storage/project-doc-library/${encodeURIComponent(projectKey)}/files`,
-                body
+                body,
+                { observe: 'events', reportProgress: true }
+            ).pipe(
+                tap((event) => {
+                    if (event.type !== HttpEventType.UploadProgress) return
+                    const totalBytes = Math.max(1, Number(event.total || file.size || 1))
+                    const loadedBytes = Math.min(totalBytes, Math.max(0, Number(event.loaded || 0)))
+                    const percent = Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
+                    onProgress?.({
+                        loadedBytes,
+                        totalBytes,
+                        percent,
+                        phase: percent >= 100 ? 'processing' : 'uploading'
+                    })
+                }),
+                filter((event): event is HttpResponse<{ data: ProjectDocLibraryFileVersionRecord }> => event.type === HttpEventType.Response)
             ))
-            return this.withContentUrl(projectKey, params.fileId, response.data)
+            if (!response.body?.data) throw new Error('Document upload completed without a file record.')
+            return this.withContentUrl(projectKey, params.fileId, response.body.data)
         } catch (error) {
             throw new Error(this.getHttpErrorMessage(error, 'Document upload failed.'))
         }

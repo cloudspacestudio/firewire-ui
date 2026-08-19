@@ -18,6 +18,24 @@
     </div>
   </div>
 
+  @if (uploadIndicator?.active) {
+    <div class="fw-doc-explorer__upload" role="status" aria-live="polite" aria-atomic="true">
+      <div class="fw-doc-explorer__upload-heading">
+        <div>
+          <span>{{uploadIndicator?.phase === 'processing' ? 'Finalizing document' : 'Uploading document'}}</span>
+          <strong>{{uploadIndicator?.fileName}}</strong>
+        </div>
+        <strong>{{uploadIndicator?.percent}}%</strong>
+      </div>
+      <mat-progress-bar mode="determinate" [value]="uploadIndicator?.percent || 0"></mat-progress-bar>
+      <div class="fw-doc-explorer__upload-detail">
+        <span>File {{uploadIndicator?.fileIndex}} of {{uploadIndicator?.fileCount}}</span>
+        <span>{{formatBytes(uploadIndicator?.loadedBytes || 0)}} of {{formatBytes(uploadIndicator?.totalBytes || 0)}}</span>
+        <span>{{uploadIndicator?.phase === 'processing' ? 'Transfer complete; storing and registering the file…' : 'Keep this page open while the upload completes.'}}</span>
+      </div>
+    </div>
+  }
+
   <div class="fw-doc-explorer__shell">
     <aside class="fw-doc-explorer__tree" aria-label="Document folders" (contextmenu)="onBackgroundContextMenu($event)">
       <button
