@@ -741,6 +741,10 @@
   @if (showActions) {
     <div class="floorplan-designer__actions">
       <span class="floorplan-designer__status">{{statusText}}</span>
+      <button mat-stroked-button type="button" class="floorplan-designer__analyze" [disabled]="!sourceUrl || analysisWorking" (click)="analyzeFloorplan()">
+        <mat-icon fontIcon="auto_awesome"></mat-icon>
+        {{analysisWorking ? 'Analyzing...' : 'Analyze'}}
+      </button>
       <button mat-button type="button" (click)="close()">{{closeLabel}}</button>
       <button mat-flat-button type="button" [disabled]="!sourceUrl" (click)="save()">Save Design</button>
     </div>

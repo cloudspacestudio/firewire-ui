@@ -692,6 +692,32 @@ button.success {
     max-height: calc(100vh - 24px) !important;
 }
 
+:root .cdk-overlay-pane.fw-floorplan-ai-dialog-pane {
+    --mat-dialog-container-min-width: 0px;
+    --mat-dialog-container-max-width: min(1120px, calc(100vw - 64px));
+    width: min(1120px, calc(100vw - 64px)) !important;
+    max-width: min(1120px, calc(100vw - 64px)) !important;
+    min-width: 0 !important;
+    max-height: calc(100vh - 64px) !important;
+    border-color: rgba(84, 201, 255, 0.58);
+}
+
+:root .cdk-overlay-pane.fw-floorplan-ai-dialog-pane .mdc-dialog__container,
+:root .cdk-overlay-pane.fw-floorplan-ai-dialog-pane .mat-mdc-dialog-container,
+:root .cdk-overlay-pane.fw-floorplan-ai-dialog-pane .mat-mdc-dialog-surface {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: calc(100vh - 64px) !important;
+    overflow: hidden !important;
+}
+
+:root .cdk-overlay-backdrop.fw-floorplan-ai-dialog-backdrop {
+    background: rgba(1, 7, 13, 0.78);
+    backdrop-filter: blur(2px);
+}
+
 :root .cdk-overlay-pane.job-cost-sheet-dialog-pane .mat-mdc-dialog-surface {
     min-width: 0 !important;
     width: 100% !important;

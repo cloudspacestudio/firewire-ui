@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms'
 import { HttpClient } from '@angular/common/http'
 import { MatButtonModule } from '@angular/material/button'
 import { MatIconModule } from '@angular/material/icon'
-import { firstValueFrom } from 'rxjs'
+import { MatDialog } from '@angular/material/dialog'
+import { firstValueFrom, Subject, takeUntil, timeout } from 'rxjs'
+import { FloorplanAiRecommendationsDialog, FloorplanAiRecommendationsDialogResult, FloorplanAiScaleRecommendation, FloorplanAiSymbolRecommendation } from './floorplan-ai-recommendations.dialog'
 
 import {
     ProjectFloorplanCalibration,
@@ -59,6 +61,17 @@ export interface FloorplanDesignerSymbolOption {
     mediaFiles?: ProjectFloorplanSymbolMediaFile[]
 }
 
+interface FloorplanDiagnosticResult {
+    summary: string
+    drawingType: string
+    rotationDegrees: number
+    legend: { found: boolean, location: string, items: unknown[] }
+    bomComparisons: unknown[]
+    symbolCandidates: Array<{ deviceName: string, partNumber: string, symbolLabel: string, xRatio: number, yRatio: number, confidence: number, evidence: string }>
+    scaleCandidates: FloorplanAiScaleRecommendation[]
+    warnings: string[]
+}
+
 @Component({
     standalone: true,
     selector: 'floorplan-designer',
@@ -69,6 +82,7 @@ export interface FloorplanDesignerSymbolOption {
 })
 export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnDestroy {
     private readonly http = inject(HttpClient)
+    private readonly dialog = inject(MatDialog)
 
     @Input() title = 'Floorplan'
     @Input() sourceUrl = ''
@@ -107,6 +121,7 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     selectedCircuitSegmentId = ''
     zoomLevel = 1
     statusText = 'Choose a tool, then click the floorplan.'
+    analysisWorking = false
     showLayerMenu = false
     showStickyColorMenu = false
     showSymbolLayer = true
@@ -123,6 +138,176 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
     calibration?: ProjectFloorplanCalibration
     calibrationDialogOpen = false
     calibrationKnownFeet: number | null = null
+
+    async analyzeFloorplan(): Promise<void> {
+        if (!this.sourceUrl || this.analysisWorking) return
+        this.analysisWorking = true
+        this.statusText = 'AI is inspecting the floorplan, legend, BOM symbols, and scale evidence...'
+        let reinspect = false
+        const abortRequest = new Subject<void>()
+        let aborted = false
+        const startedAt = Date.now()
+        const dialogRef = this.dialog.open(FloorplanAiRecommendationsDialog, {
+            panelClass: 'fw-floorplan-ai-dialog-pane', backdropClass: 'fw-floorplan-ai-dialog-backdrop',
+            width: 'min(1120px, calc(100vw - 64px))', maxWidth: 'min(1120px, calc(100vw - 64px))', maxHeight: 'calc(100vh - 64px)',
+            disableClose: true, autoFocus: 'dialog', restoreFocus: true,
+            data: { analyzing: true }
+        })
+        const dialogComponent = dialogRef.componentInstance
+        const decisionPromise = new Promise<FloorplanAiRecommendationsDialogResult | undefined>((resolve) => {
+            dialogRef.afterClosed().subscribe((decision) => {
+                if (decision?.action === 'abort') {
+                    aborted = true
+                    abortRequest.next()
+                    abortRequest.complete()
+                }
+                resolve(decision)
+            })
+        })
+        const updateProgress = (message: string, detail: string, percent: number) => dialogComponent.updateProgress(
+            message, detail, percent, Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+        updateProgress('Preparing the floorplan', 'Loading the source drawing and current BOM device inventory.', 5)
+        const progressTimer = window.setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startedAt) / 1000)
+            const percent = Math.min(88, 38 + Math.floor(elapsed / 3))
+            const message = elapsed < 15 ? 'Reading the complete drawing'
+                : elapsed < 45 ? 'Comparing visible symbols with known BOM devices'
+                    : elapsed < 90 ? 'Reviewing legend, scale, and candidate coordinates'
+                        : 'Finishing the structured floorplan review'
+            updateProgress(message, 'Dense raster drawings and small device symbols can take several minutes to inspect.', percent)
+        }, 1000)
+        try {
+            const blob = this.isDirectBrowserUrl(this.sourceUrl)
+                ? await this.loadDirectBrowserBlob(this.sourceUrl, abortRequest)
+                : await firstValueFrom(this.http.get(this.sourceUrl, { responseType: 'blob' }).pipe(
+                    takeUntil(abortRequest),
+                    timeout({ first: 60000 })
+                ))
+            let analysisBlob = blob
+            let analysisMimeType = String(this.mimeType || blob.type || 'application/octet-stream')
+            if (analysisMimeType.toLowerCase().includes('pdf')) {
+                updateProgress('Rasterizing the source page', 'Creating a canonical high-resolution image so AI and designer coordinates share the same pixel space.', 16)
+                analysisBlob = await this.createCanonicalAnalysisRaster(blob)
+                analysisMimeType = 'image/png'
+            }
+            const extension = analysisMimeType.includes('png') ? '.png'
+                : String(this.mimeType || blob.type).includes('jpeg') ? '.jpg' : ''
+            const baseName = String(this.title || 'floorplan').replace(/\.[a-z0-9]+$/i, '')
+            const fileName = `${baseName}${extension}`
+            const form = new FormData()
+            form.append('file', analysisBlob, fileName)
+            form.append('bomDevices', JSON.stringify(this.symbols.map((symbol) => ({
+                deviceName: symbol.deviceName || symbol.label,
+                partNumber: symbol.partNumber,
+                symbolLabel: symbol.floorplanLabelText || symbol.code,
+                quantity: symbol.totalQty
+            }))))
+            updateProgress('Uploading the floorplan', 'Sending the floorplan and BOM inventory to the AI analysis service.', 24)
+            const responseBody = await firstValueFrom(this.http.post<{ data: FloorplanDiagnosticResult }>(
+                '/api/firewire/floorplan-analysis/diagnostic', form
+            ).pipe(takeUntil(abortRequest)))
+            const result = responseBody.data
+            updateProgress('Preparing recommendations', 'Validating known BOM matches, symbol confidence, warnings, and scale evidence.', 94)
+            console.groupCollapsed(`[floorplan-ai] Diagnostic analysis: ${this.title}`)
+            console.log('Summary', result.summary)
+            console.log('Drawing type / detected rotation', { drawingType: result.drawingType, rotationDegrees: result.rotationDegrees })
+            console.log('Legend', result.legend)
+            console.table(result.bomComparisons)
+            console.table(result.symbolCandidates)
+            console.table(result.scaleCandidates)
+            if (result.warnings?.length) console.warn('Warnings', result.warnings)
+            console.log('Complete structured result', result)
+            console.groupEnd()
+            const recommendations = result.symbolCandidates.map((candidate, index) => {
+                const symbol = this.findBomSymbol(candidate)
+                const confident = Number(candidate.confidence || 0) >= .7
+                return {
+                    ...candidate,
+                    index,
+                    known: !!symbol && confident,
+                    reason: !symbol ? 'No matching known BOM device.' : !confident ? 'Below the 70% confidence threshold.' : ''
+                } satisfies FloorplanAiSymbolRecommendation
+            })
+            window.clearInterval(progressTimer)
+            dialogComponent.showRecommendations({ summary: result.summary, symbols: recommendations, scales: result.scaleCandidates || [], warnings: result.warnings || [] })
+            const decision = await decisionPromise
+            if (decision?.action === 'apply') {
+                const appliedSymbols = this.applyAiSymbolRecommendations(result, decision.symbolIndexes || [])
+                const scaleApplied = decision.applyScale && Number(decision.scaleIndex) >= 0
+                    ? this.applyAiScaleRecommendation(result.scaleCandidates[Number(decision.scaleIndex)]) : false
+                this.statusText = `Applied ${appliedSymbols} AI symbol${appliedSymbols === 1 ? '' : 's'}${scaleApplied ? ' and the recommended scale' : ''}. Save Design to persist the changes.`
+            } else if (decision?.action === 'reinspect') {
+                reinspect = true
+            } else {
+                this.statusText = 'AI recommendations canceled; no floorplan changes were made.'
+            }
+        } catch (error: any) {
+            const wasAborted = aborted
+            if (!wasAborted) console.error('[floorplan-ai] Diagnostic analysis failed.', error)
+            this.statusText = wasAborted ? 'AI floorplan analysis aborted; no changes were made.' : String(error?.error?.message || error?.message || 'Floorplan analysis failed.')
+            dialogRef.close()
+        } finally {
+            window.clearInterval(progressTimer)
+            this.analysisWorking = false
+        }
+        if (reinspect) void this.analyzeFloorplan()
+    }
+
+    private findBomSymbol(candidate: { deviceName: string, partNumber: string, symbolLabel: string }): FloorplanDesignerSymbolOption | undefined {
+        const normalize = (value: unknown) => String(value || '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, '')
+        const part = normalize(candidate.partNumber)
+        if (part) {
+            const byPart = this.symbols.find((symbol) => normalize(symbol.partNumber) === part)
+            if (byPart) return byPart
+        }
+        const label = normalize(candidate.symbolLabel)
+        const name = normalize(candidate.deviceName)
+        return this.symbols.find((symbol) => (label && [symbol.code, symbol.floorplanLabelText].some((value) => normalize(value) === label))
+            || (name && [symbol.deviceName, symbol.label].some((value) => normalize(value) === name)))
+    }
+
+    private applyAiSymbolRecommendations(result: FloorplanDiagnosticResult, indexes: number[]): number {
+        let applied = 0
+        for (const index of indexes) {
+            const candidate = result.symbolCandidates[index]
+            const symbol = candidate ? this.findBomSymbol(candidate) : undefined
+            if (!candidate || !symbol || candidate.confidence < .7 || this.getSymbolRemaining(symbol) <= 0) continue
+            const duplicate = this.annotations.some((item) => item.kind === 'symbol' && item.symbolId === symbol.id
+                && Math.abs(item.xRatio - candidate.xRatio) < .004 && Math.abs(item.yRatio - candidate.yRatio) < .004)
+            if (duplicate) continue
+            this.annotations = [...this.annotations, this.createSymbolAnnotation(symbol, candidate.xRatio, candidate.yRatio, candidate.confidence, `floorplan-ai-${index}`)]
+            applied += 1
+        }
+        return applied
+    }
+
+    private applyAiScaleRecommendation(scale?: FloorplanAiScaleRecommendation): boolean {
+        if (!scale || scale.realWorldFeet <= 0 || scale.confidence < .7) return false
+        const pixelLength = Math.hypot(
+            (scale.endXRatio - scale.startXRatio) * Math.max(1, this.baseLayerPixelWidth),
+            (scale.endYRatio - scale.startYRatio) * Math.max(1, this.baseLayerPixelHeight)
+        )
+        if (!Number.isFinite(pixelLength) || pixelLength < 2) return false
+        this.calibration = {
+            pixelLength, realWorldFeet: scale.realWorldFeet, feetPerPixel: scale.realWorldFeet / pixelLength,
+            startXRatio: scale.startXRatio, startYRatio: scale.startYRatio, endXRatio: scale.endXRatio, endYRatio: scale.endYRatio,
+            calibratedAt: new Date().toISOString()
+        }
+        return true
+    }
+
+    private createSymbolAnnotation(symbol: FloorplanDesignerSymbolOption, xRatio: number, yRatio: number, confidence?: number, placementId?: string): ProjectFloorplanDesignAnnotation {
+        return {
+            id: this.createClientId(), kind: 'symbol', xRatio: Math.max(0, Math.min(1, xRatio)), yRatio: Math.max(0, Math.min(1, yRatio)),
+            bomRowId: symbol.bomRowId, symbolId: symbol.id, categoryKey: symbol.categoryKey, deviceId: symbol.deviceId,
+            categoryName: symbol.categoryName, partNumber: symbol.partNumber, deviceName: symbol.deviceName, shortName: symbol.shortName,
+            floorplanLabelText: symbol.floorplanLabelText, partDescription: symbol.partDescription, iconId: symbol.iconId, iconLabel: symbol.iconLabel,
+            iconDataUrl: symbol.iconDataUrl, iconForegroundColor: symbol.iconForegroundColor, materialCost: symbol.materialCost, laborHours: symbol.laborHours,
+            customAttributes: this.cloneSymbolAttributesForAnnotation(symbol.customAttributes), tags: symbol.tags?.map((tag) => ({ ...tag })),
+            mediaFiles: symbol.mediaFiles?.map((file) => ({ ...file })), symbol: symbol.floorplanLabelText || symbol.code || '?', label: symbol.label || 'Symbol',
+            color: symbol.color || '#77d7ff', sourceAnalysisId: 'floorplan-ai-diagnostic', sourcePlacementId: placementId, sourceConfidence: confidence
+        }
+    }
     calibrationDraft?: { startXRatio: number; startYRatio: number; endXRatio: number; endYRatio: number; pixelLength: number }
     isCalibrating = false
     circuitEditActive = false
@@ -1705,6 +1890,50 @@ export class FloorplanDesignerComponent implements OnChanges, AfterViewInit, OnD
         }
 
         return firstValueFrom(this.http.get(sourceUrl, { responseType: 'arraybuffer' }))
+    }
+
+    private async loadDirectBrowserBlob(sourceUrl: string, abortRequest: Subject<void>): Promise<Blob> {
+        const controller = new AbortController()
+        const abortSubscription = abortRequest.subscribe(() => controller.abort())
+        try {
+            const response = await fetch(sourceUrl, { signal: controller.signal })
+            if (!response.ok) {
+                throw new Error(`Unable to load floorplan source (${response.status}).`)
+            }
+            return response.blob()
+        } finally {
+            abortSubscription.unsubscribe()
+        }
+    }
+
+    private async createCanonicalAnalysisRaster(pdfBlob: Blob): Promise<Blob> {
+        const pdfjs = await import('pdfjs-dist')
+        if (!this.pdfWorkerConfigured) {
+            pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
+            this.pdfWorkerConfigured = true
+        }
+        const pdf = await pdfjs.getDocument({ data: await pdfBlob.arrayBuffer() }).promise
+        const page = await pdf.getPage(1)
+        const baseViewport = page.getViewport({ scale: 1 })
+        const longestSide = Math.max(baseViewport.width, baseViewport.height, 1)
+        const scale = Math.max(1, Math.min(6, 4096 / longestSide))
+        const viewport = page.getViewport({ scale })
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.ceil(viewport.width)
+        canvas.height = Math.ceil(viewport.height)
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (!context) throw new Error('Unable to create the canonical floorplan analysis image.')
+        await page.render({ canvas, canvasContext: context, viewport }).promise
+        const raster = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (!raster) throw new Error('Unable to encode the canonical floorplan analysis image.')
+        console.info('[floorplan-cv] Canonical analysis raster', {
+            width: canvas.width,
+            height: canvas.height,
+            sourceWidth: baseViewport.width,
+            sourceHeight: baseViewport.height,
+            renderScale: scale
+        })
+        return raster
     }
 
     private assertPdfBytes(bytes: ArrayBuffer): void {
