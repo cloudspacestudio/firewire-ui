@@ -18,6 +18,11 @@
           <mat-icon>add_box</mat-icon>
           <span>Create Project</span>
         </button>
+        <input #packageInput type="file" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" [disabled]="saveWorking" (change)="createProjectFromPackage($event)" />
+        <button mat-stroked-button type="button" class="sales-action-button" [disabled]="saveWorking" (click)="packageInput.click()">
+          <mat-icon>upload_file</mat-icon>
+          <span>New From Package</span>
+        </button>
         @if (createStatusText) {
           <span class="sales-create-status">{{createStatusText}}</span>
         }

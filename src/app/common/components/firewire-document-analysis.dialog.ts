@@ -10,8 +10,10 @@ import { MatCheckboxModule } from '@angular/material/checkbox'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatInputModule } from '@angular/material/input'
 import { MatSlideToggleModule } from '@angular/material/slide-toggle'
+import { MatTabsModule } from '@angular/material/tabs'
 import { FirewireProjectSchema } from '../../schemas/firewire-project.schema'
 import { firstValueFrom } from 'rxjs'
+import { DocumentAnalysisPdfService } from '../services/document-analysis-pdf.service'
 
 import {
     DocumentAnalysisFinding,
@@ -32,6 +34,8 @@ export interface FirewireDocumentAnalysisDialogData {
     sourceFilename: string
     onProjectUpdated?: (project: FirewireProjectSchema, targetFields: string[]) => void
     onWorkspaceUpdated?: (workspace: any, changedFileId?: string) => void | Promise<void>
+    potentialNewProject?: boolean
+    ensurePotentialProject?: (updateLabel: string, record: DocumentAnalysisRecord) => void | Promise<void>
 }
 
 interface DocumentDeviceQuickCapture {
@@ -68,6 +72,21 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
 
 @Component({
     standalone: true,
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+    template: `
+        <h2 mat-dialog-title>Create Missing Devices?</h2>
+        <mat-dialog-content>
+          Create {{data.count}} reusable Firewire catalog devices from the reviewed, exact master-part matches? Device names, categories, vendors, and floorplan labels will use the displayed analysis values. This changes the shared device catalog.
+        </mat-dialog-content>
+        <mat-dialog-actions align="end"><button mat-button mat-dialog-close>Cancel</button><button mat-flat-button color="primary" [mat-dialog-close]="true">Create {{data.count}} Devices</button></mat-dialog-actions>
+    `
+})
+export class ConfirmBatchDeviceCreationDialog {
+    readonly data = inject<{ count: number }>(MAT_DIALOG_DATA)
+}
+
+@Component({
+    standalone: true,
     selector: 'firewire-document-analysis-dialog',
     imports: [
         CommonModule,
@@ -83,7 +102,8 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
         MatInputModule,
         MatProgressBarModule,
         MatProgressSpinnerModule,
-        MatSlideToggleModule
+        MatSlideToggleModule,
+        MatTabsModule
     ],
     template: `
         <div mat-dialog-title class="fw-dialog-titlebar">
@@ -94,6 +114,12 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
         </div>
 
         <mat-dialog-content class="document-analysis">
+          @if (data.potentialNewProject) {
+            <div class="document-analysis__new-project-banner">
+              <mat-icon fontIcon="auto_awesome"></mat-icon>
+              <div><strong>Potential new project</strong><span>{{projectTransitionMessage || 'Review these findings. The project will be created when you apply the first recommendation.'}}</span></div>
+            </div>
+          }
           <div class="document-analysis__source">
             <mat-icon fontIcon="description"></mat-icon>
             <div>
@@ -117,8 +143,8 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
             </div>
           } @else if (errorMessage) {
             <div class="document-analysis__error" role="alert">
-              <mat-icon fontIcon="error_outline"></mat-icon>
-              <div>
+              <mat-icon class="document-analysis__error-icon" fontIcon="error_outline" aria-hidden="true"></mat-icon>
+              <div class="document-analysis__error-content">
                 <strong>{{record?.status === 'cancelled' ? 'Inspection canceled' : record?.status === 'failed' ? 'Previous inspection failed' : 'Inspection unavailable'}}</strong>
                 <span>{{errorMessage}}</span>
                 @if (record?.status === 'failed' && record?.completedAt) {
@@ -130,6 +156,10 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
               <div class="document-analysis__error-note">Inspection can be retried after the OpenAI account configuration is corrected.</div>
             }
           } @else if (record?.result; as result) {
+            <mat-tab-group class="document-analysis__tabs" animationDuration="150ms" preserveContent>
+              <mat-tab>
+                <ng-template mat-tab-label>Overview</ng-template>
+                <div class="document-analysis__tab-content">
             <div class="document-analysis__meta">
               <div><span>Type</span><strong>{{result.document.documentType || 'Not found'}}</strong></div>
               <div><span>Discipline</span><strong>{{result.document.discipline || 'Not found'}}</strong></div>
@@ -141,8 +171,111 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
               <div class="document-analysis__eyebrow">Executive Summary</div>
               <p>{{result.executiveSummary || result.document.summary || 'No summary was returned.'}}</p>
             </section>
+                </div>
+              </mat-tab>
+
+            @if (result.takeoffManifest; as manifest) {
+              <mat-tab>
+                <ng-template mat-tab-label>Coverage <span class="document-analysis__tab-count">{{getCoverageLabel(manifest.coverage)}}</span></ng-template>
+                <div class="document-analysis__tab-content">
+                  <div class="document-analysis__coverage-summary">
+                    <div><span>Legend items</span><strong>{{manifest.coverage.legendItemCount}}</strong></div>
+                    <div><span>Seen on plans</span><strong>{{manifest.coverage.seenOnPlanCount}}</strong></div>
+                    <div><span>Counted</span><strong>{{manifest.coverage.countedCount}}</strong></div>
+                    <div><span>Catalog resolved</span><strong>{{manifest.coverage.catalogResolvedCount}}</strong></div>
+                    <div><span>Floorplan ready</span><strong>{{manifest.coverage.floorplanReadyCount}}</strong></div>
+                    <div><span>Unresolved</span><strong [class.is-blocked]="manifest.coverage.unresolvedCount > 0">{{manifest.coverage.unresolvedCount}}</strong></div>
+                  </div>
+                  <div class="document-analysis__manifest-table document-analysis__coverage-table">
+                    <div class="document-analysis__manifest-row is-header"><span>Legend item</span><span>Plan count</span><span>Catalog</span><span>Project BOM</span><span>Placements</span><span>Status</span></div>
+                    @for (row of manifest.coverage.rows; track row.legendItemId) {
+                      <div class="document-analysis__manifest-row">
+                        <span><strong>{{row.description}}</strong><small>{{row.symbolLabel || 'No symbol label'}}</small></span>
+                        <span>{{row.status === 'NOT_SCANNED' ? 'Not scanned' : row.seenOnPlan ? row.countedQuantity : 'Not found'}}</span>
+                        <span>{{row.catalogStatus}}</span><span>{{row.bomStatus}}</span><span>{{row.placementCount}}</span>
+                        <span class="document-analysis__badge" [attr.data-tone]="row.status === 'COMPLETE' ? 'fact' : row.status === 'BY_OTHERS' || row.status === 'NOT_SCANNED' ? 'interpretation' : 'warning'">{{row.status === 'NOT_SCANNED' ? 'NOT SCANNED' : row.status}}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </mat-tab>
+
+              <mat-tab>
+                <ng-template mat-tab-label>Legend <span class="document-analysis__tab-count">{{manifest.legendItems.length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
+                  <div class="document-analysis__manifest-list">
+                    @for (item of manifest.legendItems; track item.legendItemId) {
+                      <article class="document-analysis__finding">
+                        <div class="document-analysis__finding-head"><strong>{{item.description || item.symbolLabel}}</strong><span class="document-analysis__badge" [attr.data-tone]="item.byOthers ? 'interpretation' : 'fact'">{{item.byOthers ? 'BY OTHERS' : (item.symbolLabel || 'LEGEND')}}</span></div>
+                        <dl class="document-analysis__manifest-details">
+                          <div><dt>Part</dt><dd>{{item.partNumber || item.modelNumber || 'Not identified'}}</dd></div>
+                          <div><dt>Manufacturer</dt><dd>{{item.manufacturer || 'Not identified'}}</dd></div>
+                          <div><dt>Mounting</dt><dd>{{item.mountingHeight || 'Not stated'}}</dd></div>
+                          <div><dt>Backbox</dt><dd>{{item.backbox || 'Not stated'}}{{item.backboxSupplier ? ' · ' + item.backboxSupplier : ''}}</dd></div>
+                          <div><dt>Responsibility</dt><dd>{{getLegendResponsibility(item)}}</dd></div>
+                        </dl>
+                        <div class="document-analysis__citation">{{getSourceLabel(item.source)}}</div>
+                      </article>
+                    }
+                  </div>
+                </div>
+              </mat-tab>
+
+              <mat-tab>
+                <ng-template mat-tab-label>Systems <span class="document-analysis__tab-count">{{manifest.circuits.length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
+                  <section class="document-analysis__section"><h3>Drawing Regions <span>{{manifest.drawingRegions.length}}</span></h3>
+                    <div class="document-analysis__list">@for (region of manifest.drawingRegions; track region.regionId) {<article class="document-analysis__finding"><div class="document-analysis__finding-head"><strong>{{region.name}}</strong><span class="document-analysis__badge">{{region.regionType}}</span></div><p>Page {{region.pageNumber}}{{region.floor ? ' · ' + region.floor : ''}}{{region.drawingNumber ? ' · ' + region.drawingNumber : ''}}</p></article>}</div>
+                  </section>
+                  <section class="document-analysis__section"><h3>Circuits <span>{{manifest.circuits.length}}</span></h3>
+                    <div class="document-analysis__list">@for (circuit of manifest.circuits; track circuit.circuitId) {<article class="document-analysis__finding"><div class="document-analysis__finding-head"><strong>{{circuit.name}}</strong><span>{{circuit.deviceCount}} devices</span></div><p>{{circuit.circuitType || 'Circuit'}}{{circuit.panel ? ' · Panel ' + circuit.panel : ''}}{{circuit.wireType ? ' · ' + circuit.wireType : ''}}</p></article>}</div>
+                  </section>
+                  <section class="document-analysis__section"><h3>Riser Topology <span>{{manifest.topologyNodes.length}} nodes</span></h3>
+                    <div class="document-analysis__topology">@for (edge of manifest.topologyEdges; track $index) {<div><strong>{{getTopologyNodeLabel(edge.fromNodeId)}}</strong><mat-icon fontIcon="arrow_forward"></mat-icon><span>{{edge.relationship}}{{edge.circuit ? ' · ' + edge.circuit : ''}}</span><mat-icon fontIcon="arrow_forward"></mat-icon><strong>{{getTopologyNodeLabel(edge.toNodeId)}}</strong></div>}</div>
+                  </section>
+                </div>
+              </mat-tab>
+
+              <mat-tab>
+                <ng-template mat-tab-label>Coordination <span class="document-analysis__tab-count">{{manifest.coordinationItems.length + manifest.estimateChecks.length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
+                  <section class="document-analysis__section"><h3>Responsibility Matrix <span>{{manifest.responsibilities.length}}</span></h3>
+                    <div class="document-analysis__manifest-table">@for (item of manifest.responsibilities; track item.responsibilityId) {<div class="document-analysis__responsibility-row"><strong>{{item.item}}</strong><span>Furnish: {{item.furnishBy || '—'}}</span><span>Install: {{item.installBy || '—'}}</span><span>Wire: {{item.wireBy || '—'}}</span><span>Test: {{item.testBy || '—'}}</span></div>}</div>
+                  </section>
+                  <section class="document-analysis__section"><h3>Actionable Coordination <span>{{manifest.coordinationItems.length}}</span></h3>
+                    <div class="document-analysis__list">
+                      @for (item of manifest.coordinationItems; track item.coordinationId) {
+                        <article class="document-analysis__finding">
+                          <div class="document-analysis__finding-head"><strong>{{item.title}}</strong><span class="document-analysis__badge" [attr.data-tone]="getRiskTone(item.priority)">{{item.itemType}} · {{item.priority}}</span></div>
+                          <p>{{item.description}}</p>
+                          <dl><div><dt>Suggested owner</dt><dd>{{item.suggestedOwner || 'Unassigned'}}</dd></div><div><dt>Status</dt><dd>{{getCoordinationStatus(item.coordinationId)}}</dd></div></dl>
+                          <div class="document-analysis__device-capture-actions">
+                            <button mat-stroked-button type="button" [disabled]="coordinationWorkingId === item.coordinationId" (click)="recordCoordinationItem(item.coordinationId, 'OPEN', item.suggestedOwner)">Track</button>
+                            <button mat-button type="button" [disabled]="coordinationWorkingId === item.coordinationId" (click)="recordCoordinationItem(item.coordinationId, 'RESOLVED', item.suggestedOwner)">Resolve</button>
+                            <button mat-button type="button" [disabled]="coordinationWorkingId === item.coordinationId" (click)="recordCoordinationItem(item.coordinationId, 'DISMISSED', item.suggestedOwner)">Dismiss</button>
+                          </div>
+                          <div class="document-analysis__citation">{{getSourceLabel(item.source)}}</div>
+                        </article>
+                      }
+                    </div>
+                  </section>
+                  <section class="document-analysis__section"><h3>Estimate Completeness <span>{{manifest.estimateChecks.length}}</span></h3>
+                    <div class="document-analysis__list">@for (check of manifest.estimateChecks; track check.checkId) {<article class="document-analysis__finding"><div class="document-analysis__finding-head"><strong>{{check.title}}</strong><span class="document-analysis__badge" [attr.data-tone]="check.status === 'PASS' ? 'fact' : check.status === 'FAIL' ? 'danger' : 'warning'">{{check.status}}</span></div><p>{{check.explanation}}</p><dl><div><dt>Recommended action</dt><dd>{{check.recommendedAction}}</dd></div></dl></article>}</div>
+                  </section>
+                </div>
+              </mat-tab>
+
+              @if (manifest.revisionChanges.length > 0) {
+                <mat-tab><ng-template mat-tab-label>Revision Delta <span class="document-analysis__tab-count">{{manifest.revisionChanges.length}}</span></ng-template><div class="document-analysis__tab-content"><div class="document-analysis__list">
+                  @for (change of manifest.revisionChanges; track $index) {<article class="document-analysis__finding"><div class="document-analysis__finding-head"><strong>{{change.category}} · {{change.description}}</strong><span class="document-analysis__badge" data-tone="warning">{{change.changeType}}</span></div><div class="document-analysis__change"><div><span>Previous</span><strong>{{change.previousValue || 'Not available'}}</strong></div><mat-icon fontIcon="arrow_forward"></mat-icon><div><span>Current</span><strong>{{change.currentValue || 'Not available'}}</strong></div></div><p>{{change.impact}}</p><div class="document-analysis__citation">{{getSourceLabel(change.source)}}</div></article>}
+                </div></div></mat-tab>
+              }
+            }
 
             @if (getProposedFloorplanActions().length > 0) {
+              <mat-tab>
+                <ng-template mat-tab-label>Floorplans <span class="document-analysis__tab-count">{{getProposedFloorplanActions().length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
               <section class="document-analysis__section document-analysis__floorplan-actions">
                 <div class="document-analysis__actions-heading">
                   <h3>Proposed Floorplans <span>{{getProposedFloorplanActions().length}}</span></h3>
@@ -205,13 +338,23 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                   <span>AI locations are normalized to the source PDF page and remain editable in Floorplan Designer. Firewire will not duplicate a placement or exceed its BOM row target.</span>
                 </div>
               </section>
+                </div>
+              </mat-tab>
             }
 
             @if (getProposedBomActions().length > 0) {
+              <mat-tab>
+                <ng-template mat-tab-label>BOM Actions <span class="document-analysis__tab-count">{{getProposedBomActions().length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
               <section class="document-analysis__section document-analysis__bom-actions">
                 <div class="document-analysis__actions-heading">
                   <h3>Proposed BOM Actions <span>{{getProposedBomActions().length}}</span></h3>
-                  <span class="document-analysis__review-only">User approval required · Select matched rows</span>
+                  <div class="document-analysis__device-capture-actions">
+                    <span class="document-analysis__review-only">User approval required · Select matched rows</span>
+                    @if (getBatchDeviceCreationCount() > 1) {
+                      <button mat-stroked-button type="button" [disabled]="deviceCreating" (click)="createAllMissingDevices()">Create Missing Devices ({{getBatchDeviceCreationCount()}})</button>
+                    }
+                  </div>
                 </div>
                 <div class="document-analysis__list">
                   @for (action of getProposedBomActions(); track action.proposalId) {
@@ -239,7 +382,7 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                           } @else if (!isBomActionEligible(action)) {
                             <span class="document-analysis__badge" data-tone="warning">REVIEW REQUIRED</span>
                           }
-                          <span class="document-analysis__badge" [attr.data-tone]="getQuantityTone(action.quantityStatus)">{{action.quantityStatus}}</span>
+                          <span class="document-analysis__badge" [attr.data-tone]="getQuantityTone(action.quantityStatus)">{{action.quantityStatus === 'LEGEND_ONLY' ? 'LEGEND ONLY' : action.quantityStatus}}</span>
                           <span class="document-analysis__badge" [attr.data-tone]="getCatalogTone(action.catalogMatch.status)">{{action.catalogMatch.status}}</span>
                           <span>{{getConfidenceLabel(action.confidence)}}</span>
                         </div>
@@ -256,7 +399,7 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                         </div>
                         <div>
                           <span>Proposed BOM</span>
-                          <strong [class.is-blocked]="action.quantityStatus === 'CONFLICT'">{{action.quantityStatus === 'CONFLICT' ? 'Blocked' : action.reconciledQuantity}}</strong>
+                          <strong [class.is-blocked]="action.quantityStatus === 'CONFLICT'">{{action.quantityStatus === 'CONFLICT' ? 'Blocked' : action.quantityStatus === 'LEGEND_ONLY' ? action.reconciledQuantity + ' provisional' : action.reconciledQuantity}}</strong>
                         </div>
                         <div>
                           <span>Placement target</span>
@@ -296,6 +439,7 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                           <div>
                             <strong>Floorplan device missing</strong>
                             <span>Create a reusable Firewire device from the displayed master part, then apply this row to the BOM.</span>
+                            <span class="document-analysis__device-vendor"><b>Vendor:</b> {{action.catalogMatch.vendorName || 'Not identified'}}</span>
                           </div>
                           <button mat-stroked-button type="button" [disabled]="deviceCreating" (click)="beginDeviceCapture(action)">
                             Create Missing Device
@@ -308,6 +452,7 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                             <div>
                               <strong>Create Device From {{action.catalogMatch.partNumber}}</strong>
                               <span>This confirms the displayed {{action.catalogMatch.vendorName || 'master catalog'}} part and creates reusable catalog data.</span>
+                              <span class="document-analysis__device-vendor"><b>Vendor:</b> {{action.catalogMatch.vendorName || 'Not identified'}}</span>
                             </div>
                             <button mat-button type="button" [disabled]="deviceCreating" (click)="cancelDeviceCapture()">Cancel</button>
                           </div>
@@ -377,9 +522,14 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                   <span>A future BOM row will retain this placement target. Symbol automation must create exactly the same number of annotations linked by that row's stable BOM ID.</span>
                 </div>
               </section>
+                </div>
+              </mat-tab>
             }
 
             @if (getProposedActions().length > 0) {
+              <mat-tab>
+                <ng-template mat-tab-label>Project Actions <span class="document-analysis__tab-count">{{getProposedActions().length}}</span></ng-template>
+                <div class="document-analysis__tab-content">
               <section class="document-analysis__section document-analysis__actions">
                 <div class="document-analysis__actions-heading">
                   <h3>Proposed Project Actions <span>{{getProposedActions().length}}</span></h3>
@@ -427,8 +577,14 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                   </div>
                 }
               </section>
+                </div>
+              </mat-tab>
             }
 
+            @if (getTotalFindingCount() > 0) {
+              <mat-tab>
+                <ng-template mat-tab-label>Findings <span class="document-analysis__tab-count">{{getTotalFindingCount()}}</span></ng-template>
+                <div class="document-analysis__tab-content document-analysis__findings-tab">
             @for (section of getFindingSections(); track section.label) {
               @if (section.findings.length > 0) {
                 <section class="document-analysis__section">
@@ -492,14 +648,28 @@ export class ConfirmFloorplanAiSymbolReplacementDialog {
                 </div>
               </section>
             }
+                </div>
+              </mat-tab>
+            }
 
             @if (getProposedBomActions().length === 0 && getProposedActions().length === 0 && getFindingSections().every(section => section.findings.length === 0) && result.codes.length === 0 && result.risks.length === 0) {
-              <div class="document-analysis__empty">No material findings were identified in this document.</div>
+              <mat-tab label="Findings">
+                <div class="document-analysis__tab-content">
+                  <div class="document-analysis__empty">No material findings were identified in this document.</div>
+                </div>
+              </mat-tab>
             }
+            </mat-tab-group>
           }
         </mat-dialog-content>
 
         <mat-dialog-actions align="end">
+          @if (record?.result) {
+            <button mat-stroked-button type="button" class="document-analysis__download" [disabled]="downloadingPdf" (click)="downloadPdf()">
+              <mat-icon fontIcon="download"></mat-icon>
+              {{downloadingPdf ? 'Creating PDF...' : 'Download PDF'}}
+            </button>
+          }
           <button mat-button type="button" mat-dialog-close>Close</button>
           @if (working && record?.status === 'running') {
             <button mat-button type="button" [disabled]="cancelling" (click)="cancelInspection()">
@@ -528,6 +698,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
     private readonly analysis = inject(DocumentAnalysisService)
     private readonly changeDetector = inject(ChangeDetectorRef)
     private readonly dialog = inject(MatDialog)
+    private readonly pdfExporter = inject(DocumentAnalysisPdfService)
 
     working = true
     errorMessage = ''
@@ -543,6 +714,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
     elapsedSeconds = 0
     applying = false
     applyMessage = ''
+    projectTransitionMessage = ''
     applyError = false
     bomApplying = false
     bomApplyMessage = ''
@@ -555,8 +727,40 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
     deviceCapture: DocumentDeviceQuickCapture | null = null
     deviceCaptureMessage = ''
     deviceCaptureError = false
+    downloadingPdf = false
+    coordinationWorkingId = ''
     private readonly selectedActionFields = new Set<string>()
     private readonly selectedBomProposalIds = new Set<string>()
+
+    async downloadPdf(): Promise<void> {
+        if (!this.record?.result || this.downloadingPdf) {
+            return
+        }
+        this.downloadingPdf = true
+        try {
+            const bytes = await this.pdfExporter.create(this.record)
+            const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
+            const objectUrl = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = objectUrl
+            anchor.download = this.getPdfFilename()
+            anchor.click()
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+        } catch (error) {
+            console.error('Unable to create the Document Findings PDF.', error)
+        } finally {
+            this.downloadingPdf = false
+            this.changeDetector.markForCheck()
+        }
+    }
+
+    private getPdfFilename(): string {
+        const sourceName = String(this.data.sourceFilename || 'document')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+            .trim() || 'document'
+        return `${sourceName} - Document Findings.pdf`
+    }
 
     async ngOnInit(): Promise<void> {
         const openedAt = new Date().toISOString()
@@ -799,6 +1003,63 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         ]
     }
 
+    getTotalFindingCount(): number {
+        const result = this.record?.result
+        if (!result) {
+            return 0
+        }
+        return this.getFindingSections().reduce((total, section) => total + section.findings.length, 0)
+            + result.codes.length
+            + result.risks.length
+    }
+
+    getLegendResponsibility(item: { furnishBy: string, installBy: string, wireBy: string, testBy: string }): string {
+        return [
+            item.furnishBy ? `Furnish: ${item.furnishBy}` : '',
+            item.installBy ? `Install: ${item.installBy}` : '',
+            item.wireBy ? `Wire: ${item.wireBy}` : '',
+            item.testBy ? `Test: ${item.testBy}` : ''
+        ].filter(Boolean).join(' · ') || 'Not stated'
+    }
+
+    getCoverageLabel(coverage: { completenessPercent: number, rows: Array<{ status: string }> }): string {
+        return coverage.rows.some((row) => row.status !== 'NOT_SCANNED' && row.status !== 'BY_OTHERS')
+            ? `${coverage.completenessPercent}%`
+            : 'Pending'
+    }
+
+    getTopologyNodeLabel(nodeId: string): string {
+        const node = this.record?.result?.takeoffManifest?.topologyNodes.find((item) => item.nodeId === nodeId)
+        return node?.label || nodeId || 'Unknown node'
+    }
+
+    getCoordinationStatus(coordinationId: string): string {
+        return this.record?.coordinationApplications?.find((item) => item.coordinationId === coordinationId)?.status || 'NOT TRACKED'
+    }
+
+    async recordCoordinationItem(coordinationId: string, status: 'OPEN' | 'RESOLVED' | 'DISMISSED', owner: string): Promise<void> {
+        if (!this.record || this.coordinationWorkingId) return
+        this.coordinationWorkingId = coordinationId
+        try {
+            await this.ensurePotentialProjectUpdate('coordination items')
+            this.record = await this.analysis.recordCoordinationItem(
+                this.data.projectId,
+                this.data.workspaceKey,
+                this.data.fileId,
+                this.data.versionId,
+                this.record.id,
+                coordinationId,
+                status,
+                owner
+            )
+        } catch (error) {
+            console.error('Unable to update the document coordination item.', error)
+        } finally {
+            this.coordinationWorkingId = ''
+            this.changeDetector.markForCheck()
+        }
+    }
+
     getProposedActions(): DocumentAnalysisProjectDetailProposal[] {
         return this.record?.result?.proposedActions || []
     }
@@ -839,6 +1100,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.floorplanErrors[action.proposalId] = false
         this.floorplanMessages[action.proposalId] = 'Extracting the approved PDF page into the project floorplan library.'
         try {
+            await this.ensurePotentialProjectUpdate(`floorplan ${action.name}`)
             const result = await this.analysis.createFloorplan(this.data.projectId, this.data.workspaceKey, this.data.fileId, this.data.versionId, this.record.id, action.proposalId)
             this.record = result.record
             await this.data.onWorkspaceUpdated?.(result.workspace, result.file?.id)
@@ -858,6 +1120,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.floorplanErrors[action.proposalId] = false
         this.floorplanMessages[action.proposalId] = 'Validating BOM targets and adding reviewable symbols to the floorplan.'
         try {
+            await this.ensurePotentialProjectUpdate(`symbols for ${action.name}`)
             const result = await this.analysis.placeFloorplanSymbols(this.data.projectId, this.data.workspaceKey, this.data.fileId, this.data.versionId, this.record.id, action.proposalId)
             this.record = result.record
             await this.data.onWorkspaceUpdated?.(result.workspace, result.file?.id)
@@ -981,6 +1244,55 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
             && action.catalogMatch.status !== 'NOT_FOUND'
     }
 
+    getBatchDeviceCreationCount(): number {
+        return this.getProposedBomActions().filter((action) => this.canCreateDeviceForBomAction(action) && action.catalogMatch.status === 'MATCHED').length
+    }
+
+    async createAllMissingDevices(): Promise<void> {
+        if (!this.record || this.deviceCreating) return
+        const candidates = this.getProposedBomActions().filter((action) => this.canCreateDeviceForBomAction(action) && action.catalogMatch.status === 'MATCHED')
+        if (candidates.length < 2) return
+        const confirmed = await firstValueFrom(this.dialog.open(ConfirmBatchDeviceCreationDialog, {
+            data: { count: candidates.length },
+            disableClose: true
+        }).afterClosed())
+        if (!confirmed || !this.record) return
+        this.deviceCreating = true
+        let createdCount = 0
+        const failures: string[] = []
+        try {
+            await this.ensurePotentialProjectUpdate('missing catalog devices')
+            for (const original of candidates) {
+                const action = this.getProposedBomActions().find((item) => item.proposalId === original.proposalId) || original
+                const partNumber = String(action.catalogMatch.partNumber || action.partNumber || action.modelNumber || '').trim()
+                try {
+                    const result = await this.analysis.createDeviceForBomProposal(
+                        this.data.projectId, this.data.workspaceKey, this.data.fileId, this.data.versionId,
+                        this.record.id, action.proposalId,
+                        {
+                            name: String(action.deviceType || action.description || partNumber || 'Fire Alarm Device').trim().slice(0, 200),
+                            shortName: String(action.symbolLabel || partNumber || 'Device').trim().slice(0, 50),
+                            categoryName: String(action.deviceType || 'Fire Alarm Device').trim().slice(0, 120),
+                            includeOnFloorplan: true,
+                            floorplanLabelText: String(action.symbolLabel || '').trim().slice(0, 4),
+                            defaultLabor: 112
+                        }
+                    )
+                    this.record = result.record
+                    if (this.isBomActionEligible(result.proposal)) this.selectedBomProposalIds.add(action.proposalId)
+                    createdCount += 1
+                } catch (error) {
+                    failures.push(`${action.deviceType || partNumber}: ${error instanceof Error ? error.message : 'creation failed'}`)
+                }
+            }
+            this.bomApplyError = failures.length > 0
+            this.bomApplyMessage = `${createdCount} device${createdCount === 1 ? '' : 's'} resolved and selected for BOM application.${failures.length ? ` ${failures.length} require individual review.` : ''}`
+        } finally {
+            this.deviceCreating = false
+            this.changeDetector.markForCheck()
+        }
+    }
+
     beginDeviceCapture(action: DocumentAnalysisBomProposal): void {
         if (!this.canCreateDeviceForBomAction(action)) {
             return
@@ -1026,6 +1338,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.deviceCaptureMessage = 'Creating the reusable device and linking the confirmed master part.'
         this.deviceCaptureError = false
         try {
+            await this.ensurePotentialProjectUpdate(`device ${action.deviceType || action.description || action.partNumber}`)
             const result = await this.analysis.createDeviceForBomProposal(
                 this.data.projectId,
                 this.data.workspaceKey,
@@ -1086,6 +1399,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.bomApplyMessage = 'Validating matched catalog items and approved quantities.'
         this.bomApplyError = false
         try {
+            await this.ensurePotentialProjectUpdate('BOM details')
             const result = await this.analysis.applyBomActions(
                 this.data.projectId,
                 this.data.workspaceKey,
@@ -1108,11 +1422,13 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
                 ? `${rowCount} BOM row${rowCount === 1 ? '' : 's'} had already been applied.`
                 : !result.applicationRecorded
                     ? `${rowCount} BOM row${rowCount === 1 ? '' : 's'} created, but the analysis audit history could not be updated.`
-                : `${rowCount} BOM row${rowCount === 1 ? '' : 's'} created with preserved placement targets.`
+                    : `${rowCount} BOM row${rowCount === 1 ? '' : 's'} created with preserved placement targets.`
+            this.completePotentialProjectUpdate('BOM details')
             this.data.onProjectUpdated?.(result.project, ['worksheetData.bomSections'])
         } catch (error) {
             this.bomApplyError = true
             this.bomApplyMessage = error instanceof Error ? error.message : 'Unable to apply the selected BOM actions.'
+            this.failPotentialProjectUpdate('BOM details', this.bomApplyMessage)
         } finally {
             this.bomApplying = false
             this.changeDetector.markForCheck()
@@ -1144,6 +1460,7 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
         this.applyMessage = 'Validating the selected actions against the current project.'
         this.applyError = false
         try {
+            await this.ensurePotentialProjectUpdate('project details')
             const result = await this.analysis.applyProjectActions(
                 this.data.projectId,
                 this.data.workspaceKey,
@@ -1160,14 +1477,39 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
             this.applyMessage = result.applicationRecorded
                 ? `${result.application.targetFields.length} project action${result.application.targetFields.length === 1 ? '' : 's'} applied and recorded.`
                 : `${result.application.targetFields.length} project action${result.application.targetFields.length === 1 ? '' : 's'} applied. The project audit entry was saved, but analysis history could not be updated.`
+            this.completePotentialProjectUpdate('project details')
             this.data.onProjectUpdated?.(result.project, result.application.targetFields)
         } catch (error) {
             this.applyError = true
             this.applyMessage = error instanceof Error ? error.message : 'Unable to apply the selected project actions.'
+            this.failPotentialProjectUpdate('project details', this.applyMessage)
         } finally {
             this.applying = false
             this.changeDetector.markForCheck()
         }
+    }
+
+    private async ensurePotentialProjectUpdate(updateLabel: string): Promise<void> {
+        if (!this.data.potentialNewProject || !this.data.ensurePotentialProject || !this.record) return
+        this.projectTransitionMessage = `Creating the new project and preparing to update ${updateLabel}...`
+        this.changeDetector.markForCheck()
+        await this.data.ensurePotentialProject(updateLabel, this.record)
+        this.projectTransitionMessage = `Project created. Updating ${updateLabel}...`
+        this.changeDetector.markForCheck()
+    }
+
+    private completePotentialProjectUpdate(updateLabel: string): void {
+        if (!this.data.potentialNewProject) return
+        this.projectTransitionMessage = `Project created. ${this.capitalize(updateLabel)} updated successfully.`
+    }
+
+    private failPotentialProjectUpdate(updateLabel: string, message: string): void {
+        if (!this.data.potentialNewProject) return
+        this.projectTransitionMessage = `Project created, but ${updateLabel} could not be updated: ${message}`
+    }
+
+    private capitalize(value: string): string {
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : value
     }
 
     private selectAvailableActions(): void {

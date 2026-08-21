@@ -22,6 +22,7 @@ import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
 import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { CreateFirewireProjectDialog } from '../projects/create-firewire-project.dialog'
 import { ProjectSettingsApi } from '../projects/project-settings.api'
+import { ProjectPackageIntakeService } from '../../common/services/project-package-intake.service'
 
 @Component({
     standalone: true,
@@ -52,6 +53,7 @@ export class SalesPage {
     private readonly salesTextFilterStorageKey = 'firewire.sales.textFilter'
     private readonly salesPageSizeStorageKey = 'firewire.sales.pageSize'
     private readonly auth = inject(AuthService)
+    private readonly packageIntake = inject(ProjectPackageIntakeService)
 
     @ViewChild(MatPaginator)
     set paginatorRef(value: MatPaginator | undefined) {
@@ -122,7 +124,7 @@ export class SalesPage {
         this.http.get('/api/firewire/projects').subscribe({
             next: (response: any) => {
                 const rows = Array.isArray(response?.rows) ? response.rows as ProjectListItemSchema[] : []
-                this.projects = rows.filter((row) => !!row.firewireProjectId && this.isSalesProject(row))
+                this.projects = rows.filter((row) => !!row.firewireProjectId && row.projectStatus !== 'Package Intake' && this.isSalesProject(row))
                 this.datasource = new MatTableDataSource(this.projects)
                 this.configureFilterPredicate()
                 this.datasource.paginator = this.paginator || null
@@ -213,6 +215,25 @@ export class SalesPage {
                 }
             })
         })
+    }
+
+    async createProjectFromPackage(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement
+        const file = input.files?.[0]
+        input.value = ''
+        if (!file || this.saveWorking) return
+        this.saveWorking = true
+        try {
+            await this.packageIntake.start(file, {
+                projectSettings: this.projectSettings,
+                salesman: this.auth.getUserProfile()?.name || '',
+                destination: 'sales',
+                status: (message) => this.createStatusText = message,
+                refresh: () => this.loadProjects()
+            })
+        } catch {} finally {
+            this.saveWorking = false
+        }
     }
 
     private releaseFocusedElementBeforeDialog(): void {

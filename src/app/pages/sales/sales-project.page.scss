@@ -970,6 +970,26 @@
     color: #f4fbff;
 }
 
+.sales-bom-part-lookup .bom-lookup-input {
+    border: 1px solid rgba(255, 199, 92, 0.56);
+    background: linear-gradient(90deg, rgba(255, 199, 92, 0.12), rgba(8, 18, 30, 0.92) 42%);
+    box-shadow: inset 3px 0 0 rgba(255, 199, 92, 0.78);
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.sales-bom-part-lookup .bom-lookup-input::placeholder {
+    color: rgba(255, 219, 150, 0.78);
+    font-style: italic;
+}
+
+.sales-bom-part-lookup.is-active .bom-lookup-input,
+.sales-bom-part-lookup .bom-lookup-input:focus {
+    border-color: #ffd071;
+    background: rgba(35, 28, 18, 0.96);
+    box-shadow: inset 3px 0 0 #ffd071, 0 0 0 2px rgba(255, 208, 113, 0.18);
+    outline: 0;
+}
+
 .sales-bom-part-lookup__menu {
     position: fixed;
     width: min(920px, calc(100vw - 32px));
@@ -979,10 +999,10 @@
     display: grid;
     max-height: 320px;
     overflow: auto;
-    border: 1px solid rgba(72, 221, 255, 0.18);
+    border: 2px solid rgba(174, 125, 255, 0.78);
     border-radius: 12px;
-    background: rgba(6, 11, 20, 0.98);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
+    background: linear-gradient(180deg, rgba(39, 24, 62, 0.99), rgba(6, 11, 20, 0.99) 84px);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.46), 0 0 0 3px rgba(174, 125, 255, 0.12);
 }
 
 .sales-bom-part-lookup__option {
@@ -1001,9 +1021,9 @@
 
 .sales-bom-part-lookup__section-label {
     padding: 8px 12px;
-    border-top: 1px solid rgba(72, 221, 255, 0.12);
-    background: rgba(72, 221, 255, 0.08);
-    color: var(--fw-accent-2);
+    border-top: 1px solid rgba(174, 125, 255, 0.34);
+    background: rgba(174, 125, 255, 0.18);
+    color: #d9beff;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.14em;
@@ -1019,7 +1039,7 @@
 }
 
 .sales-bom-part-lookup__option:hover {
-    background: rgba(72, 221, 255, 0.08);
+    background: rgba(174, 125, 255, 0.14);
 }
 
 .sales-bom-part-lookup__part {

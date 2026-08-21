@@ -1,18 +1,146 @@
 :host {
-    display: block;
-    width: min(1000px, 94vw);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(1400px, 94vw);
+    height: min(900px, calc(100vh - 48px));
 }
 
 .document-analysis {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    max-height: min(74vh, 820px);
+    min-height: 0;
+    max-height: none;
     padding-top: 8px;
     font-size: 1rem;
     line-height: 1.5;
     scrollbar-color: rgba(72, 221, 255, 0.45) rgba(8, 12, 20, 0.9);
     scrollbar-width: thin;
+}
+
+.document-analysis__tabs {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.document-analysis__tab-content {
+    display: grid;
+    gap: 18px;
+    padding: 18px 2px 4px;
+}
+
+.document-analysis__tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    margin-left: 7px;
+    padding: 0 6px;
+    border: 1px solid rgba(84, 201, 255, 0.34);
+    border-radius: 11px;
+    color: #70d9ff;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.document-analysis__findings-tab > .document-analysis__section + .document-analysis__section {
+    padding-top: 18px;
+    border-top: 1px solid rgba(84, 201, 255, 0.16);
+}
+
+.document-analysis__download {
+    margin-right: auto;
+}
+
+.document-analysis__coverage-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px;
+    background: rgba(84, 201, 255, 0.18);
+}
+
+.document-analysis__coverage-summary > div {
+    padding: 12px;
+    background: #091522;
+}
+
+.document-analysis__coverage-summary span,
+.document-analysis__coverage-summary strong,
+.document-analysis__manifest-row small {
+    display: block;
+}
+
+.document-analysis__coverage-summary span {
+    color: #70d9ff;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.document-analysis__coverage-summary strong {
+    margin-top: 5px;
+    font-size: 1.25rem;
+}
+
+.document-analysis__coverage-summary strong.is-blocked {
+    color: #ffabab;
+}
+
+.document-analysis__manifest-table,
+.document-analysis__manifest-list,
+.document-analysis__topology {
+    display: grid;
+    gap: 6px;
+}
+
+.document-analysis__manifest-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(100px, 1fr));
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border: 1px solid rgba(84, 201, 255, 0.16);
+    background: rgba(4, 15, 25, 0.66);
+}
+
+.document-analysis__manifest-row.is-header {
+    color: #70d9ff;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.document-analysis__manifest-row small {
+    margin-top: 3px;
+    color: #8da7b7;
+}
+
+.document-analysis__manifest-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 18px;
+}
+
+.document-analysis__responsibility-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(110px, 1fr));
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(84, 201, 255, 0.16);
+}
+
+.document-analysis__topology > div {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto minmax(160px, 1.5fr) auto minmax(120px, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: rgba(4, 15, 25, 0.66);
+}
+
+.document-analysis__topology mat-icon {
+    color: #70d9ff;
 }
 
 .document-analysis__source,
@@ -64,6 +192,17 @@
 .document-analysis__error {
     border-color: rgba(255, 100, 100, 0.4);
     color: #ffd0d0;
+}
+
+.document-analysis__error-icon {
+    flex: 0 0 24px;
+    align-self: flex-start;
+    margin-top: 1px;
+}
+
+.document-analysis__error-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .document-analysis__error-note {
@@ -209,6 +348,16 @@
     color: #9db4c3;
     font-size: 0.875rem;
     line-height: 1.4;
+}
+
+.document-analysis__device-resolution .document-analysis__device-vendor,
+.document-analysis__device-capture-heading .document-analysis__device-vendor {
+    margin-top: 7px;
+    color: #d9ecf7;
+}
+
+.document-analysis__device-vendor b {
+    color: #70d9ff;
 }
 
 .document-analysis__device-capture {
@@ -455,6 +604,16 @@
 }
 
 @media (max-width: 720px) {
+    .document-analysis__coverage-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .document-analysis__manifest-row,
+    .document-analysis__responsibility-row,
+    .document-analysis__topology > div,
+    .document-analysis__manifest-details {
+        grid-template-columns: 1fr;
+    }
     .document-analysis__meta {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
@@ -492,3 +651,18 @@
         transform: rotate(90deg);
     }
 }
+.document-analysis__new-project-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 194, 76, 0.72);
+    background: linear-gradient(90deg, rgba(84, 57, 8, 0.72), rgba(21, 31, 43, 0.92));
+    color: #f7d783;
+}
+
+.document-analysis__new-project-banner mat-icon { flex: 0 0 auto; }
+.document-analysis__new-project-banner div { display: grid; gap: 3px; }
+.document-analysis__new-project-banner strong { color: #fff3c4; text-transform: uppercase; letter-spacing: 0.08em; }
+.document-analysis__new-project-banner span { color: #d7e0e8; line-height: 1.4; }

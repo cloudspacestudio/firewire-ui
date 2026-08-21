@@ -710,6 +710,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
     activeBomLookupRow: ProjectBomRow | null = null
+    private activeBomLookupPinnedIndex = -1
     bomLookupMenuStyle: Record<string, string> = {}
     private takeoffColumnDefinitionCache: TakeoffColumnDefinition[] = []
     private activeBomLookupInput: HTMLInputElement | null = null
@@ -919,6 +920,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
     projectSuccessToast = ''
     private projectUploadErrorToastTimer?: ReturnType<typeof setTimeout>
     private projectSuccessToastTimer?: ReturnType<typeof setTimeout>
+    private packageReadyBaselinePending = false
+    private packageReadySettingsLoaded = false
+    private packageReadyDocLibraryLoaded = false
 
     constructor(private http: HttpClient, private projectSettingsApi: ProjectSettingsApi) {
         this.systemPreferencesSubscription = this.userPreferences.preferences$.subscribe((preferences) => {
@@ -2035,7 +2039,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
             })
             : [...section.rows]
 
-        return filteredRows.sort((left, right) => {
+        const sortedRows = filteredRows.sort((left, right) => {
             const direction = this.bomSortDirection === 'asc' ? 1 : -1
             switch (this.bomSortKey) {
                 case 'partNbr':
@@ -2060,6 +2064,14 @@ export class ProjectPage implements OnChanges, OnDestroy {
                     return left.partNbr.localeCompare(right.partNbr) * direction
             }
         })
+        if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow) {
+            const activeIndex = sortedRows.indexOf(this.activeBomLookupRow)
+            if (activeIndex >= 0) {
+                const [activeRow] = sortedRows.splice(activeIndex, 1)
+                sortedRows.splice(Math.min(Math.max(0, this.activeBomLookupPinnedIndex), sortedRows.length), 0, activeRow)
+            }
+        }
+        return sortedRows
     }
 
     setBomSort(sortKey: ProjectBomSortKey) {
@@ -2241,6 +2253,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
     }
 
     async onBomPartLookupFocus(section: ProjectBomSection, row: ProjectBomRow, event?: FocusEvent): Promise<void> {
+        if (this.activeBomLookupRow !== row) {
+            this.activeBomLookupPinnedIndex = this.getFilteredBomRows(section).indexOf(row)
+        }
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
         this.activeBomLookupInput = event?.target instanceof HTMLInputElement ? event.target : this.activeBomLookupInput
@@ -2645,6 +2660,7 @@ export class ProjectPage implements OnChanges, OnDestroy {
     private closeBomPartLookup(): void {
         this.activeBomLookupSectionKey = ''
         this.activeBomLookupRow = null
+        this.activeBomLookupPinnedIndex = -1
         this.activeBomLookupInput = null
         this.bomLookupMenuStyle = {}
     }
@@ -3568,6 +3584,9 @@ export class ProjectPage implements OnChanges, OnDestroy {
 
     private ensureBomRowIds(): void {
         for (const section of this.bomSections || []) {
+            if (!String(section.sectionKey || '').trim()) {
+                section.sectionKey = this.createClientId()
+            }
             for (const row of section.rows || []) {
                 if (!String(row.id || '').trim()) {
                     row.id = this.createClientId()
@@ -4381,7 +4400,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         this.ensureBomRowIds()
         return (this.bomSections || []).map((section) => ({
             title: String(section.title || '').trim(),
-            sectionKey: String(section.sectionKey || this.createClientId()),
+            sectionKey: String(section.sectionKey || ''),
             vendorIds: Array.isArray(section.vendorIds) ? [...section.vendorIds] : [],
             vendorNames: Array.isArray(section.vendorNames) ? [...section.vendorNames] : [],
             rows: (section.rows || []).map((row) => ({
@@ -4563,8 +4582,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         }
 
         return this.dialog.open(ConfirmFirewireNavigationDialog, {
-            width: '360px',
-            maxWidth: '88vw',
+            width: '460px',
+            maxWidth: '92vw',
             panelClass: 'fw-compact-dialog-pane',
             data: {
                 title: 'Leave Project Detail?',
@@ -5050,6 +5069,8 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private async loadDocLibraryWorkspace(): Promise<void> {
         const storageKey = this.getDocLibraryStorageKey()
+        const hadUnsavedProjectChanges = this.isProjectDirty
+        const worksheetStateBeforeWorkspaceLoad = this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
         this.docLibraryFiles = []
         this.docLibraryStatusMessage = ''
 
@@ -5057,9 +5078,44 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
         if (storageKey !== this.getDocLibraryStorageKey()) {
             return
         }
-        this.docLibraryFiles = this.mergeDocLibraryFiles(workspaces.flatMap((workspace) => workspace.files || []))
+        const storedFiles = workspaces.flatMap((workspace) => workspace.files || [])
+        const packageDocuments = Array.isArray(this.firewireProject?.worksheetData?.packageIntakeDocuments)
+            ? this.firewireProject.worksheetData.packageIntakeDocuments as ProjectDocLibraryFileRecord[]
+            : []
+        this.docLibraryFiles = this.mergeDocLibraryFiles([...storedFiles, ...packageDocuments])
         this.docLibraryDirectories = this.mergeDocLibraryDirectories(workspaces.flatMap((workspace) => workspace.directories || []))
+        if (packageDocuments.some((document) => !storedFiles.some((file) => file.id === document.id))) {
+            await this.projectDocLibraryStorage.saveWorkspace(storageKey, {
+                files: this.docLibraryFiles,
+                directories: this.docLibraryDirectories
+            })
+        }
         await this.ensureFloorplanPdfThumbnails()
+        const worksheetRemainedUnchanged = worksheetStateBeforeWorkspaceLoad
+            === this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
+        const projectWasCapturedWhileWorkspaceLoaded = this.initialWorksheetState
+            === worksheetStateBeforeWorkspaceLoad
+        this.refreshTakeoffColumnDefinitions()
+        if (worksheetRemainedUnchanged && (!hadUnsavedProjectChanges || projectWasCapturedWhileWorkspaceLoaded)) {
+            this.captureInitialWorksheetState()
+        }
+        this.packageReadyDocLibraryLoaded = true
+        this.finalizePackageReadyBaseline()
+    }
+
+    private hasPackageReadyMarker(): boolean {
+        if (!this.projectId || typeof sessionStorage === 'undefined') return false
+        const key = `firewire.package-ready.${this.projectId}`
+        return sessionStorage.getItem(key) === '1'
+    }
+
+    private finalizePackageReadyBaseline(): void {
+        if (!this.packageReadyBaselinePending || !this.firewireProject
+            || !this.packageReadySettingsLoaded || !this.packageReadyDocLibraryLoaded) return
+        this.captureInitialProjectState()
+        this.firewireSaveMessage = ''
+        this.packageReadyBaselinePending = false
+        if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(`firewire.package-ready.${this.projectId}`)
     }
 
     private mergeDocLibraryDirectories(directories: ProjectDocLibraryDirectoryRecord[]): ProjectDocLibraryDirectoryRecord[] {
@@ -5186,6 +5242,9 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     private resetPageState() {
+        this.packageReadyBaselinePending = this.hasPackageReadyMarker()
+        this.packageReadySettingsLoaded = false
+        this.packageReadyDocLibraryLoaded = false
         this.pageWorking = true
         this.projectRecordMissing = false
         this.project = undefined
@@ -5222,9 +5281,13 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
             next: (catalog) => {
                 this.projectSettings = catalog
                 this.ensureReportSettingsDefaults()
+                this.packageReadySettingsLoaded = true
+                this.finalizePackageReadyBaseline()
             },
             error: (err) => {
                 console.error(err)
+                this.packageReadySettingsLoaded = true
+                this.finalizePackageReadyBaseline()
             }
         })
     }
@@ -5346,9 +5409,13 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
     }
 
     onDocumentAnalysisWorkspaceUpdated(workspace: ProjectDocLibraryWorkspaceState): void {
+        const hadUnsavedProjectChanges = this.isProjectDirty
         this.docLibraryFiles = [...(workspace.files || [])]
         this.docLibraryDirectories = [...(workspace.directories || [])]
         this.refreshTakeoffColumnDefinitions()
+        if (!hadUnsavedProjectChanges) {
+            this.captureInitialWorksheetState()
+        }
         this.floorplanStatusMessage = 'AI-created floorplan media is ready for review.'
     }
 
@@ -6343,6 +6410,10 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
 
     private captureInitialProjectState() {
         this.initialFirewireFormState = this.serializeFirewireForm(this.firewireForm)
+        this.captureInitialWorksheetState()
+    }
+
+    private captureInitialWorksheetState() {
         this.initialWorksheetState = this.serializeWorksheetState(this.buildWorksheetStateSnapshot())
     }
 

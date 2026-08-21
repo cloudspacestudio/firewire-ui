@@ -175,13 +175,19 @@
                       <span class="bom-row-icon-symbol" [ngStyle]="getBomRowIconStyle(row)"></span>
                     }
                   </span>
-                  <div class="sales-bom-part-lookup">
+                  <div
+                    class="sales-bom-part-lookup"
+                    [class.is-empty]="!row.lookupQuery"
+                    [class.is-active]="host.isBomLookupActive(section, row)">
                     <input
+                      class="bom-lookup-input"
                       [(ngModel)]="row.lookupQuery"
                       (focus)="host.onBomPartLookupFocus(section, row, $event)"
                       (blur)="host.onBomPartLookupBlur(section, row)"
                       (input)="host.positionBomPartLookup($event)"
                       (ngModelChange)="host.onBomPartLookupChanged(section, row, $event)"
+                      placeholder="Type part number or device name..."
+                      title="Start typing a part number or device name to search"
                       [attr.aria-label]="'BOM part number ' + (idx + 1)" />
                     @if (getBomRowSource(row)) {
                       <button

@@ -230,6 +230,7 @@ export class SalesProjectPage {
     vendorPartLookupWorking = false
     activeBomLookupSectionKey = ''
     activeBomLookupRow: SalesBomRow | null = null
+    private activeBomLookupPinnedIndex = -1
     bomLookupMenuStyle: Record<string, string> = {}
     private activeBomLookupInput: HTMLInputElement | null = null
 
@@ -253,7 +254,7 @@ export class SalesProjectPage {
         this.selectedDocLibraryFolder = 'all'
         this.selectedDeviceSetId = ''
         this.bomSections = []
-        void this.loadProjectSettings()
+        const projectSettingsPromise = this.loadProjectSettings()
 
         if (!this.projectId) {
             this.pageMessage = 'Invalid sales project.'
@@ -263,7 +264,8 @@ export class SalesProjectPage {
 
         Promise.all([
             this.http.get<{ data?: FirewireProjectSchema }>(`/api/firewire/projects/firewire/${this.projectId}`).toPromise(),
-            this.http.get<{ rows?: DeviceSetSummary[] }>('/api/firewire/device-sets').toPromise()
+            this.http.get<{ rows?: DeviceSetSummary[] }>('/api/firewire/device-sets').toPromise(),
+            projectSettingsPromise
         ]).then(async([projectResponse, deviceSetsResponse]) => {
             this.project = projectResponse?.data ? { ...projectResponse.data } : undefined
             this.deviceSets = Array.isArray(deviceSetsResponse?.rows)
@@ -278,6 +280,12 @@ export class SalesProjectPage {
                 this.captureInitialCustomerInfoState()
                 this.captureInitialBomState()
                 await this.loadDocLibraryWorkspace()
+                if (this.consumePackageReadyMarker()) {
+                    this.captureInitialFormState()
+                    this.captureInitialCustomerInfoState()
+                    this.captureInitialBomState()
+                    this.saveMessage = ''
+                }
             }
             this.pageWorking = false
         }).catch((err: any) => {
@@ -1375,7 +1383,7 @@ export class SalesProjectPage {
             })
             : [...section.rows]
 
-        return filteredRows.sort((left, right) => {
+        const sortedRows = filteredRows.sort((left, right) => {
             const direction = this.bomSortDirection === 'asc' ? 1 : -1
             switch (this.bomSortKey) {
                 case 'partNbr':
@@ -1400,6 +1408,14 @@ export class SalesProjectPage {
                     return left.partNbr.localeCompare(right.partNbr) * direction
             }
         })
+        if (this.activeBomLookupSectionKey === String(section.sectionKey || '') && this.activeBomLookupRow) {
+            const activeIndex = sortedRows.indexOf(this.activeBomLookupRow)
+            if (activeIndex >= 0) {
+                const [activeRow] = sortedRows.splice(activeIndex, 1)
+                sortedRows.splice(Math.min(Math.max(0, this.activeBomLookupPinnedIndex), sortedRows.length), 0, activeRow)
+            }
+        }
+        return sortedRows
     }
 
     setBomSort(sortKey: SalesBomSortKey): void {
@@ -1459,6 +1475,9 @@ export class SalesProjectPage {
     }
 
     async onBomPartLookupFocus(section: SalesBomSection, row: SalesBomRow, event?: FocusEvent): Promise<void> {
+        if (this.activeBomLookupRow !== row) {
+            this.activeBomLookupPinnedIndex = this.getFilteredBomRows(section).indexOf(row)
+        }
         this.activeBomLookupSectionKey = String(section.sectionKey || '')
         this.activeBomLookupRow = row
         this.activeBomLookupInput = event?.target instanceof HTMLInputElement ? event.target : this.activeBomLookupInput
@@ -1630,6 +1649,7 @@ export class SalesProjectPage {
     private closeBomPartLookup(): void {
         this.activeBomLookupSectionKey = ''
         this.activeBomLookupRow = null
+        this.activeBomLookupPinnedIndex = -1
         this.activeBomLookupInput = null
         this.bomLookupMenuStyle = {}
     }
@@ -2145,8 +2165,19 @@ export class SalesProjectPage {
             return
         }
         const workspace = await this.projectDocLibraryStorage.loadWorkspace(key)
-        this.docLibraryFiles = [...(workspace.files || [])]
+        const storedFiles = workspace.files || []
+        const packageDocuments = Array.isArray(this.project?.worksheetData?.packageIntakeDocuments)
+            ? this.project.worksheetData.packageIntakeDocuments as ProjectDocLibraryFileRecord[]
+            : []
+        const filesById = new Map([...storedFiles, ...packageDocuments].map((file) => [file.id, file]))
+        this.docLibraryFiles = [...filesById.values()]
         this.docLibraryDirectories = [...(workspace.directories || [])]
+        if (packageDocuments.some((document) => !storedFiles.some((file) => file.id === document.id))) {
+            await this.projectDocLibraryStorage.saveWorkspace(key, {
+                files: this.docLibraryFiles,
+                directories: this.docLibraryDirectories
+            })
+        }
         await this.ensureFloorplanPdfThumbnails()
     }
 
@@ -2595,6 +2626,14 @@ export class SalesProjectPage {
 
     private captureInitialFormState(): void {
         this.initialFormSnapshot = this.serializeForm(this.projectForm)
+    }
+
+    private consumePackageReadyMarker(): boolean {
+        if (!this.projectId || typeof sessionStorage === 'undefined') return false
+        const key = `firewire.package-ready.${this.projectId}`
+        if (sessionStorage.getItem(key) !== '1') return false
+        sessionStorage.removeItem(key)
+        return true
     }
 
     private captureInitialCustomerInfoState(): void {

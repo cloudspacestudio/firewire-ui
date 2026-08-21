@@ -29,12 +29,23 @@ interface ConfirmFirewireNavigationDialogData {
     styles: [`
         :host {
             display: block;
-            max-width: 360px;
+            width: 100%;
+            max-width: 460px;
         }
 
         .confirm-firewire-navigation__content {
-            max-width: 32ch;
+            max-width: 44ch;
             line-height: 1.5;
+        }
+
+        .confirm-firewire-navigation__actions {
+            flex-wrap: nowrap;
+            gap: 8px;
+        }
+
+        .confirm-firewire-navigation__actions button {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
     `],
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -46,7 +57,7 @@ interface ConfirmFirewireNavigationDialogData {
           </button>
         </div>
         <mat-dialog-content class="confirm-firewire-navigation__content">{{data.message || 'You have unsaved Firewire project changes. Leave this page?'}}</mat-dialog-content>
-        <mat-dialog-actions align="end">
+        <mat-dialog-actions class="confirm-firewire-navigation__actions" align="end">
           <button mat-button type="button" [mat-dialog-close]="'stay'">Stay</button>
           @if (data.canSave !== false) {
             <button mat-stroked-button type="button" [mat-dialog-close]="'save'">Save Changes</button>

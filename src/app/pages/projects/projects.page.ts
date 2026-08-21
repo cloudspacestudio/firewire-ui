@@ -17,6 +17,7 @@ import { ProjectSettingsApi } from "./project-settings.api"
 import { AzureMapsService } from "../../common/services/azure-maps.service"
 import { UserPreferencesService } from "../../common/services/user-preferences.service"
 import { ProjectMapPreferences } from "../../schemas/user-preferences.schema"
+import { ProjectPackageIntakeService } from '../../common/services/project-package-intake.service'
 
 import { MatButtonModule } from "@angular/material/button"
 import { MatButtonToggleModule } from "@angular/material/button-toggle"
@@ -121,7 +122,8 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
         private http: HttpClient,
         private projectSettingsApi: ProjectSettingsApi,
         private readonly azureMapsService: AzureMapsService,
-        private readonly userPreferences: UserPreferencesService
+        private readonly userPreferences: UserPreferencesService,
+        private readonly packageIntake: ProjectPackageIntakeService
     ) {}
 
     ngOnInit(): void {
@@ -169,7 +171,7 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
         this.http.get('/api/firewire/projects').subscribe({
             next: (s: any) => {
                 if (s && s.rows) {
-                    this.projects = [...s.rows].filter((row: ProjectListItemSchema) => !!row.firewireProjectId)
+                    this.projects = [...s.rows].filter((row: ProjectListItemSchema) => !!row.firewireProjectId && row.projectStatus !== 'Package Intake')
                     this.datasource = new MatTableDataSource(this.projects)
                     this.configureFilterPredicate()
                     this.datasource.paginator = this.paginator || null
@@ -289,6 +291,24 @@ export class ProjectsPage implements OnInit, AfterViewInit, OnDestroy {
                 this.createStatusText = err?.error?.message || err?.message || 'Unable to save project.'
             }
         })
+    }
+
+    async createProjectFromPackage(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement
+        const file = input.files?.[0]
+        input.value = ''
+        if (!file || this.saveWorking) return
+        this.saveWorking = true
+        try {
+            await this.packageIntake.start(file, {
+                projectSettings: this.projectSettings,
+                destination: 'projects',
+                status: (message) => this.createStatusText = message,
+                refresh: () => this.loadProjects()
+            })
+        } catch {} finally {
+            this.saveWorking = false
+        }
     }
 
     getActiveSettings(listKey: keyof ProjectSettingsCatalogSchema) {

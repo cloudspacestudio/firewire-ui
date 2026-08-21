@@ -69,7 +69,7 @@ export interface DocumentAnalysisBomProposal {
     scheduleQuantity: number
     drawingQuantityFound: boolean
     drawingQuantity: number
-    quantityStatus: 'MATCHED' | 'SCHEDULE_ONLY' | 'DRAWING_ONLY' | 'CONFLICT' | 'UNKNOWN'
+    quantityStatus: 'MATCHED' | 'SCHEDULE_ONLY' | 'DRAWING_ONLY' | 'LEGEND_ONLY' | 'CONFLICT' | 'UNKNOWN'
     reconciledQuantity: number
     floorplanSymbolFound: boolean
     floorplanPlacementTarget: number
@@ -117,6 +117,7 @@ export interface DocumentAnalysisFloorplanProposal {
     actionType: 'CREATE_FLOORPLAN'
     name: string
     pageNumber: number
+    region: DocumentAnalysisRegionBounds
     evidenceType: DocumentAnalysisEvidenceType
     confidence: number
     rationale: string
@@ -127,6 +128,29 @@ export interface DocumentAnalysisFloorplanProposal {
         floorplanFileId: string
         rationale: string
     }
+}
+
+export interface DocumentAnalysisRegionBounds { xRatio: number; yRatio: number; widthRatio: number; heightRatio: number }
+export interface DocumentAnalysisDrawingRegion { regionId: string; pageNumber: number; name: string; drawingNumber: string; regionType: string; floor: string; bounds: DocumentAnalysisRegionBounds; confidence: number; source: DocumentAnalysisSource }
+export interface DocumentAnalysisLegendItem { legendItemId: string; symbolLabel: string; description: string; manufacturer: string; modelNumber: string; partNumber: string; mountingHeight: string; backbox: string; backboxSupplier: string; furnishBy: string; installBy: string; wireBy: string; testBy: string; floorplanEligible: boolean; byOthers: boolean; symbolBounds: DocumentAnalysisRegionBounds; confidence: number; source: DocumentAnalysisSource }
+export interface DocumentAnalysisDeviceInstance { instanceId: string; legendItemId: string; regionId: string; deviceType: string; symbolLabel: string; partNumber: string; floor: string; room: string; circuit: string; address: string; candela: string; configuration: string; xRatio: number; yRatio: number; confidence: number; source: DocumentAnalysisSource }
+export interface DocumentAnalysisCircuit { circuitId: string; name: string; circuitType: string; panel: string; floor: string; wireType: string; deviceCount: number; source: DocumentAnalysisSource }
+export interface DocumentAnalysisResponsibility { responsibilityId: string; item: string; furnishBy: string; backboxBy: string; installBy: string; wireBy: string; programBy: string; testBy: string; notes: string; source: DocumentAnalysisSource }
+export interface DocumentAnalysisCoordinationItem { coordinationId: string; itemType: string; title: string; description: string; suggestedOwner: string; priority: string; source: DocumentAnalysisSource }
+export interface DocumentAnalysisEstimateCheck { checkId: string; category: string; status: string; title: string; explanation: string; recommendedAction: string; source: DocumentAnalysisSource }
+export interface DocumentAnalysisTakeoffManifest {
+    scannedFloorplanProposalIds: string[]
+    drawingRegions: DocumentAnalysisDrawingRegion[]
+    legendItems: DocumentAnalysisLegendItem[]
+    deviceInstances: DocumentAnalysisDeviceInstance[]
+    circuits: DocumentAnalysisCircuit[]
+    topologyNodes: Array<{ nodeId: string; nodeType: string; label: string; partNumber: string; source: DocumentAnalysisSource }>
+    topologyEdges: Array<{ fromNodeId: string; toNodeId: string; relationship: string; circuit: string; source: DocumentAnalysisSource }>
+    responsibilities: DocumentAnalysisResponsibility[]
+    coordinationItems: DocumentAnalysisCoordinationItem[]
+    estimateChecks: DocumentAnalysisEstimateCheck[]
+    coverage: { legendItemCount: number; seenOnPlanCount: number; countedCount: number; catalogResolvedCount: number; floorplanReadyCount: number; unresolvedCount: number; completenessPercent: number; rows: Array<{ legendItemId: string; description: string; symbolLabel: string; seenOnPlan: boolean; countedQuantity: number; bomProposalId: string; catalogStatus: string; bomStatus: string; placementCount: number; status: string }> }
+    revisionChanges: Array<{ changeType: string; category: string; description: string; previousValue: string; currentValue: string; impact: string; source: DocumentAnalysisSource }>
 }
 
 export interface DocumentAnalysisActionApplication {
@@ -187,6 +211,8 @@ export interface DocumentAnalysisDeviceCreationApplication {
     categoryName: string
     includeOnFloorplan: boolean
     floorplanLabelText: string
+    symbolSource?: DocumentAnalysisSource
+    symbolBounds?: DocumentAnalysisRegionBounds
 }
 
 export interface DocumentAnalysisFloorplanApplication {
@@ -208,6 +234,8 @@ export interface DocumentAnalysisFloorplanPlacementApplication {
     placementIds: string[]
     annotationIds: string[]
 }
+
+export interface DocumentAnalysisCoordinationApplication { id: string; recordedAt: string; recordedBy: string; coordinationId: string; status: 'OPEN' | 'RESOLVED' | 'DISMISSED'; owner: string; dueDate: string; notes: string }
 
 export interface DocumentAnalysisCreateDeviceInput {
     name: string
@@ -263,6 +291,7 @@ export interface DocumentInspectionResult {
     proposedActions?: DocumentAnalysisProjectDetailProposal[]
     proposedBomActions?: DocumentAnalysisBomProposal[]
     proposedFloorplanActions?: DocumentAnalysisFloorplanProposal[]
+    takeoffManifest?: DocumentAnalysisTakeoffManifest
     executiveSummary: string
 }
 
@@ -294,6 +323,7 @@ export interface DocumentAnalysisRecord {
     deviceCreationApplications?: DocumentAnalysisDeviceCreationApplication[]
     floorplanApplications?: DocumentAnalysisFloorplanApplication[]
     floorplanPlacementApplications?: DocumentAnalysisFloorplanPlacementApplication[]
+    coordinationApplications?: DocumentAnalysisCoordinationApplication[]
 }
 
 export class DocumentAnalysisRequestError extends Error {
@@ -314,11 +344,14 @@ export class DocumentAnalysisService {
     async getInspection(projectId: string, workspaceKey: string, fileId: string, versionId: string): Promise<DocumentAnalysisRecord | null> {
         try {
             const response = await firstValueFrom(
-                this.http.get<{ data: DocumentAnalysisRecord }>(
+                this.http.get<{ data: DocumentAnalysisRecord | null }>(
                     this.getUrl(projectId, fileId, versionId),
                     { params: { workspaceKey } }
                 ).pipe(timeout({ first: INSPECTION_LOOKUP_TIMEOUT_MS }))
             )
+            if (!response.data) {
+                return null
+            }
             if (response.data.status !== 'running') {
                 console.info('[document-inspection-ui] Loaded terminal inspection status.', {
                     documentId: fileId,
@@ -435,6 +468,27 @@ export class DocumentAnalysisService {
             return response.data
         } catch (error) {
             throw new Error(this.getErrorMessage(error, 'Unable to create the Firewire device.'))
+        }
+    }
+
+    async recordCoordinationItem(
+        projectId: string,
+        workspaceKey: string,
+        fileId: string,
+        versionId: string,
+        analysisId: string,
+        coordinationId: string,
+        status: 'OPEN' | 'RESOLVED' | 'DISMISSED',
+        owner = ''
+    ): Promise<DocumentAnalysisRecord> {
+        try {
+            const response = await firstValueFrom(this.http.post<{ data: { record: DocumentAnalysisRecord } }>(
+                `${this.getUrl(projectId, fileId, versionId)}/actions/coordination`,
+                { workspaceKey, analysisId, coordinationId, status, owner }
+            ).pipe(timeout({ first: INSPECTION_LOOKUP_TIMEOUT_MS })))
+            return response.data.record
+        } catch (error) {
+            throw new Error(this.getErrorMessage(error, 'Unable to update the coordination item.'))
         }
     }
 

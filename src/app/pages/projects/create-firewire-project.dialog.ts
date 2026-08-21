@@ -19,11 +19,12 @@ import { ProjectListItemSchema } from '../../schemas/project-list-item.schema'
 import { createEmptyProjectSettingsCatalog, ProjectSettingsCatalogSchema } from '../../schemas/project-settings.schema'
 import { ProjectSettingsApi } from './project-settings.api'
 
-interface CreateFirewireProjectDialogData {
+export interface CreateFirewireProjectDialogData {
     fieldwireProject: Partial<ProjectListItemSchema>
     projectSettings: ProjectSettingsCatalogSchema
     suggestedProjectStatus?: string
     suggestedSalesman?: string
+    initialModel?: Partial<FirewireProjectUpsert>
 }
 
 @Component({
@@ -174,7 +175,7 @@ export class CreateFirewireProjectDialog {
         defaultBidDate.setDate(defaultBidDate.getDate() + 30)
         const fieldwireProject = this.data.fieldwireProject
 
-        return {
+        const defaults: FirewireProjectUpsert = {
             fieldwireId: fieldwireProject.fieldwireProjectId,
             name: fieldwireProject.name || '',
             projectNbr: fieldwireProject.projectNbr || '',
@@ -189,6 +190,7 @@ export class CreateFirewireProjectDialog {
             difficulty: '',
             totalSqFt: 0
         }
+        return { ...defaults, ...(this.data.initialModel || {}) }
     }
 
     private hasProjectSettings(catalog?: ProjectSettingsCatalogSchema | null): boolean {

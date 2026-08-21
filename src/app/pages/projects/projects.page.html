@@ -18,6 +18,11 @@
           <button mat-flat-button type="button" (click)="toggleCreatePanel()">
             {{createPanelOpen ? 'CLOSE FIREWIRE FORM' : 'NEW FIREWIRE PROJECT'}}
           </button>
+          <input #packageInput type="file" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" [disabled]="saveWorking" (change)="createProjectFromPackage($event)" />
+          <button mat-stroked-button type="button" [disabled]="saveWorking" (click)="packageInput.click()">
+            <mat-icon fontIcon="upload_file"></mat-icon>
+            NEW FROM PACKAGE
+          </button>
           @if (createStatusText) {
             <span class="project-create-status">{{createStatusText}}</span>
           }

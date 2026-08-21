@@ -302,6 +302,7 @@ export class FirewireDocLibraryExplorerComponent implements OnInit {
         }
         this.dialog.open(FirewireDocumentAnalysisDialog, {
             panelClass: ['fw-fit-content-dialog-pane', 'fw-document-analysis-dialog-pane'],
+            width: 'min(1400px, 96vw)',
             maxWidth: '96vw',
             disableClose: true,
             closeOnNavigation: false,
