@@ -158,7 +158,7 @@ export class ConfirmBatchDeviceCreationDialog {
           } @else if (record?.result; as result) {
             <mat-tab-group class="document-analysis__tabs" animationDuration="150ms" preserveContent>
               <mat-tab>
-                <ng-template mat-tab-label>Overview</ng-template>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-overview">Overview</span></ng-template>
                 <div class="document-analysis__tab-content">
             <div class="document-analysis__meta">
               <div><span>Type</span><strong>{{result.document.documentType || 'Not found'}}</strong></div>
@@ -274,7 +274,7 @@ export class ConfirmBatchDeviceCreationDialog {
 
             @if (getProposedFloorplanActions().length > 0) {
               <mat-tab>
-                <ng-template mat-tab-label>Floorplans <span class="document-analysis__tab-count">{{getProposedFloorplanActions().length}}</span></ng-template>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-floorplans">Floorplans <span class="document-analysis__tab-count">{{getProposedFloorplanActions().length}}</span></span></ng-template>
                 <div class="document-analysis__tab-content">
               <section class="document-analysis__section document-analysis__floorplan-actions">
                 <div class="document-analysis__actions-heading">
@@ -344,8 +344,73 @@ export class ConfirmBatchDeviceCreationDialog {
 
             @if (getProposedBomActions().length > 0) {
               <mat-tab>
-                <ng-template mat-tab-label>BOM Actions <span class="document-analysis__tab-count">{{getProposedBomActions().length}}</span></ng-template>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-bom">BOM Actions <span class="document-analysis__tab-count">{{getProposedBomActions().length}}</span></span></ng-template>
                 <div class="document-analysis__tab-content">
+              <section class="document-analysis__bom-discovery-summary" aria-labelledby="bom-discovery-summary-title">
+                <div class="document-analysis__bom-discovery-summary-heading">
+                  <div>
+                    <span class="document-analysis__eyebrow">Discovery Summary</span>
+                    <h3 id="bom-discovery-summary-title">Devices found in this document</h3>
+                  </div>
+                  <span>{{getKnownBomDiscoveryCount()}} of {{getBomDiscoverySummaryActions().length}} known devices</span>
+                </div>
+                <div class="document-analysis__bom-discovery-table" role="table" aria-label="Discovered BOM devices">
+                  <div class="document-analysis__bom-discovery-row is-header" role="row">
+                    <span role="columnheader">Action</span>
+                    <span role="columnheader">Part Nbr</span>
+                    <span role="columnheader">Device Name</span>
+                    <span role="columnheader">Vendor</span>
+                    <span role="columnheader">Qty</span>
+                    <span role="columnheader">Known</span>
+                  </div>
+                  @for (action of getBomDiscoverySummaryActions(); track action.proposalId) {
+                    <div class="document-analysis__bom-discovery-row" [class.is-known]="isKnownBomDiscovery(action)" [class.is-unknown]="!isKnownBomDiscovery(action)" role="row">
+                      <span class="document-analysis__bom-discovery-action" role="cell">
+                        @if (!isKnownBomDiscovery(action) && canCreateDeviceForBomAction(action)) {
+                          <button mat-stroked-button type="button" [disabled]="deviceCreating" (click)="beginDeviceCapture(action)">Create</button>
+                        } @else if (!isKnownBomDiscovery(action)) {
+                          <small>Needs part</small>
+                        }
+                      </span>
+                      <strong role="cell">{{getBomDiscoveryPartNumber(action)}}</strong>
+                      <span role="cell">{{getBomDiscoveryDeviceName(action)}}</span>
+                      <span role="cell">{{getBomDiscoveryVendor(action)}}</span>
+                      <span role="cell">{{action.reconciledQuantity || '—'}}</span>
+                      <span class="document-analysis__bom-discovery-known" role="cell" [attr.aria-label]="isKnownBomDiscovery(action) ? 'Known Firewire device' : 'Unknown device; review required'">
+                        @if (isKnownBomDiscovery(action)) {
+                          <mat-icon fontIcon="check_circle" aria-hidden="true"></mat-icon>
+                        }
+                      </span>
+                    </div>
+                    @if (deviceCaptureProposalId === action.proposalId && deviceCapture) {
+                      <div class="document-analysis__bom-discovery-create">
+                        <div class="document-analysis__bom-discovery-create-heading">
+                          <div><strong>Create Device</strong><span>{{getBomDiscoveryPartNumber(action)}} · {{getBomDiscoveryVendor(action)}}</span></div>
+                          <button mat-button type="button" [disabled]="deviceCreating" (click)="cancelDeviceCapture()">Cancel</button>
+                        </div>
+                        <div class="document-analysis__bom-discovery-create-fields">
+                          <mat-form-field><mat-label>Device Name</mat-label><input matInput maxlength="200" [(ngModel)]="deviceCapture.name" /></mat-form-field>
+                          <mat-form-field><mat-label>Short Name</mat-label><input matInput maxlength="50" [(ngModel)]="deviceCapture.shortName" /></mat-form-field>
+                          <mat-form-field><mat-label>Category</mat-label><input matInput maxlength="120" [(ngModel)]="deviceCapture.categoryName" /></mat-form-field>
+                          <mat-form-field><mat-label>Floorplan Label</mat-label><input matInput maxlength="4" [(ngModel)]="deviceCapture.floorplanLabelText" /></mat-form-field>
+                          <mat-form-field><mat-label>Default Labor Cost</mat-label><input matInput type="number" min="0" step="1" [(ngModel)]="deviceCapture.defaultLabor" /></mat-form-field>
+                          <mat-slide-toggle [(ngModel)]="deviceCapture.includeOnFloorplan">Include on Floorplan</mat-slide-toggle>
+                        </div>
+                        @if (deviceCaptureMessage) {
+                          <div class="document-analysis__apply-status" [attr.data-tone]="deviceCaptureError ? 'danger' : 'fact'" role="status">
+                            <mat-icon [fontIcon]="deviceCaptureError ? 'error_outline' : 'info'"></mat-icon><span>{{deviceCaptureMessage}}</span>
+                          </div>
+                        }
+                        <div class="document-analysis__bom-discovery-create-actions">
+                          <button mat-flat-button color="primary" type="button" [disabled]="!canSubmitDeviceCapture() || deviceCreating" (click)="createDeviceForBomAction(action)">
+                            {{deviceCreating ? 'Creating Device...' : 'Create Device & Resolve Match'}}
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+              </section>
               <section class="document-analysis__section document-analysis__bom-actions">
                 <div class="document-analysis__actions-heading">
                   <h3>Proposed BOM Actions <span>{{getProposedBomActions().length}}</span></h3>
@@ -528,7 +593,7 @@ export class ConfirmBatchDeviceCreationDialog {
 
             @if (getProposedActions().length > 0) {
               <mat-tab>
-                <ng-template mat-tab-label>Project Actions <span class="document-analysis__tab-count">{{getProposedActions().length}}</span></ng-template>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-project">Project Details <span class="document-analysis__tab-count">{{getProposedActions().length}}</span></span></ng-template>
                 <div class="document-analysis__tab-content">
               <section class="document-analysis__section document-analysis__actions">
                 <div class="document-analysis__actions-heading">
@@ -583,7 +648,7 @@ export class ConfirmBatchDeviceCreationDialog {
 
             @if (getTotalFindingCount() > 0) {
               <mat-tab>
-                <ng-template mat-tab-label>Findings <span class="document-analysis__tab-count">{{getTotalFindingCount()}}</span></ng-template>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-findings">Findings <span class="document-analysis__tab-count">{{getTotalFindingCount()}}</span></span></ng-template>
                 <div class="document-analysis__tab-content document-analysis__findings-tab">
             @for (section of getFindingSections(); track section.label) {
               @if (section.findings.length > 0) {
@@ -653,7 +718,8 @@ export class ConfirmBatchDeviceCreationDialog {
             }
 
             @if (getProposedBomActions().length === 0 && getProposedActions().length === 0 && getFindingSections().every(section => section.findings.length === 0) && result.codes.length === 0 && result.risks.length === 0) {
-              <mat-tab label="Findings">
+              <mat-tab>
+                <ng-template mat-tab-label><span class="document-analysis__ordered-tab-label is-findings">Findings</span></ng-template>
                 <div class="document-analysis__tab-content">
                   <div class="document-analysis__empty">No material findings were identified in this document.</div>
                 </div>
@@ -1206,6 +1272,41 @@ export class FirewireDocumentAnalysisDialog implements OnInit, OnDestroy {
 
     get selectedBomActionCount(): number {
         return this.selectedBomProposalIds.size
+    }
+
+    isKnownBomDiscovery(action: DocumentAnalysisBomProposal): boolean {
+        return action.catalogMatch.status === 'MATCHED'
+            && action.catalogMatch.entityType === 'DEVICE'
+            && !!action.catalogMatch.deviceId
+    }
+
+    getKnownBomDiscoveryCount(): number {
+        return this.getBomDiscoverySummaryActions().filter((action) => this.isKnownBomDiscovery(action)).length
+    }
+
+    getBomDiscoverySummaryActions(): DocumentAnalysisBomProposal[] {
+        return this.getProposedBomActions().filter((action) => {
+            const partNumber = String(action.catalogMatch.partNumber || action.partNumber || action.modelNumber || '').trim()
+            const vendor = String(action.catalogMatch.vendorName || action.manufacturer || '').trim()
+            return this.isMeaningfulBomDiscoveryValue(partNumber) || this.isMeaningfulBomDiscoveryValue(vendor)
+        })
+    }
+
+    private isMeaningfulBomDiscoveryValue(value: string): boolean {
+        const normalized = String(value || '').trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ')
+        return !!normalized && !['unknown', 'not identified', 'not found', 'n a', 'none'].includes(normalized)
+    }
+
+    getBomDiscoveryPartNumber(action: DocumentAnalysisBomProposal): string {
+        return String(action.catalogMatch.partNumber || action.partNumber || action.modelNumber || '').trim() || 'Not identified'
+    }
+
+    getBomDiscoveryDeviceName(action: DocumentAnalysisBomProposal): string {
+        return String(action.catalogMatch.deviceName || action.deviceType || action.description || '').trim() || 'Unnamed device'
+    }
+
+    getBomDiscoveryVendor(action: DocumentAnalysisBomProposal): string {
+        return String(action.catalogMatch.vendorName || action.manufacturer || '').trim() || 'Unknown'
     }
 
     isBomActionApplied(action: DocumentAnalysisBomProposal): boolean {

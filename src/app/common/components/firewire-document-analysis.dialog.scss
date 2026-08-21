@@ -23,6 +23,20 @@
     min-width: 0;
 }
 
+.document-analysis__ordered-tab-label {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+// Keep the review workflow in decision order even though the substantial tab
+// bodies remain grouped by concern in the template.
+:host ::ng-deep .document-analysis__tabs .mat-mdc-tab:has(.document-analysis__ordered-tab-label.is-overview) { order: -50; }
+:host ::ng-deep .document-analysis__tabs .mat-mdc-tab:has(.document-analysis__ordered-tab-label.is-project) { order: -40; }
+:host ::ng-deep .document-analysis__tabs .mat-mdc-tab:has(.document-analysis__ordered-tab-label.is-bom) { order: -30; }
+:host ::ng-deep .document-analysis__tabs .mat-mdc-tab:has(.document-analysis__ordered-tab-label.is-floorplans) { order: -20; }
+:host ::ng-deep .document-analysis__tabs .mat-mdc-tab:has(.document-analysis__ordered-tab-label.is-findings) { order: 50; }
+
 .document-analysis__tab-content {
     display: grid;
     gap: 18px;
@@ -42,6 +56,174 @@
     color: #70d9ff;
     font-size: 0.75rem;
     line-height: 1;
+}
+
+.document-analysis__bom-discovery-summary {
+    overflow: hidden;
+    border: 1px solid rgba(84, 201, 255, 0.25);
+    background: rgba(5, 16, 26, 0.72);
+}
+
+.document-analysis__bom-discovery-summary-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(84, 201, 255, 0.2);
+    background: rgba(18, 46, 65, 0.52);
+}
+
+.document-analysis__bom-discovery-summary-heading h3 {
+    margin: 2px 0 0;
+    color: #edf8ff;
+    font-size: 1rem;
+}
+
+.document-analysis__bom-discovery-summary-heading > span {
+    color: #9fc4d8;
+    white-space: nowrap;
+}
+
+.document-analysis__bom-discovery-table {
+    display: grid;
+}
+
+.document-analysis__bom-discovery-row {
+    display: grid;
+    grid-template-columns: 120px minmax(130px, 0.9fr) minmax(210px, 1.5fr) minmax(130px, 0.9fr) 64px 84px;
+    align-items: center;
+    min-height: 42px;
+    border-bottom: 1px solid rgba(84, 201, 255, 0.12);
+    box-shadow: inset 4px 0 transparent;
+}
+
+.document-analysis__bom-discovery-row:last-child {
+    border-bottom: 0;
+}
+
+.document-analysis__bom-discovery-row > span,
+.document-analysis__bom-discovery-row > strong {
+    min-width: 0;
+    padding: 9px 14px;
+    overflow-wrap: anywhere;
+}
+
+.document-analysis__bom-discovery-row.is-header {
+    min-height: 34px;
+    color: #6fdcff;
+    background: rgba(3, 12, 20, 0.8);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.document-analysis__bom-discovery-row.is-known {
+    box-shadow: inset 4px 0 #4fd59a;
+    background: rgba(35, 133, 92, 0.12);
+}
+
+.document-analysis__bom-discovery-row.is-unknown {
+    box-shadow: inset 4px 0 #e79a3b;
+    background: rgba(184, 105, 25, 0.13);
+}
+
+.document-analysis__bom-discovery-known {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.document-analysis__bom-discovery-row.is-header > span:last-child {
+    white-space: nowrap;
+}
+
+.document-analysis__bom-discovery-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.document-analysis__bom-discovery-action button {
+    min-width: 78px;
+    height: 30px;
+    padding: 0 10px;
+    line-height: 28px;
+    white-space: nowrap;
+}
+
+.document-analysis__bom-discovery-action small {
+    color: #e6a350;
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+.document-analysis__bom-discovery-create {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border-top: 1px solid rgba(231, 154, 59, 0.34);
+    border-bottom: 1px solid rgba(231, 154, 59, 0.34);
+    background: rgba(184, 105, 25, 0.1);
+}
+
+.document-analysis__bom-discovery-create-heading,
+.document-analysis__bom-discovery-create-heading > div {
+    display: flex;
+    align-items: center;
+}
+
+.document-analysis__bom-discovery-create-heading {
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.document-analysis__bom-discovery-create-heading > div {
+    gap: 10px;
+}
+
+.document-analysis__bom-discovery-create-heading span {
+    color: #a9bfd0;
+}
+
+.document-analysis__bom-discovery-create-fields {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.document-analysis__bom-discovery-create-fields mat-form-field {
+    min-width: 0;
+}
+
+.document-analysis__bom-discovery-create-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.document-analysis__bom-discovery-known mat-icon {
+    color: #61e2a7;
+}
+
+@media (max-width: 760px) {
+    .document-analysis__bom-discovery-summary-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .document-analysis__bom-discovery-row {
+        grid-template-columns: 104px minmax(110px, 0.9fr) minmax(160px, 1.4fr) minmax(100px, 0.8fr) 54px 76px;
+    }
+
+    .document-analysis__bom-discovery-row > span,
+    .document-analysis__bom-discovery-row > strong {
+        padding: 8px;
+    }
+
+    .document-analysis__bom-discovery-create-fields {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
 }
 
 .document-analysis__findings-tab > .document-analysis__section + .document-analysis__section {

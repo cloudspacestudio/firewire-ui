@@ -5390,6 +5390,10 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 this.customerInfo[customerField] = String(event.project.worksheetData?.customerInfo?.[customerField] || '')
                 continue
             }
+            if (targetField.startsWith('reportSettings.')) {
+                this.reportSettings = this.normalizeReportSettings(event.project.worksheetData?.reportSettings)
+                continue
+            }
             switch (targetField) {
                 case 'name': this.firewireForm.name = event.project.name; break
                 case 'projectNbr': this.firewireForm.projectNbr = event.project.projectNbr; break
@@ -5998,7 +6002,7 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
         }
 
-        return defaults.map((setting, index) => {
+        const defaultItems = defaults.map((setting, index) => {
             const existing = existingById.get(setting.uuid) || existingByLabel.get(String(setting.label || '').trim().toLowerCase())
             return {
                 settingId: setting.uuid,
@@ -6008,6 +6012,14 @@ FIRE PROTECTION AND LIFE SAFETY SPECIALISTS`
                 included: typeof existing?.included === 'boolean' ? existing.included : true
             }
         }).filter((item) => !!item.label)
+        const defaultIds = new Set(defaults.map((item) => String(item.uuid || '').trim()).filter(Boolean))
+        const defaultLabels = new Set(defaults.map((item) => String(item.label || '').trim().toLocaleLowerCase()).filter(Boolean))
+        const customItems = existingItems
+            .filter((item) => !defaultIds.has(String(item.settingId || '').trim())
+                && !defaultLabels.has(String(item.label || '').trim().toLocaleLowerCase()))
+            .map((item, index) => this.normalizeProjectReportSettingItem(item, defaultItems.length + index))
+            .filter((item) => !!item.label)
+        return [...defaultItems, ...customItems]
             .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
     }
 
